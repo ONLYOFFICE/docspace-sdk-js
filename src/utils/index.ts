@@ -6,12 +6,12 @@ export const ping = () => "pong";
 /**
  * Converts an object with string, number, or boolean values into URLSearchParams.
  *
- * @param init - An object where the keys are strings and the values are either strings, numbers, or booleans.
+ * @param data - An object where the keys are strings and the values are either strings, numbers, or booleans.
  * @returns A new instance of URLSearchParams initialized with the provided object.
  */
 export const customUrlSearchParams = (
-  init: Record<string, string | number | boolean>
-) => new URLSearchParams(init as Record<string, string>);
+  data: Record<string, string | number | boolean>
+) => new URLSearchParams(data as Record<string, string>);
 
 /**
  * Validates the Content Security Policy (CSP) of the target source.
@@ -69,9 +69,7 @@ export const getLoaderStyle = (className: string) => {
  */
 export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
-  const src = decodeURIComponent(scriptElement?.src || "");
-
-  if (!src) return null;
+  const src = decodeURIComponent(scriptElement.src);
 
   const searchUrl = src.split("?")[1];
   const parsedConfig: TFrameConfig = { ...defaultConfig };
