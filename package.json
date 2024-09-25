@@ -26,7 +26,7 @@
   "scripts": {
     "lint": "eslint src/",
     "test": "jest",
-    "clean": "rm -rf dist docs",
+    "clean": "rm -rf dist docs coverage",
     "docs": "typedoc --entryPoints src/main.ts",
     "build": "yarn clean && node build.mjs"
   },
