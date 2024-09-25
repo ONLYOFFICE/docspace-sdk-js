@@ -78,3 +78,10 @@ export const enum InstanceMethods {
   SetConfig = "setConfig",
   SetListView = "setListView",
 }
+
+export const enum MessageTypes {
+  OnMethodReturn = "onMethodReturn",
+  OnEventReturn = "onEventReturn",
+  OnCallCommand = "onCallCommand",
+  Error = "error",
+}

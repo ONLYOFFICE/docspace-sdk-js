@@ -13,7 +13,7 @@ import {
   getLoaderStyle,
   validateCSP,
 } from "../utils";
-import { SDKMode, InstanceMethods } from "../enums";
+import { SDKMode, InstanceMethods, MessageTypes } from "../enums";
 
 /**
  * SDKInstance class provides methods to interact with an iframe-based SDK.
@@ -291,7 +291,7 @@ export default class SDKInstance {
         data = {
           commandName: "error",
           frameId: "error",
-          type: "error",
+          type: MessageTypes.Error,
         };
       }
 
@@ -300,7 +300,7 @@ export default class SDKInstance {
       }
 
       switch (data.type) {
-        case "onMethodReturn": {
+        case MessageTypes.OnMethodReturn: {
           if (this.#callbacks.length > 0) {
             const callback = this.#callbacks.shift();
 
@@ -315,7 +315,7 @@ export default class SDKInstance {
           }
           break;
         }
-        case "onEventReturn": {
+        case MessageTypes.OnEventReturn: {
           if (Object.keys(this.config).length === 0) return;
 
           const inEvents = data.eventReturnData!.event in this.config.events!;
@@ -333,7 +333,7 @@ export default class SDKInstance {
           }
           break;
         }
-        case "onCallCommand": {
+        case MessageTypes.OnCallCommand: {
           // eslint-disable-next-line @typescript-eslint/no-this-alias, @typescript-eslint/no-explicit-any
           const ta: Record<string, any> = this;
           ta[data.commandName].call(this, data.commandData);

@@ -7,6 +7,7 @@ import {
   FilterSortOrder,
   HeaderBannerDisplaying,
   FilterSortBy,
+  MessageTypes,
 } from "../enums";
 
 declare global {
@@ -130,13 +131,15 @@ export type TFrameConfig = {
   withSubtitle?: boolean;
 };
 
+export type TMessageTypes = `${MessageTypes}`;
+
 export type TMessageData = {
   commandData?: object;
   commandName: string;
   eventReturnData?: TEventReturnData;
   frameId: string;
   methodReturnData?: object;
-  type: string;
+  type: TMessageTypes;
 };
 
 export type TEventReturnData = {
