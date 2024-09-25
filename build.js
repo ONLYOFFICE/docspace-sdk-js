@@ -5,7 +5,7 @@ const option = {
     bundle: true,
     color: true,
     logLevel: "info",
-    sourcemap: true,
+    sourcemap: false,
     entryPoints: ["./src/main.ts"],
     minify: true,
 }
@@ -24,7 +24,7 @@ async function run() {
     await esbuild
         .build({
             format: "cjs",
-            outfile: "./dist/cjs.js",
+            outfile: "./dist/api.js",
             ...option
         })
         .catch(() => process.exit(1))
