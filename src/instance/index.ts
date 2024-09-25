@@ -13,7 +13,7 @@ import {
   getLoaderStyle,
   validateCSP,
 } from "../utils";
-import { SDKMode } from "../enums";
+import { SDKMode, InstanceMethods } from "../enums";
 
 /**
  * SDKInstance class provides methods to interact with an iframe-based SDK.
@@ -565,7 +565,11 @@ export default class SDKInstance {
   ): Promise<object> {
     this.config = { ...this.config, ...config };
 
-    return this.#getMethodPromise("setConfig", this.config, reload);
+    return this.#getMethodPromise(
+      InstanceMethods.SetConfig,
+      this.config,
+      reload
+    );
   }
 
   /**
@@ -583,7 +587,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to an object containing folder information.
    */
   getFolderInfo(): Promise<object> {
-    return this.#getMethodPromise("getFolderInfo");
+    return this.#getMethodPromise(InstanceMethods.GetFolderInfo);
   }
 
   /**
@@ -592,7 +596,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to the current selection object.
    */
   getSelection(): Promise<object> {
-    return this.#getMethodPromise("getSelection");
+    return this.#getMethodPromise(InstanceMethods.GetSelection);
   }
 
   /**
@@ -601,7 +605,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to an object containing the files.
    */
   getFiles(): Promise<object> {
-    return this.#getMethodPromise("getFiles");
+    return this.#getMethodPromise(InstanceMethods.GetFiles);
   }
 
   /**
@@ -610,7 +614,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to an object containing folder information.
    */
   getFolders(): Promise<object> {
-    return this.#getMethodPromise("getFolders");
+    return this.#getMethodPromise(InstanceMethods.GetFolders);
   }
 
   /**
@@ -619,7 +623,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to an object containing the list.
    */
   getList(): Promise<object> {
-    return this.#getMethodPromise("getList");
+    return this.#getMethodPromise(InstanceMethods.GetList);
   }
 
   /**
@@ -629,7 +633,7 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the filtered rooms.
    */
   getRooms(filter: TFrameFilter): Promise<object> {
-    return this.#getMethodPromise("getRooms", filter);
+    return this.#getMethodPromise(InstanceMethods.GetRooms, filter);
   }
 
   /**
@@ -638,7 +642,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to an object containing user information.
    */
   getUserInfo(): Promise<object> {
-    return this.#getMethodPromise("getUserInfo");
+    return this.#getMethodPromise(InstanceMethods.GetUserInfo);
   }
 
   /**
@@ -647,7 +651,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to an object containing the hash settings.
    */
   getHashSettings(): Promise<object> {
-    return this.#getMethodPromise("getHashSettings");
+    return this.#getMethodPromise(InstanceMethods.GetHashSettings);
   }
 
   /**
@@ -658,7 +662,7 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the result of the modal operation.
    */
   openModal(type: string, options: object): Promise<object> {
-    return this.#getMethodPromise("openModal", { type, options });
+    return this.#getMethodPromise(InstanceMethods.OpenModal, { type, options });
   }
 
   /**
@@ -676,7 +680,7 @@ export default class SDKInstance {
     templateId: string,
     formId: string
   ): Promise<object> {
-    return this.#getMethodPromise("createFile", {
+    return this.#getMethodPromise(InstanceMethods.CreateFile, {
       folderId,
       title,
       templateId,
@@ -692,7 +696,7 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the details of the created folder.
    */
   createFolder(parentFolderId: string, title: string): Promise<object> {
-    return this.#getMethodPromise("createFolder", {
+    return this.#getMethodPromise(InstanceMethods.CreateFolder, {
       parentFolderId,
       title,
     });
@@ -706,7 +710,7 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the details of the created room.
    */
   createRoom(title: string, roomType: string): Promise<object> {
-    return this.#getMethodPromise("createRoom", {
+    return this.#getMethodPromise(InstanceMethods.CreateRoom, {
       title,
       roomType,
     });
@@ -719,7 +723,7 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object indicating the result of the operation.
    */
   setListView(viewType: string): Promise<object> {
-    return this.#getMethodPromise("setItemsView", { viewType });
+    return this.#getMethodPromise(InstanceMethods.SetListView, { viewType });
   }
 
   /**
@@ -730,7 +734,10 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the hash.
    */
   createHash(password: string, hashSettings: object): Promise<object> {
-    return this.#getMethodPromise("createHash", { password, hashSettings });
+    return this.#getMethodPromise(InstanceMethods.CreateHash, {
+      password,
+      hashSettings,
+    });
   }
 
   /**
@@ -741,7 +748,10 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the login response.
    */
   login(email: string, passwordHash: string): Promise<object> {
-    return this.#getMethodPromise("login", { email, passwordHash });
+    return this.#getMethodPromise(InstanceMethods.Login, {
+      email,
+      passwordHash,
+    });
   }
 
   /**
@@ -750,7 +760,7 @@ export default class SDKInstance {
    * @returns {Promise<object>} A promise that resolves to an object upon successful logout.
    */
   logout(): Promise<object> {
-    return this.#getMethodPromise("logout");
+    return this.#getMethodPromise(InstanceMethods.Logout);
   }
 
   /**
@@ -760,7 +770,7 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object representing the created tag.
    */
   createTag(name: string): Promise<object> {
-    return this.#getMethodPromise("createTag", { name });
+    return this.#getMethodPromise(InstanceMethods.CreateTag, { name });
   }
 
   /**
@@ -771,7 +781,10 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the result of the operation.
    */
   addTagsToRoom(roomId: string, tags: string[]): Promise<object> {
-    return this.#getMethodPromise("addTagsToRoom", { roomId, tags });
+    return this.#getMethodPromise(InstanceMethods.AddTagsToRoom, {
+      roomId,
+      tags,
+    });
   }
 
   /**
@@ -782,6 +795,9 @@ export default class SDKInstance {
    * @returns A promise that resolves to an object containing the result of the operation.
    */
   removeTagsFromRoom(roomId: string, tags: string[]): Promise<object> {
-    return this.#getMethodPromise("removeTagsFromRoom", { roomId, tags });
+    return this.#getMethodPromise(InstanceMethods.RemoveTagsFromRoom, {
+      roomId,
+      tags,
+    });
   }
 }

@@ -55,3 +55,26 @@ export const enum HeaderBannerDisplaying {
   Info = "info",
   None = "none",
 }
+
+export const enum InstanceMethods {
+  AddTagsToRoom = "addTagsToRoom",
+  CreateFile = "createFile",
+  CreateFolder = "createFolder",
+  CreateHash = "createHash",
+  CreateRoom = "createRoom",
+  CreateTag = "createTag",
+  GetFiles = "getFiles",
+  GetFolderInfo = "getFolderInfo",
+  GetFolders = "getFolders",
+  GetHashSettings = "getHashSettings",
+  GetList = "getList",
+  GetRooms = "getRooms",
+  GetSelection = "getSelection",
+  GetUserInfo = "getUserInfo",
+  Login = "login",
+  Logout = "logout",
+  OpenModal = "openModal",
+  RemoveTagsFromRoom = "removeTagsFromRoom",
+  SetConfig = "setConfig",
+  SetListView = "setListView",
+}
