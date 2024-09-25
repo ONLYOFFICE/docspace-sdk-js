@@ -81,14 +81,14 @@ describe("getConfigFromParams", () => {
   beforeEach(() => {
     Object.defineProperty(document, "currentScript", {
       value: {
-        src: "https://example.com/api.js?showHeaderBanner=none&showSignOut=true",
+        src: "https://example.com/api.js?showHeaderBanner=none&showMenu=false&count=100",
       },
     });
   });
 
   it("should return the correct config from URL parameters", () => {
     const result = getConfigFromParams();
-    
+
     expect(result).toEqual(defaultConfig);
   });
 });
