@@ -26,11 +26,9 @@
   "scripts": {
     "lint": "eslint src/",
     "test": "jest",
-    "clean": "rm -rf dist build package docs",
+    "clean": "rm -rf dist docs",
     "docs": "typedoc --entryPoints src/main.ts",
-    "build": "node build.mjs",
-    "build:esm": "esbuild --bundle src/main.ts --format=esm --outfile=dist/esm.js",
-    "build:cjs": "esbuild --bundle src/main.ts --format=cjs --outfile=dist/cjs.js"
+    "build": "yarn clean && node build.mjs"
   },
   "exports": {
     "import": "./dist/esm.js",
