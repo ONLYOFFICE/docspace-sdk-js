@@ -22,28 +22,27 @@ export const customUrlSearchParams = (
  * @throws Will throw an error if the current origin is not included in the allowed domains from the target source's CSP.
  */
 export const validateCSP = async (targetSrc: string) => {
-  let currentSrc = window.location.origin;
+  const { origin, host } = window.location;
 
-  if (currentSrc.indexOf(targetSrc) !== -1) return;
+  if (origin.indexOf(targetSrc) !== -1) return;
 
   const response = await fetch(`${targetSrc}${CSPApiUrl}`);
   const res = await response.json();
 
-  currentSrc = window.location.host || new URL(window.location.origin).host;
+  const currentSrcHost = host || new URL(origin).host;
 
-  const domains = [...res.response.domains].map((d) => {
+  const domains = [...res.response.domains].map((domain) => {
     try {
-      const domain = new URL(d.toLowerCase());
-      const domainFull =
-        domain.host + (domain.pathname !== "/" ? domain.pathname : "");
+      const url = new URL(domain.toLowerCase());
+      const domainFull = url.host + (url.pathname !== "/" ? url.pathname : "");
 
       return domainFull;
     } catch {
-      return d;
+      return domain;
     }
   });
 
-  const passed = domains.includes(currentSrc.toLowerCase());
+  const passed = domains.includes(currentSrcHost.toLowerCase());
 
   if (!passed) throw new Error(cspErrorText);
 
@@ -68,32 +67,36 @@ export const getLoaderStyle = (className: string) => {
  *
  * @returns {TFrameConfig | null} The parsed configuration object or null if the `src` attribute is empty.
  */
-export const getConfigFromParams = (): TFrameConfig | null => { 
+export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
-  const src = decodeURIComponent(scriptElement?.src || '');
+  const src = decodeURIComponent(scriptElement?.src || "");
 
   if (!src) return null;
 
-  const searchUrl = src.split('?')[1];
+  const searchUrl = src.split("?")[1];
   const parsedConfig: TFrameConfig = { ...defaultConfig };
 
   if (searchUrl) {
     const parsedParams = JSON.parse(
       `{"${searchUrl.replace(/&/g, '","').replace(/=/g, '":"')}"}`,
-      (_, value) => (value === 'true' ? true : value === 'false' ? false : value)
+      (_, value) =>
+        value === "true" ? true : value === "false" ? false : value
     );
 
     parsedConfig.filter = { ...defaultConfig.filter };
 
     Object.keys(parsedParams).forEach((key) => {
       if (defaultConfig.filter && key in defaultConfig.filter) {
-        (parsedConfig.filter as Record<string, string | number | boolean>)[key] = parsedParams[key];
+        (parsedConfig.filter as Record<string, string | number | boolean>)[
+          key
+        ] = parsedParams[key];
       } else {
-        (parsedConfig as unknown as Record<string, string | number | boolean>)[key] = parsedParams[key];
+        (parsedConfig as unknown as Record<string, string | number | boolean>)[
+          key
+        ] = parsedParams[key];
       }
     });
-  } 
+  }
 
   return parsedConfig;
 };
-
