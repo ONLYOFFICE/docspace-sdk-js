@@ -51,7 +51,13 @@ describe("validateCSP", () => {
       Promise.resolve({
         json: () =>
           Promise.resolve({
-            response: { domains: ["test.com", "https://test.com/", "https://test.com/example"] },
+            response: {
+              domains: [
+                "test.com",
+                "https://test.com/",
+                "https://test.com/example",
+              ],
+            },
           }),
       })
     ) as jest.Mock;
@@ -74,6 +80,7 @@ describe("validateCSP", () => {
         origin: "https://test.com",
         host: "test.com",
       },
+      writable: true,
     });
 
     await expect(validateCSP("https://example.com")).resolves.not.toThrow();
@@ -83,7 +90,9 @@ describe("validateCSP", () => {
     Object.defineProperty(window, "location", {
       value: {
         origin: "https://test.com",
+        host: "",
       },
+      writable: true,
     });
 
     await expect(validateCSP("https://example.com")).resolves.not.toThrow();
@@ -95,6 +104,7 @@ describe("validateCSP", () => {
         origin: "https://another.com",
         host: "another.com",
       },
+      writable: true,
     });
 
     await expect(validateCSP("https://example.com")).rejects.toThrow(
