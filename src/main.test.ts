@@ -114,18 +114,43 @@ describe("validateCSP", () => {
 });
 
 describe("getConfigFromParams", () => {
-  beforeEach(() => {
+  it("should return the correct config from URL parameters", () => {
     Object.defineProperty(document, "currentScript", {
       value: {
         src: "https://example.com/api.js?showHeaderBanner=none&showMenu=false&withSearch=true&count=100",
       },
+      writable: true,
     });
-  });
 
-  it("should return the correct config from URL parameters", () => {
     const result = getConfigFromParams();
 
     expect(result).toEqual(defaultConfig);
+  });
+
+  it("should return the correct config if URL has empty options", () => {
+    Object.defineProperty(document, "currentScript", {
+      value: {
+        src: "https://example.com/api.js",
+      },
+      writable: true,
+    });
+
+    const result = getConfigFromParams();
+
+    expect(result).toEqual(defaultConfig);
+  });
+
+  it("should return the correct config with extended options on main level of config", () => {
+    Object.defineProperty(document, "currentScript", {
+      value: {
+        src: "https://example.com/api.js?test=value",
+      },
+      writable: true,
+    });
+
+    const result = getConfigFromParams();
+
+    expect(result).toHaveProperty('test');
   });
 });
 
