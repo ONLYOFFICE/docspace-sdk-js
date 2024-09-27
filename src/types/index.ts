@@ -9,12 +9,14 @@ import {
   FilterSortBy,
   MessageTypes,
 } from "../enums";
+import SDKInstance from "../instance";
 
 declare global {
   interface Window {
     DocSpace: {
       SDK: {
-        initFrame: (config: TFrameConfig | null) => HTMLIFrameElement;
+        init: (config: TFrameConfig | null) => HTMLIFrameElement;
+        frames: Record<string, SDKInstance>
       };
     };
   }
