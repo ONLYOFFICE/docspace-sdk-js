@@ -20,6 +20,7 @@ import SDKInstance from "../instance";
  */
 export default class SDK {
   instances: SDKInstance[] = [];
+  frames = {};
 
   /**
    * Initializes an SDK instance with the provided configuration.
