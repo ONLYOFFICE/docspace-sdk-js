@@ -8,6 +8,7 @@ const option = {
   sourcemap: false,
   entryPoints: ["./src/main.ts"],
   minify: true,
+  treeShaking: true,
 };
 
 async function run() {
@@ -20,7 +21,6 @@ async function run() {
   }).catch(() => process.exit(1));
 
   await build({
-    format: "cjs",
     outfile: "./dist/api.js",
     ...option,
   }).catch(() => process.exit(1));
