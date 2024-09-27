@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "es6",
-    "module": "commonjs",
+    "module": "es6",
     "moduleResolution": "node",
     "declaration": true,
     "strict": true,
@@ -18,9 +18,9 @@
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
     "sourceMap": true,
-    "outDir": "./dist/tsc/",
+    "outDir": "./dist/",
     "types": ["node", "jest"],
-    "lib": ["ES6", "DOM"],
+    "lib": ["es6", "dom"],
     "paths": {
       "tslib": ["./node_modules/tslib/tslib.d.ts"]
     },
