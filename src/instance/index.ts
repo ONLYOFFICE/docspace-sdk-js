@@ -491,6 +491,10 @@ export default class SDKInstance {
       window.addEventListener("message", this.#onMessage, false);
 
       this.#isConnected = true;
+
+      window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
+
+      window.DocSpace.SDK.frames[this.config.frameId] = this;
     }
 
     return iframe as HTMLIFrameElement;
