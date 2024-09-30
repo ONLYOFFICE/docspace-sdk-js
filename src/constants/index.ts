@@ -15,7 +15,7 @@ export const CSPApiUrl = "/api/2.0/security/csp";
 export const FRAME_NAME = "frameDocSpace";
 
 export const defaultConfig: TFrameConfig = {
-  src: "", //new URL((document.currentScript as HTMLScriptElement).src).origin
+  src: "",
   rootPath: "/rooms/shared/",
   requestToken: null,
   width: "100%",

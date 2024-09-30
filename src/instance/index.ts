@@ -538,21 +538,14 @@ export default class SDKInstance {
    *
    * @param methodName - The name of the method to execute.
    * @param params - The parameters to pass to the method. Defaults to null.
-   * @param withReload - If true, the frame will be reinitialized with the current configuration before resolving. Defaults to false.
    * @returns A promise that resolves with the result of the method execution or the current configuration if reloaded.
    */
   #getMethodPromise = (
     methodName: string,
-    params: object | null = null,
-    withReload: boolean = false
+    params: object | null = null
   ): Promise<object> => {
     return new Promise((resolve) => {
-      if (withReload) {
-        this.initFrame(this.config);
-        resolve(this.config);
-      } else {
-        this.#executeMethod(methodName, params, (data) => resolve(data));
-      }
+      this.#executeMethod(methodName, params, (data) => resolve(data));
     });
   };
 
