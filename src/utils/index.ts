@@ -72,29 +72,30 @@ export const getConfigFromParams = (): TFrameConfig | null => {
   const src = decodeURIComponent(scriptElement.src);
 
   const searchUrl = src.split("?")[1];
-  const parsedConfig: TFrameConfig = { ...defaultConfig };
+  const configTemplate: TFrameConfig = { ...defaultConfig };
 
   if (searchUrl) {
-    const parsedParams = JSON.parse(
-      `{"${searchUrl.replace(/&/g, '","').replace(/=/g, '":"')}"}`,
-      (_, value) =>
-        value === "true" ? true : value === "false" ? false : value
-    );
+    type FilterParams = Record<string, string | number | boolean>;
+    const parsedParams: FilterParams = {};
+    const urlParams = new URLSearchParams(searchUrl);
 
-    parsedConfig.filter = { ...defaultConfig.filter };
+    urlParams.forEach((value, key) => {
+      parsedParams[key] =
+        value === "true" ? true : value === "false" ? false : value;
+    });
 
     Object.keys(parsedParams).forEach((key) => {
       if (defaultConfig.filter && key in defaultConfig.filter) {
-        (parsedConfig.filter as Record<string, string | number | boolean>)[
+        (configTemplate.filter as Record<string, string | number | boolean>)[
           key
         ] = parsedParams[key];
       } else {
-        (parsedConfig as unknown as Record<string, string | number | boolean>)[
-          key
-        ] = parsedParams[key];
+        (
+          configTemplate as unknown as Record<string, string | number | boolean>
+        )[key] = parsedParams[key];
       }
     });
   }
 
-  return parsedConfig;
+  return configTemplate;
 };
