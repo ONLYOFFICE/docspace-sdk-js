@@ -86,13 +86,9 @@ export const getConfigFromParams = (): TFrameConfig | null => {
 
     Object.keys(parsedParams).forEach((key) => {
       if (defaultConfig.filter && key in defaultConfig.filter) {
-        (configTemplate.filter as Record<string, string | number | boolean>)[
-          key
-        ] = parsedParams[key];
+        (configTemplate.filter as FilterParams)[key] = parsedParams[key];
       } else {
-        (
-          configTemplate as unknown as Record<string, string | number | boolean>
-        )[key] = parsedParams[key];
+        (configTemplate as unknown as FilterParams)[key] = parsedParams[key];
       }
     });
   }
