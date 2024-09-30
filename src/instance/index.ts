@@ -553,20 +553,12 @@ export default class SDKInstance {
    * Sets the configuration for the instance.
    *
    * @param config - The configuration object to be set. Defaults to `defaultConfig`.
-   * @param reload - A boolean indicating whether to reload the configuration. Defaults to `false`.
    * @returns A promise that resolves to an object.
    */
-  setConfig(
-    config: TFrameConfig = defaultConfig,
-    reload: boolean = false
-  ): Promise<object> {
+  setConfig(config: TFrameConfig = defaultConfig): Promise<object> {
     this.config = { ...this.config, ...config };
 
-    return this.#getMethodPromise(
-      InstanceMethods.SetConfig,
-      this.config,
-      reload
-    );
+    return this.#getMethodPromise(InstanceMethods.SetConfig, this.config);
   }
 
   /**
