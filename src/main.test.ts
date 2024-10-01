@@ -1,5 +1,4 @@
 import {
-  ping,
   customUrlSearchParams,
   validateCSP,
   getConfigFromParams,
@@ -7,12 +6,6 @@ import {
   getLoaderStyle,
 } from "./utils";
 import { cspErrorText, defaultConfig } from "./constants";
-
-describe("ping", () => {
-  it("should return 'pong'", () => {
-    expect(ping()).toBe("pong");
-  });
-});
 
 describe("customUrlSearchParams", () => {
   it("should convert an object with string values to URLSearchParams", () => {
@@ -150,7 +143,7 @@ describe("getConfigFromParams", () => {
 
     const result = getConfigFromParams();
 
-    expect(result).toHaveProperty('test');
+    expect(result).toHaveProperty("test");
   });
 });
 

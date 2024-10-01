@@ -1,8 +1,6 @@
 import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
 import { TFrameConfig } from "../types";
 
-export const ping = () => "pong";
-
 /**
  * Converts an object with string, number, or boolean values into URLSearchParams.
  *
