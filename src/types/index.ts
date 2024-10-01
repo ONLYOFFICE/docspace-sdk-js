@@ -16,7 +16,7 @@ declare global {
     DocSpace: {
       SDK: {
         init: (config: TFrameConfig | null) => HTMLIFrameElement;
-        frames: Record<string, SDKInstance>
+        frames: Record<string, SDKInstance>;
       };
     };
   }
@@ -76,7 +76,7 @@ export type TFrameFilter = {
 };
 
 export type TFrameEvents = {
-  onAppError: (e: Event | string) => void;
+  onAppError?: null | ((e: Event | string) => void);
   onAppReady?: null | (() => void);
   onAuthSuccess?: null | (() => void);
   onCloseCallback?: null | ((e: Event) => void);

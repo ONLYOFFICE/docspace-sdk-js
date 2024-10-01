@@ -65,7 +65,7 @@ export const defaultConfig: TFrameConfig = {
     onSelectCallback: null,
     onCloseCallback: null,
     onAppReady: null,
-    onAppError: (e) => console.log("onAppError", e),
+    onAppError: null,
     onEditorCloseCallback: null,
     onAuthSuccess: null,
     onSignOut: null,
@@ -78,3 +78,5 @@ export const defaultConfig: TFrameConfig = {
 
 export const cspErrorText =
   "The current domain is not set in the Content Security Policy (CSP) settings.";
+
+export const connectErrorText = "Message bus is not connected with frame";

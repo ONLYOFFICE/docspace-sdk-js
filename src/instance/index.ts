@@ -1,4 +1,4 @@
-import { defaultConfig, FRAME_NAME } from "../constants";
+import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
 import {
   TEditorCustomization,
   TFrameConfig,
@@ -218,7 +218,9 @@ export default class SDKInstance {
 
     if (this.config.checkCSP) {
       validateCSP(this.config.src).catch((e: Error) => {
-        config.events?.onAppError(e.message);
+        if (config.events?.onAppError) {
+          config.events?.onAppError(e.message);
+        }
 
         const errorBody = getCSPErrorBody(this.config.src);
         iframe.srcdoc = errorBody;
@@ -364,7 +366,11 @@ export default class SDKInstance {
     callback: (data: object) => void
   ): void => {
     if (!this.#isConnected) {
-      this.config.events?.onAppError("Message bus is not connected with frame");
+      if (this.config.events?.onAppError) {
+        this.config.events?.onAppError(connectErrorText);
+      }
+
+      console.error(connectErrorText);
       return;
     }
 
