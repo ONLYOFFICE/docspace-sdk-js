@@ -1,5 +1,6 @@
 import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
-import { TFrameConfig } from "../types";
+import { TFrameConfig, TEditorCustomization } from "../types";
+import { SDKMode } from "../enums";
 
 /**
  * Converts an object with string, number, or boolean values into URLSearchParams.
@@ -63,7 +64,6 @@ export const getLoaderStyle = (className: string) => {
  *
  * @returns {TFrameConfig | null} The parsed configuration object or null if the `src` attribute is empty.
  */
-
 export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
   const src = decodeURIComponent(scriptElement.src);
@@ -87,4 +87,115 @@ export const getConfigFromParams = (): TFrameConfig | null => {
   }
 
   return configTemplate;
+};
+
+/**
+ * Generates a URL path based on the provided configuration.
+ *
+ * @param config - The configuration object for generating the frame path.
+ * @returns The generated URL path as a string.
+ *
+ * @remarks
+ * The function handles different modes specified in the `config.mode` property:
+ * - `SDKMode.Manager`: Generates a path for the manager mode, including optional request tokens and filters.
+ * - `SDKMode.RoomSelector`: Returns a fixed path for the room selector.
+ * - `SDKMode.FileSelector`: Returns a path for the file selector with the specified selector type.
+ * - `SDKMode.System`: Returns a fixed path for the system mode.
+ * - `SDKMode.Editor`: Generates a path for the editor mode, including customization and event handling.
+ * - `SDKMode.Viewer`: Generates a path for the viewer mode, similar to the editor mode but with view action.
+ *
+ */
+export const getFramePath = (config: TFrameConfig) => {
+  switch (config.mode) {
+    case SDKMode.Manager: {
+      if (config.id) config.filter!.folder = config.id as string;
+
+      const params = config.requestToken
+        ? { key: config.requestToken, ...config.filter }
+        : config.filter;
+
+      if (!params?.withSubfolders) {
+        delete params?.withSubfolders;
+      }
+
+      const urlParams = customUrlSearchParams(params!);
+
+      return `${config.rootPath}${
+        config.requestToken
+          ? `?${urlParams}`
+          : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
+      }`;
+    }
+
+    case SDKMode.RoomSelector: {
+      return `/sdk/room-selector`;
+    }
+
+    case SDKMode.FileSelector: {
+      return `/sdk/file-selector?selectorType=${config.selectorType}`;
+    }
+
+    case SDKMode.System: {
+      return `/sdk/system`;
+    }
+
+    case SDKMode.Editor: {
+      let goBack = config.editorGoBack;
+
+      (config?.editorCustomization as TEditorCustomization).uiTheme =
+        config.theme;
+
+      if (!config.id || config.id === "undefined" || config.id === "null") {
+        config.id = -1; //editor default wrong file id error
+      }
+
+      const customization = JSON.stringify(config.editorCustomization);
+
+      if (
+        config.events?.onEditorCloseCallback &&
+        typeof config.events.onEditorCloseCallback === "function"
+      ) {
+        goBack = "event";
+      }
+
+      const path = `/doceditor/?fileId=${config.id}&editorType=${config.editorType}&editorGoBack=${goBack}&customization=${customization}`;
+
+      if (config.requestToken) {
+        return `${path}&share=${config.requestToken}&is_file=true`;
+      }
+
+      return path;
+    }
+
+    case SDKMode.Viewer: {
+      let goBack = config.editorGoBack;
+
+      (config?.editorCustomization as TEditorCustomization).uiTheme =
+        config.theme;
+
+      if (!config.id || config.id === "undefined" || config.id === "null") {
+        config.id = -1; //editor default wrong file id error
+      }
+
+      const customization = JSON.stringify(config.editorCustomization);
+
+      if (
+        config.events?.onEditorCloseCallback &&
+        typeof config.events.onEditorCloseCallback === "function"
+      ) {
+        goBack = "event";
+      }
+
+      const path = `/doceditor/?fileId=${config.id}&editorType=${config.editorType}&action=view&editorGoBack=${goBack}&customization=${customization}`;
+
+      if (config.requestToken) {
+        return `${path}&share=${config.requestToken}&is_file=true`;
+      }
+
+      return path;
+    }
+
+    default:
+      return config.rootPath;
+  }
 };
