@@ -22,29 +22,27 @@ export const customUrlSearchParams = (
 export const validateCSP = async (targetSrc: string) => {
   const { origin, host } = window.location;
 
-  if (origin.indexOf(targetSrc) !== -1) return;
+  if (origin.includes(targetSrc)) return;
 
   const response = await fetch(`${targetSrc}${CSPApiUrl}`);
-  const res = await response.json();
+  const {
+    response: { domains },
+  } = await response.json();
 
   const currentSrcHost = host || new URL(origin).host;
 
-  const domains = [...res.response.domains].map((domain) => {
+  const normalizedDomains = domains.map((domain: string) => {
     try {
       const url = new URL(domain.toLowerCase());
-      const domainFull = url.host + (url.pathname !== "/" ? url.pathname : "");
-
-      return domainFull;
+      return url.host + (url.pathname !== "/" ? url.pathname : "");
     } catch {
       return domain;
     }
   });
 
-  const passed = domains.includes(currentSrcHost.toLowerCase());
-
-  if (!passed) throw new Error(cspErrorText);
-
-  return;
+  if (!normalizedDomains.includes(currentSrcHost.toLowerCase())) {
+    throw new Error(cspErrorText);
+  }
 };
 
 export const getCSPErrorBody = (src: string) => {
@@ -65,28 +63,25 @@ export const getLoaderStyle = (className: string) => {
  *
  * @returns {TFrameConfig | null} The parsed configuration object or null if the `src` attribute is empty.
  */
+
 export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
   const src = decodeURIComponent(scriptElement.src);
-
   const searchUrl = src.split("?")[1];
   const configTemplate: TFrameConfig = { ...defaultConfig };
 
+  type FilterParams = Record<string, string | number | boolean>;
+
   if (searchUrl) {
-    type FilterParams = Record<string, string | number | boolean>;
-    const parsedParams: FilterParams = {};
     const urlParams = new URLSearchParams(searchUrl);
 
     urlParams.forEach((value, key) => {
-      parsedParams[key] =
+      const parsedValue =
         value === "true" ? true : value === "false" ? false : value;
-    });
-
-    Object.keys(parsedParams).forEach((key) => {
       if (defaultConfig.filter && key in defaultConfig.filter) {
-        (configTemplate.filter as FilterParams)[key] = parsedParams[key];
+        (configTemplate.filter as FilterParams)[key] = parsedValue;
       } else {
-        (configTemplate as unknown as FilterParams)[key] = parsedParams[key];
+        (configTemplate as unknown as FilterParams)[key] = parsedValue;
       }
     });
   }
