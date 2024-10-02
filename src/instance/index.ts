@@ -1,6 +1,5 @@
 import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
 import {
-  TEditorCustomization,
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
@@ -8,12 +7,12 @@ import {
   TTask,
 } from "../types";
 import {
-  customUrlSearchParams,
   getCSPErrorBody,
   getLoaderStyle,
   validateCSP,
+  getFramePath,
 } from "../utils";
-import { SDKMode, InstanceMethods, MessageTypes } from "../enums";
+import { InstanceMethods, MessageTypes } from "../enums";
 
 /**
  * SDKInstance class provides methods to interact with an iframe-based SDK.
@@ -98,106 +97,7 @@ export default class SDKInstance {
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
     const iframe = document.createElement("iframe");
 
-    let path = "";
-
-    switch (config.mode) {
-      case SDKMode.Manager: {
-        if (config.filter) {
-          if (config.id) config.filter.folder = config.id as string;
-
-          const params = config.requestToken
-            ? { key: config.requestToken, ...config.filter }
-            : config.filter;
-
-          if (!params.withSubfolders) {
-            delete params.withSubfolders;
-          }
-
-          const urlParams = customUrlSearchParams(params);
-
-          path = `${config.rootPath}${
-            config.requestToken
-              ? `?${urlParams}`
-              : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
-          }`;
-        }
-        break;
-      }
-
-      case SDKMode.RoomSelector: {
-        path = `/sdk/room-selector`;
-        break;
-      }
-
-      case SDKMode.FileSelector: {
-        path = `/sdk/file-selector?selectorType=${config.selectorType}`;
-        break;
-      }
-
-      case SDKMode.System: {
-        path = `/sdk/system`;
-        break;
-      }
-
-      case SDKMode.Editor: {
-        let goBack = config.editorGoBack;
-
-        (config?.editorCustomization as TEditorCustomization).uiTheme =
-          config.theme;
-
-        if (!config.id || config.id === "undefined" || config.id === "null") {
-          config.id = -1; //editor default wrong file id error
-        }
-
-        const customization = JSON.stringify(config.editorCustomization);
-
-        if (
-          config.events?.onEditorCloseCallback &&
-          typeof config.events.onEditorCloseCallback === "function"
-        ) {
-          goBack = "event";
-        }
-
-        path = `/doceditor/?fileId=${config.id}&editorType=${config.editorType}&editorGoBack=${goBack}&customization=${customization}`;
-
-        if (config.requestToken) {
-          path = `${path}&share=${config.requestToken}&is_file=true`;
-        }
-
-        break;
-      }
-
-      case SDKMode.Viewer: {
-        let goBack = config.editorGoBack;
-
-        (config?.editorCustomization as TEditorCustomization).uiTheme =
-          config.theme;
-
-        if (!config.id || config.id === "undefined" || config.id === "null") {
-          config.id = -1; //editor default wrong file id error
-        }
-
-        const customization = JSON.stringify(config.editorCustomization);
-
-        if (
-          config.events?.onEditorCloseCallback &&
-          typeof config.events.onEditorCloseCallback === "function"
-        ) {
-          goBack = "event";
-        }
-
-        path = `/doceditor/?fileId=${config.id}&editorType=${config.editorType}&action=view&editorGoBack=${goBack}&customization=${customization}`;
-
-        if (config.requestToken) {
-          path = `${path}&share=${config.requestToken}&is_file=true`;
-        }
-
-        break;
-      }
-
-      default:
-        path = config.rootPath;
-    }
+    const path = getFramePath(config);
 
     iframe.id = config.frameId;
     iframe.src = config.src + path;
