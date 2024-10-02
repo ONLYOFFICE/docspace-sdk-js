@@ -4,8 +4,11 @@ import {
   getConfigFromParams,
   getCSPErrorBody,
   getLoaderStyle,
+  getFramePath,
 } from "./utils";
 import { cspErrorText, defaultConfig } from "./constants";
+import { TFrameConfig } from "./types";
+import { SDKMode } from "./enums";
 
 describe("customUrlSearchParams", () => {
   it("should convert an object with string values to URLSearchParams", () => {
@@ -181,4 +184,96 @@ describe("getLoaderStyle", () => {
     const result = getLoaderStyle(className);
     expect(result).toBe(expectedCSS);
   });
+});
+
+describe("getFramePath", () => {
+  describe("Manager mode", () => {
+    it("should return the correct path for SDKMode.Manager", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Manager,
+        id: "1",
+        rootPath: "/root/",
+        filter: {},
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("/root/1/filter?folder=1");
+    });
+  });
+
+  describe("Room selector mode", () => {
+    it("should return the correct path for SDKMode.RoomSelector", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.RoomSelector,
+        rootPath: "/root",
+      };
+      const path = getFramePath(config);
+      expect(path).toBe("/sdk/room-selector");
+    });
+  });
+
+  describe("File selector mode", () => {
+    it("should return the correct path for SDKMode.FileSelector", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.FileSelector,
+        selectorType: "all",
+      };
+      const path = getFramePath(config);
+      expect(path).toBe("/sdk/file-selector?selectorType=all");
+    });
+  });
+
+  describe("Editor mode", () => {
+    it("should return the correct path for SDKMode.Editor", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Editor,
+        id: "123",
+        editorType: "desktop",
+        editorGoBack: "back",
+        editorCustomization: {},
+        theme: "Base",
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("/doceditor/?fileId=123&editorType=desktop");
+    });
+  });
+
+  describe("Viewer mode", () => {
+    it("should return the correct path for SDKMode.Viewer", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Viewer,
+        id: "123",
+        editorType: "embedded",
+        editorGoBack: "back",
+        editorCustomization: {},
+        theme: "Dark",
+      };
+      const path = getFramePath(config);
+      expect(path).toContain(
+        "/doceditor/?fileId=123&editorType=embedded&action=view"
+      );
+    });
+  });
+
+  describe("System mode", () => {
+    it("should return the correct path for SDKMode.System", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.System,
+      };
+      const path = getFramePath(config);
+      expect(path).toBe("/sdk/system");
+    });
+  });
+
 });
