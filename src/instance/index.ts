@@ -68,8 +68,8 @@ export default class SDKInstance {
     loader.className = loaderClassName;
     container.id = config.frameId + "-loader";
 
-    container.style.width = config.width;
-    container.style.height = config.height;
+    container.style.width = config.width!;
+    container.style.height = config.height!;
     container.style.display = "flex";
     container.style.justifyContent = "center";
     container.style.alignItems = "center";
@@ -103,8 +103,8 @@ export default class SDKInstance {
     iframe.src = config.src + path;
     iframe.name = FRAME_NAME + "__#" + config.frameId;
 
-    iframe.style.width = config.width;
-    iframe.style.height = config.height;
+    iframe.style.width = config.width!;
+    iframe.style.height = config.height!;
     iframe.style.border = "0px";
 
     iframe.allowFullscreen = true;
@@ -307,8 +307,8 @@ export default class SDKInstance {
     if (targetFrame) {
       targetFrame.style.opacity = "1";
       targetFrame.style.position = "relative";
-      targetFrame.style.width = this.config.width;
-      targetFrame.style.height = this.config.height;
+      targetFrame.style.width = this.config.width!;
+      targetFrame.style.height = this.config.height!;
       (targetFrame.parentNode as HTMLElement).style.height = "inherit";
 
       if (loader) {
