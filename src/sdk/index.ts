@@ -1,4 +1,5 @@
 import { TFrameConfig } from "../types";
+import { SDKMode } from "../enums";
 import SDKInstance from "../instance";
 
 /**
@@ -48,4 +49,24 @@ export default class SDK {
 
     return instance;
   };
+
+  initFrame = (config: TFrameConfig) => this.init(config);
+
+  initManager = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.Manager });
+
+  initViewer = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.Viewer });
+
+  initEditor = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.Editor });
+
+  initRoomSelector = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.RoomSelector });
+
+  initFileSelector = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.FileSelector });
+
+  initSystem = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.System });
 }
