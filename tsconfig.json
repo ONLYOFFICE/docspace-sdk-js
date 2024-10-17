@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "es6",
+    "target": "es2022",
+    "module": "es2022",
     "moduleResolution": "node",
+    "emitDeclarationOnly": true,
     "declaration": true,
     "strict": true,
     "noImplicitAny": true /* Raise error on expressions and declarations with an implied 'any' type. */,
@@ -20,7 +21,7 @@
     "sourceMap": true,
     "outDir": "./dist/",
     "types": ["node", "jest"],
-    "lib": ["es6", "dom"],
+    "lib": ["es2022", "dom"],
     "paths": {
       "tslib": ["./node_modules/tslib/tslib.d.ts"]
     },
