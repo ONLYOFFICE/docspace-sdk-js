@@ -1,29 +1,51 @@
 import { build } from "esbuild";
-import { dtsPlugin } from "esbuild-plugin-d.ts";
+import { execSync } from "child_process";
+import esbuildPluginTsc from "esbuild-plugin-tsc";
 
-const option = {
+const options = {
   bundle: true,
-  color: true,
+  minify: true,
+  treeShaking: true,
   logLevel: "info",
   sourcemap: false,
   entryPoints: ["./src/main.ts"],
-  minify: true,
-  treeShaking: true,
 };
 
-async function run() {
-  await build({
-    format: "esm",
-    outdir: "dist",
-    splitting: true,
-    plugins: [dtsPlugin()],
-    ...option,
-  }).catch(() => process.exit(1));
+async function buildAll() {
+  Promise.all([
+    await build({
+      format: "esm",
+      outdir: "dist/esm",
+      plugins: [
+        esbuildPluginTsc({ force: true }),
+        {
+          name: "TypeScriptDeclarationsPlugin",
+          setup(build) {
+            build.onEnd((result) => {
+              if (result.errors.length > 0) return;
+              execSync("tsc --outDir ./dist/types");
+            });
+          },
+        },
+      ],
+      ...options,
+    }).catch(() => process.exit(1)),
 
-  await build({
-    outfile: "./dist/api.js",
-    ...option,
-  }).catch(() => process.exit(1));
+    await build({
+      format: "cjs",
+      outdir: "dist/cjs",
+      plugins: [
+        esbuildPluginTsc({ force: true })
+      ],
+      ...options,
+    }).catch(() => process.exit(1)),
+
+    await build({
+      format: "iife",
+      outfile: "./dist/api.js",
+      ...options,
+    }).catch(() => process.exit(1)),
+  ]);
 }
 
-run();
+buildAll();
