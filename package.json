@@ -24,7 +24,7 @@
   "type": "module",
   "main": "./dist/cjs/main.js",
   "module": "./dist/esm/main.js",
-  "typings": "./dist/types/main.d.ts",
+  "types": "./dist/types/main.d.ts",
   "scripts": {
     "lint": "eslint src/",
     "test": "jest",
