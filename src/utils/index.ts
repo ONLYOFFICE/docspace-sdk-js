@@ -82,25 +82,19 @@ export const getLoaderStyle = (className: string) => {
  */
 export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
-  const src = decodeURIComponent(scriptElement.src);
-  const searchUrl = src.split("?")[1];
+  const searchParams = new URL(decodeURIComponent(scriptElement.src)).searchParams;
   const configTemplate: TFrameConfig = { ...defaultConfig };
 
   type FilterParams = Record<string, string | number | boolean>;
 
-  if (searchUrl) {
-    const urlParams = new URLSearchParams(searchUrl);
-
-    urlParams.forEach((value, key) => {
-      const parsedValue =
-        value === "true" ? true : value === "false" ? false : value;
-      if (defaultConfig.filter && key in defaultConfig.filter) {
-        (configTemplate.filter as FilterParams)[key] = parsedValue;
-      } else {
-        (configTemplate as unknown as FilterParams)[key] = parsedValue;
-      }
-    });
-  }
+  searchParams.forEach((value, key) => {
+    const parsedValue = value === "true" ? true : value === "false" ? false : value;
+    if (defaultConfig.filter && key in defaultConfig.filter) {
+      (configTemplate.filter as FilterParams)[key] = parsedValue;
+    } else {
+      (configTemplate as unknown as FilterParams)[key] = parsedValue;
+    }
+  });
 
   return configTemplate;
 };
