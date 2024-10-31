@@ -174,7 +174,7 @@ export const getFramePath = (config: TFrameConfig) => {
         goBack = "event";
       }
 
-      const path = `/doceditor/?fileId=${config.id}&editorType=${config.editorType}&editorGoBack=${goBack}&customization=${customization}`;
+      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&editorGoBack=${goBack}&customization=${customization}`;
 
       if (config.requestToken) {
         return `${path}&share=${config.requestToken}&is_file=true`;
@@ -202,7 +202,7 @@ export const getFramePath = (config: TFrameConfig) => {
         goBack = "event";
       }
 
-      const path = `/doceditor/?fileId=${config.id}&editorType=${config.editorType}&action=view&editorGoBack=${goBack}&customization=${customization}`;
+      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&action=view&editorGoBack=${goBack}&customization=${customization}`;
 
       if (config.requestToken) {
         return `${path}&share=${config.requestToken}&is_file=true`;
