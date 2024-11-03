@@ -92,17 +92,17 @@ export type TFrameFilter = {
 };
 
 export type TFrameEvents = {
-  onAppError?: null | ((e: Event | string) => void);
-  onAppReady?: null | (() => void);
-  onAuthSuccess?: null | (() => void);
-  onCloseCallback?: null | ((e: Event) => void);
-  onContentReady?: null | (() => void);
-  onDownload?: null | ((e: Event | string) => void);
-  onEditorCloseCallback?: null | ((e: Event) => void);
-  onNoAccess?: null | (() => void);
-  onNotFound?: null | (() => void);
-  onSelectCallback?: null | ((e: Event | object) => void);
-  onSignOut?: null | (() => void);
+  onAppError?: null | ((e?: Event | object | string) => void);
+  onAppReady?: null | ((e?: Event | object | string) => void);
+  onAuthSuccess?: null | ((e?: Event | object | string) => void);
+  onCloseCallback?: null | ((e?: Event | object | string) => void);
+  onContentReady?: null | ((e?: Event | object | string) => void);
+  onDownload?: null | ((e?: Event | object | string) => void);
+  onEditorCloseCallback?: null | ((e?: Event | object | string) => void);
+  onNoAccess?: null | ((e?: Event | object | string) => void);
+  onNotFound?: null | ((e?: Event | object | string) => void);
+  onSelectCallback?: null | ((e?: Event | object | string) => void);
+  onSignOut?: null | ((e?: Event | object | string) => void);
 };
 
 export type TFrameConfig = {
