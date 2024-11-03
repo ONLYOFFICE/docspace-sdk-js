@@ -234,16 +234,16 @@ export default class SDKInstance {
           if (Object.keys(this.config).length === 0 || !data.eventReturnData)
             return;
 
-          const eventName = data.eventReturnData.event;
+          const eventName = data.eventReturnData.event as keyof TFrameEvents;
 
           if (
             this.config.events &&
             Object.prototype.hasOwnProperty.call(this.config.events, eventName)
           ) {
-            const event = this.config.events[eventName as keyof TFrameEvents];
-            
-            if (typeof event === "function") {
-              event(data.eventReturnData.data);
+            const eventHandler = this.config.events[eventName];
+
+            if (typeof eventHandler === "function") {
+              eventHandler(data.eventReturnData.data);
             }
           }
           break;
