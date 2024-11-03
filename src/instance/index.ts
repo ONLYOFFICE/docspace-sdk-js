@@ -92,8 +92,7 @@ export default class SDKInstance {
 
     loaderStyle.insertAdjacentHTML("afterbegin", loaderStyleText);
 
-    container.appendChild(loaderStyle);
-    container.appendChild(loader);
+    container.append(loaderStyle, loader);
 
     return container;
   };
@@ -132,13 +131,11 @@ export default class SDKInstance {
       document.body.style.overscrollBehaviorY = "contain";
     }
 
-    if (this.config.checkCSP) {
-      validateCSP(this.config.src).catch((e: Error) => {
-        if (config.events?.onAppError) {
-          config.events?.onAppError(e.message);
-        }
+    if (config.checkCSP) {
+      validateCSP(config.src).catch((e: Error) => {
+        config.events?.onAppError?.(e.message);
 
-        const errorBody = getCSPErrorBody(this.config.src);
+        const errorBody = getCSPErrorBody(config.src);
         iframe.srcdoc = errorBody;
 
         this.setIsLoaded();
@@ -234,27 +231,21 @@ export default class SDKInstance {
           break;
         }
         case MessageTypes.OnEventReturn: {
-          if (Object.keys(this.config).length === 0) return;
+          if (Object.keys(this.config).length === 0 || !data.eventReturnData)
+            return;
 
-          const inEvents = data.eventReturnData!.event in this.config.events!;
+          const eventName = data.eventReturnData.event;
+          const event = this.config.events?.[eventName as keyof TFrameEvents];
 
-          const isFunction =
-            typeof this.config.events![
-              data?.eventReturnData!.event as keyof TFrameEvents
-            ] === "function";
-
-          if (inEvents && isFunction) {
-            this.config.events![
-              data?.eventReturnData!.event as keyof TFrameEvents
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ]?.(data?.eventReturnData?.data as any);
+          if (typeof event === "function") {
+            event(data.eventReturnData.data);
           }
           break;
         }
         case MessageTypes.OnCallCommand: {
-          // eslint-disable-next-line @typescript-eslint/no-this-alias, @typescript-eslint/no-explicit-any
-          const ta: Record<string, any> = this;
-          ta[data.commandName].call(this, data.commandData);
+          (this as unknown as Record<string, (commandData: object) => void>)[
+            data.commandName
+          ](data.commandData as object);
           break;
         }
         default:
@@ -282,9 +273,7 @@ export default class SDKInstance {
     callback: (data: object) => void
   ): void => {
     if (!this.#isConnected) {
-      if (this.config.events?.onAppError) {
-        this.config.events?.onAppError(connectErrorText);
-      }
+      this.config.events?.onAppError?.(connectErrorText);
 
       console.error(connectErrorText);
       return;
@@ -329,10 +318,7 @@ export default class SDKInstance {
 
       if (loader) {
         loader.remove();
-
-        if (this.config.events?.onContentReady) {
-          this.config.events.onContentReady();
-        }
+        this.config.events?.onContentReady?.();
       }
     }
   }
