@@ -237,15 +237,22 @@ export default class SDKInstance {
           const eventName = data.eventReturnData.event;
           const event = this.config.events?.[eventName as keyof TFrameEvents];
 
-          if (typeof event === "function") {
+          if (
+            typeof event === "function" &&
+            Object.prototype.hasOwnProperty.call(this.config.events, eventName)
+          ) {
             event(data.eventReturnData.data);
           }
           break;
         }
         case MessageTypes.OnCallCommand: {
-          (this as unknown as Record<string, (commandData: object) => void>)[
+          if (!Object.prototype.hasOwnProperty.call(this, data.commandName))
+            return;
+
+          (this as unknown as Record<string, (data: object) => void>)[
             data.commandName
           ](data.commandData as object);
+
           break;
         }
         default:
