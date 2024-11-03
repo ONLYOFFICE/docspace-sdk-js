@@ -235,13 +235,16 @@ export default class SDKInstance {
             return;
 
           const eventName = data.eventReturnData.event;
-          const event = this.config.events?.[eventName as keyof TFrameEvents];
 
           if (
-            typeof event === "function" &&
+            this.config.events &&
             Object.prototype.hasOwnProperty.call(this.config.events, eventName)
           ) {
-            event(data.eventReturnData.data);
+            const event = this.config.events[eventName as keyof TFrameEvents];
+            
+            if (typeof event === "function") {
+              event(data.eventReturnData.data);
+            }
           }
           break;
         }
@@ -250,7 +253,7 @@ export default class SDKInstance {
 
           if (Object.prototype.hasOwnProperty.call(this, commandName)) {
             const command = (this as Record<string, unknown>)[commandName];
-            
+
             if (typeof command === "function") {
               (command as (data: object) => void).call(
                 this,
