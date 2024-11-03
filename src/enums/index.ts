@@ -88,7 +88,6 @@ export const enum InstanceMethods {
   GetSelection = "getSelection",
   GetUserInfo = "getUserInfo",
   GetEditorInstance = "getEditorInstance",
-  GetAscObject = "getAscObject",
   Login = "login",
   Logout = "logout",
   OpenModal = "openModal",

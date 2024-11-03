@@ -713,20 +713,11 @@ export default class SDKInstance {
   }
 
   /**
-   * Retrieves the editor instance.
+   * Retrieves object with the editor instance and Asc object helper.
    *
-   * @returns {Promise<object>} A promise that resolves to the editor instance object.
+   * @returns {Promise<object>} A promise that resolves to object with the editor instance and Asc object helper.
    */
   getEditorInstance(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetEditorInstance);
-  }
-
-  /**
-   * Retrieves the ASC helper object
-   *
-   * @returns {Promise<object>} A promise that resolves to an object.
-   */
-  getAscObject(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetAscObject);
   }
 }
