@@ -246,12 +246,18 @@ export default class SDKInstance {
           break;
         }
         case MessageTypes.OnCallCommand: {
-          if (!Object.prototype.hasOwnProperty.call(this, data.commandName))
-            return;
+          const commandName = data.commandName;
 
-          (this as unknown as Record<string, (data: object) => void>)[
-            data.commandName
-          ](data.commandData as object);
+          if (Object.prototype.hasOwnProperty.call(this, commandName)) {
+            const command = (this as Record<string, unknown>)[commandName];
+            
+            if (typeof command === "function") {
+              (command as (data: object) => void).call(
+                this,
+                data.commandData as object
+              );
+            }
+          }
 
           break;
         }
