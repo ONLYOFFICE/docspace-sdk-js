@@ -245,7 +245,8 @@ export default class SDKInstance {
                 eventHandler.call(events, data.eventReturnData.data);
               } catch (error) {
                 console.log(
-                  `SDK #onMessage error executing event handler for ${eventName}:`,
+                  "SDK #onMessage error executing event handler for ",
+                  eventName,
                   error
                 );
               }
