@@ -235,15 +235,20 @@ export default class SDKInstance {
             return;
 
           const eventName = data.eventReturnData.event as keyof TFrameEvents;
+          const events = this.config.events as TFrameEvents;
 
-          if (
-            this.config.events &&
-            Object.prototype.hasOwnProperty.call(this.config.events, eventName)
-          ) {
-            const eventHandler = this.config.events[eventName];
+          if (Object.prototype.hasOwnProperty.call(events, eventName)) {
+            const eventHandler = events[eventName];
 
             if (typeof eventHandler === "function") {
-              eventHandler(data.eventReturnData.data);
+              try {
+                eventHandler.call(events, data.eventReturnData.data);
+              } catch (error) {
+                console.log(
+                  `SDK #onMessage error executing event handler for ${eventName}:`,
+                  error
+                );
+              }
             }
           }
           break;
