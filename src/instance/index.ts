@@ -251,15 +251,13 @@ export default class SDKInstance {
         case MessageTypes.OnCallCommand: {
           const commandName = data.commandName;
 
-          if (Object.prototype.hasOwnProperty.call(this, commandName)) {
-            const command = (this as Record<string, unknown>)[commandName];
+          const command = (this as Record<string, unknown>)[commandName];
 
-            if (typeof command === "function") {
-              (command as (data: object) => void).call(
-                this,
-                data.commandData as object
-              );
-            }
+          if (typeof command === "function") {
+            (command as (data: object) => void).call(
+              this,
+              data.commandData as object
+            );
           }
 
           break;
@@ -453,6 +451,8 @@ export default class SDKInstance {
 
     window.removeEventListener("message", this.#onMessage, false);
     this.#isConnected = false;
+
+    delete window.DocSpace.SDK.frames[this.config.frameId];
 
     targetFrame?.parentNode?.replaceChild(target, targetFrame);
   }
