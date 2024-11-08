@@ -30,18 +30,17 @@ import {
 } from "../utils";
 import { InstanceMethods, MessageTypes } from "../enums";
 
-
 /**
  * Represents an SDK instance for managing frames and communication with DocSpace.
- * 
+ *
  * @class
  * @description
  * The SDKInstance class provides methods for initializing, managing, and communicating with
  * DocSpace frames. It handles frame creation, message passing, and various operations like
  * file management, user authentication, and room management.
- * 
+ *
  * @property {TFrameConfig} config - Configuration object for the frame
- * 
+ *
  * @remarks
  * The class implements a message-based communication system between the parent window
  * and the DocSpace frame. It supports various operations including:
@@ -51,7 +50,7 @@ import { InstanceMethods, MessageTypes } from "../enums";
  * - Room management
  * - Tag management
  * - Modal operations
- * 
+ *
  */
 export default class SDKInstance {
   #isConnected: boolean = false;
@@ -64,24 +63,24 @@ export default class SDKInstance {
   constructor(config: TFrameConfig) {
     this.config = config;
   }
-  
+
   /**
    * Creates and returns a loader HTML element with specified configuration.
-   * 
-   * 
+   *
+   *
    * @param {TFrameConfig} config - The configuration object for the frame
-   * 
+   *
    * @returns {HTMLElement} A container div element with the loader and its styles
-   * 
+   *
    * @remarks
    * The loader consists of:
    * - A container div element with centered flex layout
    * - A loader div element with animation
    * - A style element with the loader's CSS animation
-   * 
+   *
    * The elements' IDs and classes are based on the frameId from the config.
    * The container's dimensions are set using the width and height from the config.
-   * 
+   *
    * @private
    */
   #createLoader = (config: TFrameConfig): HTMLElement => {
@@ -110,15 +109,15 @@ export default class SDKInstance {
 
   /**
    * Creates and configures an HTMLIFrameElement based on the provided configuration.
-   * 
+   *
    * @param {TFrameConfig} config - The configuration object for creating the iframe
-   * 
+   *
    * @returns {HTMLIFrameElement} A configured HTMLIFrameElement instance
-   * 
+   *
    * @remarks
    * The method handles special configurations for mobile view and CSP validation.
    * If CSP validation fails, it sets an error message in the iframe's srcdoc.
-   * 
+   *
    * @private
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
@@ -206,7 +205,7 @@ export default class SDKInstance {
    *   - `onCallCommand`: Calls the specified command method on the instance.
    *
    * If the message data cannot be parsed, it logs an error and sets the data to a default error object.
-   * 
+   *
    * @private
    */
   #onMessage = (e: MessageEvent) => {
@@ -300,7 +299,7 @@ export default class SDKInstance {
    * The method checks if the message bus is connected. If not, it triggers an error event.
    * It then pushes the callback to the callbacks array and constructs a message object.
    * If there are other pending callbacks, it queues the message; otherwise, it sends the message immediately.
-   * 
+   *
    * @private
    */
   #executeMethod = (
@@ -485,7 +484,7 @@ export default class SDKInstance {
    * @param {string} methodName - The name of the method to execute.
    * @param {object | null} params - The parameters to pass to the method. Defaults to null.
    * @returns {Promise<object>} A promise that resolves with the result of the method execution or the current configuration if reloaded.
-   * 
+   *
    * @private
    */
   #getMethodPromise = (
@@ -553,7 +552,6 @@ export default class SDKInstance {
   getFolders(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetFolders);
   }
-
 
   /**
    * Retrieves a list of files and folders.
@@ -644,33 +642,33 @@ export default class SDKInstance {
    *
    * @param {string} title - The title of the room.
    * @param {string} roomType - The type of the room.
-   * @param {number} quota - The quota for the room.
-   * @param {string[]} tags - An array of tags associated with the room.
-   * @param {string} color - The main color of the room logo.
-   * @param {string} cover - The cover image of the room.
-   * @param {boolean} indexing - Whether the room should be indexed (VDR only).
-   * @param {boolean} denyDownload - Whether downloading is denied in the room (VDR only).
+   * @param {number} quota - (Optional) The quota for the room.
+   * @param {string[]} tags - (Optional) An array of tags associated with the room.
+   * @param {string} color - (Optional) The main color of the room logo.
+   * @param {string} cover - (Optional) The cover image of the room.
+   * @param {boolean} indexing - (Optional) Whether the room should be indexed (VDR only).
+   * @param {boolean} denyDownload - (Optional) Whether downloading is denied in the room (VDR only).
    * @returns {Promise<object>} A promise that resolves to an object representing the created room.
    */
   createRoom(
     title: string,
     roomType: string,
-    quota: number,
-    tags: string[],
-    color: string,
-    cover: string,
-    indexing: boolean,
-    denyDownload: boolean
+    quota?: number,
+    tags?: string[],
+    color?: string,
+    cover?: string,
+    indexing?: boolean,
+    denyDownload?: boolean
   ): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateRoom, {
       title,
       roomType,
-      quota,
-      indexing,
-      denyDownload,
-      tags,
-      color,
-      cover,
+      ...(quota !== undefined && { quota }),
+      ...(denyDownload !== undefined && { denyDownload }),
+      ...(tags !== undefined && { tags }),
+      ...(color !== undefined && { color }),
+      ...(cover !== undefined && { cover }),
+      ...(indexing !== undefined && { indexing }),
     });
   }
 
@@ -703,21 +701,21 @@ export default class SDKInstance {
    *
    * @param {string }email - The email address of the user.
    * @param {string} passwordHash - The hashed password of the user.
-   * @param {string} password - The plaintext password of the user.
-   * @param {boolean} session - A boolean indicating whether to create a session.
+   * @param {string} password - (Optional) The plaintext password of the user.
+   * @param {boolean} session - (Optional) A boolean indicating whether to create a session.
    * @returns {Promise<object>} A promise that resolves to an object containing the login result.
    */
   login(
     email: string,
     passwordHash: string,
-    password: string,
-    session: boolean
+    password?: string,
+    session?: boolean
   ): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.Login, {
       email,
       passwordHash,
-      password,
-      session,
+      ...(password !== undefined && { password }),
+      ...(session !== undefined && { session }),
     });
   }
 
