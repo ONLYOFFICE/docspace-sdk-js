@@ -1,17 +1,32 @@
-import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
-import { TFrameConfig } from "../types";
+/*
+ * (c) Copyright Ascensio System SIA 2024
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-export const ping = () => "pong";
+import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
+import { TFrameConfig, TEditorCustomization } from "../types";
+import { SDKMode } from "../enums";
 
 /**
  * Converts an object with string, number, or boolean values into URLSearchParams.
  *
- * @param init - An object where the keys are strings and the values are either strings, numbers, or booleans.
+ * @param data - An object where the keys are strings and the values are either strings, numbers, or booleans.
  * @returns A new instance of URLSearchParams initialized with the provided object.
  */
 export const customUrlSearchParams = (
-  init: Record<string, string | number | boolean>
-) => new URLSearchParams(init as Record<string, string>);
+  data: Record<string, string | number | boolean>
+) => new URLSearchParams(data as Record<string, string>);
 
 /**
  * Validates the Content Security Policy (CSP) of the target source.
@@ -22,32 +37,29 @@ export const customUrlSearchParams = (
  * @throws Will throw an error if the current origin is not included in the allowed domains from the target source's CSP.
  */
 export const validateCSP = async (targetSrc: string) => {
-  let currentSrc = window.location.origin;
+  const { origin, host } = window.location;
 
-  if (currentSrc.indexOf(targetSrc) !== -1) return;
+  if (origin.includes(targetSrc)) return;
 
   const response = await fetch(`${targetSrc}${CSPApiUrl}`);
-  const res = await response.json();
+  const {
+    response: { domains },
+  } = await response.json();
 
-  currentSrc = window.location.host || new URL(window.location.origin).host;
+  const currentSrcHost = host || new URL(origin).host;
 
-  const domains = [...res.response.domains].map((d) => {
+  const normalizedDomains = domains.map((domain: string) => {
     try {
-      const domain = new URL(d.toLowerCase());
-      const domainFull =
-        domain.host + (domain.pathname !== "/" ? domain.pathname : "");
-
-      return domainFull;
+      const url = new URL(domain.toLowerCase());
+      return url.host + (url.pathname !== "/" ? url.pathname : "");
     } catch {
-      return d;
+      return domain;
     }
   });
 
-  const passed = domains.includes(currentSrc.toLowerCase());
-
-  if (!passed) throw new Error(cspErrorText);
-
-  return;
+  if (!normalizedDomains.includes(currentSrcHost.toLowerCase())) {
+    throw new Error(cspErrorText);
+  }
 };
 
 export const getCSPErrorBody = (src: string) => {
@@ -68,32 +80,132 @@ export const getLoaderStyle = (className: string) => {
  *
  * @returns {TFrameConfig | null} The parsed configuration object or null if the `src` attribute is empty.
  */
-export const getConfigFromParams = (): TFrameConfig | null => { 
+export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
-  const src = decodeURIComponent(scriptElement?.src || '');
+  const searchParams = new URL(decodeURIComponent(scriptElement.src)).searchParams;
+  const configTemplate: TFrameConfig = { ...defaultConfig };
 
-  if (!src) return null;
+  type FilterParams = Record<string, string | number | boolean>;
 
-  const searchUrl = src.split('?')[1];
-  const parsedConfig: TFrameConfig = { ...defaultConfig };
+  searchParams.forEach((value, key) => {
+    const parsedValue = value === "true" ? true : value === "false" ? false : value;
+    if (defaultConfig.filter && key in defaultConfig.filter) {
+      (configTemplate.filter as FilterParams)[key] = parsedValue;
+    } else {
+      (configTemplate as unknown as FilterParams)[key] = parsedValue;
+    }
+  });
 
-  if (searchUrl) {
-    const parsedParams = JSON.parse(
-      `{"${searchUrl.replace(/&/g, '","').replace(/=/g, '":"')}"}`,
-      (_, value) => (value === 'true' ? true : value === 'false' ? false : value)
-    );
-
-    parsedConfig.filter = { ...defaultConfig.filter };
-
-    Object.keys(parsedParams).forEach((key) => {
-      if (defaultConfig.filter && key in defaultConfig.filter) {
-        (parsedConfig.filter as Record<string, string | number | boolean>)[key] = parsedParams[key];
-      } else {
-        (parsedConfig as unknown as Record<string, string | number | boolean>)[key] = parsedParams[key];
-      }
-    });
-  } 
-
-  return parsedConfig;
+  return configTemplate;
 };
 
+/**
+ * Generates a URL path based on the provided configuration.
+ *
+ * @param config - The configuration object for generating the frame path.
+ * @returns The generated URL path as a string.
+ *
+ * @remarks
+ * The function handles different modes specified in the `config.mode` property:
+ * - `SDKMode.Manager`: Generates a path for the manager mode, including optional request tokens and filters.
+ * - `SDKMode.RoomSelector`: Returns a fixed path for the room selector.
+ * - `SDKMode.FileSelector`: Returns a path for the file selector with the specified selector type.
+ * - `SDKMode.System`: Returns a fixed path for the system mode.
+ * - `SDKMode.Editor`: Generates a path for the editor mode, including customization and event handling.
+ * - `SDKMode.Viewer`: Generates a path for the viewer mode, similar to the editor mode but with view action.
+ *
+ */
+export const getFramePath = (config: TFrameConfig) => {
+  switch (config.mode) {
+    case SDKMode.Manager: {
+      if (config.id) config.filter!.folder = config.id as string;
+
+      const params = config.requestToken
+        ? { key: config.requestToken, ...config.filter }
+        : config.filter;
+
+      if (!params?.withSubfolders) {
+        delete params?.withSubfolders;
+      }
+
+      const urlParams = customUrlSearchParams(params!);
+
+      return `${config.rootPath}${
+        config.requestToken
+          ? `?${urlParams}`
+          : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
+      }`;
+    }
+
+    case SDKMode.RoomSelector: {
+      return `/sdk/room-selector`;
+    }
+
+    case SDKMode.FileSelector: {
+      return `/sdk/file-selector?selectorType=${config.selectorType}`;
+    }
+
+    case SDKMode.System: {
+      return `/sdk/system`;
+    }
+
+    case SDKMode.Editor: {
+      let goBack = config.editorGoBack;
+
+      (config?.editorCustomization as TEditorCustomization).uiTheme =
+        config.theme;
+
+      if (!config.id || config.id === "undefined" || config.id === "null") {
+        config.id = -1; //editor default wrong file id error
+      }
+
+      const customization = JSON.stringify(config.editorCustomization);
+
+      if (
+        config.events?.onEditorCloseCallback &&
+        typeof config.events.onEditorCloseCallback === "function"
+      ) {
+        goBack = "event";
+      }
+
+      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&editorGoBack=${goBack}&customization=${customization}`;
+
+      if (config.requestToken) {
+        return `${path}&share=${config.requestToken}&is_file=true`;
+      }
+
+      return path;
+    }
+
+    case SDKMode.Viewer: {
+      let goBack = config.editorGoBack;
+
+      (config?.editorCustomization as TEditorCustomization).uiTheme =
+        config.theme;
+
+      if (!config.id || config.id === "undefined" || config.id === "null") {
+        config.id = -1; //editor default wrong file id error
+      }
+
+      const customization = JSON.stringify(config.editorCustomization);
+
+      if (
+        config.events?.onEditorCloseCallback &&
+        typeof config.events.onEditorCloseCallback === "function"
+      ) {
+        goBack = "event";
+      }
+
+      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&action=view&editorGoBack=${goBack}&customization=${customization}`;
+
+      if (config.requestToken) {
+        return `${path}&share=${config.requestToken}&is_file=true`;
+      }
+
+      return path;
+    }
+
+    default:
+      return config.rootPath;
+  }
+};

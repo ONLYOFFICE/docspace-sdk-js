@@ -1,3 +1,19 @@
+/*
+ * (c) Copyright Ascensio System SIA 2024
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { TFrameConfig } from "../types";
 import {
   EditorType,
@@ -15,7 +31,7 @@ export const CSPApiUrl = "/api/2.0/security/csp";
 export const FRAME_NAME = "frameDocSpace";
 
 export const defaultConfig: TFrameConfig = {
-  src: "", //new URL((document.currentScript as HTMLScriptElement).src).origin
+  src: "",
   rootPath: "/rooms/shared/",
   requestToken: null,
   width: "100%",
@@ -65,7 +81,7 @@ export const defaultConfig: TFrameConfig = {
     onSelectCallback: null,
     onCloseCallback: null,
     onAppReady: null,
-    onAppError: (e) => console.log("onAppError", e),
+    onAppError: null,
     onEditorCloseCallback: null,
     onAuthSuccess: null,
     onSignOut: null,
@@ -78,3 +94,5 @@ export const defaultConfig: TFrameConfig = {
 
 export const cspErrorText =
   "The current domain is not set in the Content Security Policy (CSP) settings.";
+
+export const connectErrorText = "Message bus is not connected with frame";

@@ -1,3 +1,19 @@
+/*
+ * (c) Copyright Ascensio System SIA 2024
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {
   SDKMode,
   SelectorFilterType,
@@ -7,13 +23,16 @@ import {
   FilterSortOrder,
   HeaderBannerDisplaying,
   FilterSortBy,
+  MessageTypes,
 } from "../enums";
+import SDKInstance from "../instance";
 
 declare global {
   interface Window {
     DocSpace: {
       SDK: {
-        initFrame: (config: TFrameConfig | null) => HTMLIFrameElement;
+        init: (config: TFrameConfig | null) => HTMLIFrameElement;
+        frames: Record<string, SDKInstance>;
       };
     };
   }
@@ -73,17 +92,17 @@ export type TFrameFilter = {
 };
 
 export type TFrameEvents = {
-  onAppError: (e: Event | string) => void;
-  onAppReady?: null | (() => void);
-  onAuthSuccess?: null | (() => void);
-  onCloseCallback?: null | ((e: Event) => void);
-  onContentReady?: null | (() => void);
-  onDownload?: null | ((e: Event | string) => void);
-  onEditorCloseCallback?: null | ((e: Event) => void);
-  onNoAccess?: null | (() => void);
-  onNotFound?: null | (() => void);
-  onSelectCallback?: null | ((e: Event | object) => void);
-  onSignOut?: null | (() => void);
+  onAppError?: null | ((e?: Event | object | string) => void);
+  onAppReady?: null | ((e?: Event | object | string) => void);
+  onAuthSuccess?: null | ((e?: Event | object | string) => void);
+  onCloseCallback?: null | ((e?: Event | object | string) => void);
+  onContentReady?: null | ((e?: Event | object | string) => void);
+  onDownload?: null | ((e?: Event | object | string) => void);
+  onEditorCloseCallback?: null | ((e?: Event | object | string) => void);
+  onNoAccess?: null | ((e?: Event | object | string) => void);
+  onNotFound?: null | ((e?: Event | object | string) => void);
+  onSelectCallback?: null | ((e?: Event | object | string) => void);
+  onSignOut?: null | ((e?: Event | object | string) => void);
 };
 
 export type TFrameConfig = {
@@ -99,15 +118,15 @@ export type TFrameConfig = {
   filter?: TFrameFilter;
   filterParam?: string;
   frameId: string;
-  height: string;
+  height?: string;
   id?: string | number | null;
   infoPanelVisible?: boolean;
   init?: boolean | null;
   locale?: string | null;
   mode: TFrameMode | string;
-  name: string;
+  name?: string;
   requestToken?: string | null;
-  rootPath: string;
+  rootPath?: string;
   selectorType?: TSelectorType;
   showFilter?: boolean;
   showHeader?: boolean;
@@ -119,16 +138,18 @@ export type TFrameConfig = {
   showSignOut?: boolean;
   showTitle?: boolean;
   src: string;
-  theme: TTheme | string;
+  theme?: TTheme | string;
   type?: TEditorType;
   viewAs?: TManagerViewMode;
   viewTableColumns?: string;
   waiting?: boolean;
-  width: string;
+  width?: string;
   withBreadCrumbs?: boolean;
   withSearch?: boolean;
   withSubtitle?: boolean;
 };
+
+export type TMessageTypes = `${MessageTypes}`;
 
 export type TMessageData = {
   commandData?: object;
@@ -136,7 +157,7 @@ export type TMessageData = {
   eventReturnData?: TEventReturnData;
   frameId: string;
   methodReturnData?: object;
-  type: string;
+  type: TMessageTypes;
 };
 
 export type TEventReturnData = {
