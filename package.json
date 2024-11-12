@@ -28,9 +28,8 @@
   "scripts": {
     "lint": "eslint src/",
     "test": "jest",
-    "clean": "rm -rf dist docs coverage",
     "docs": "typedoc --entryPoints src/main.ts",
-    "build": "yarn clean && ts-node build.mjs"
+    "build": "ts-node build.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.12.0",
