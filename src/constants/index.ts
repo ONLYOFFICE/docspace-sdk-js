@@ -56,7 +56,7 @@ export const defaultConfig: TFrameConfig = {
   showSignOut: true,
   destroyText: "",
   viewAs: ManagerViewMode.Row,
-  viewTableColumns: "Name,Size,Type,Tags",
+  viewTableColumns: "Index,Name,Size,Type,Tags",
   checkCSP: true,
   disableActionButton: false,
   showSettings: false,
