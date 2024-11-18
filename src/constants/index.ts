@@ -89,6 +89,7 @@ export const defaultConfig: TFrameConfig = {
     onNoAccess: null,
     onNotFound: null,
     onContentReady: null,
+    onEditorOpen: null,
   },
 };
 
