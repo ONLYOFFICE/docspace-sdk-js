@@ -1,7 +1,13 @@
-import eslint from "@eslint/js";
+import pluginJs from "@eslint/js";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
-  eslint.configs.recommended,
-  ...tseslint.configs.recommended
-);
+export default [
+  {files: ["**/*.{js,mjs,cjs,ts}"]},
+  pluginJs.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    rules: {
+      "@typescript-eslint/no-unused-expressions": "off"
+    }
+  }
+];
