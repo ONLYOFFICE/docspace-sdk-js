@@ -24,7 +24,6 @@ const options = {
   treeShaking: true,
   logLevel: "info",
   sourcemap: false,
-  entryPoints: ["./src/main.ts"],
 };
 
 async function buildAll() {
@@ -32,6 +31,7 @@ async function buildAll() {
     await build({
       format: "esm",
       outdir: "dist/esm",
+      entryPoints: ["./src/main.ts"],
       plugins: [
         esbuildPluginTsc({ force: true }),
         {
@@ -50,6 +50,7 @@ async function buildAll() {
     await build({
       format: "cjs",
       outdir: "dist/cjs",
+      entryPoints: ["./src/main.ts"],
       plugins: [
         esbuildPluginTsc({ force: true })
       ],
@@ -59,6 +60,7 @@ async function buildAll() {
     await build({
       format: "iife",
       outfile: "./dist/api.js",
+      entryPoints: ["./src/main.browser.ts"],
       ...options,
     }).catch(() => process.exit(1)),
   ]);
