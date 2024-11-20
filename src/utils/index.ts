@@ -150,8 +150,6 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Editor: {
-      let goBack = config.editorGoBack;
-
       (config?.editorCustomization as TEditorCustomization).uiTheme =
         config.theme;
 
@@ -159,16 +157,14 @@ export const getFramePath = (config: TFrameConfig) => {
         config.id = -1; //editor default wrong file id error
       }
 
-      const customization = JSON.stringify(config.editorCustomization);
-
       if (
         config.events?.onEditorCloseCallback &&
         typeof config.events.onEditorCloseCallback === "function"
       ) {
-        goBack = "event";
+        config.editorGoBack = "event";
       }
 
-      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&editorGoBack=${goBack}&customization=${customization}`;
+      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}`;
 
       if (config.requestToken) {
         return `${path}&share=${config.requestToken}&is_file=true`;
@@ -178,8 +174,6 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Viewer: {
-      let goBack = config.editorGoBack;
-
       (config?.editorCustomization as TEditorCustomization).uiTheme =
         config.theme;
 
@@ -187,16 +181,14 @@ export const getFramePath = (config: TFrameConfig) => {
         config.id = -1; //editor default wrong file id error
       }
 
-      const customization = JSON.stringify(config.editorCustomization);
-
       if (
         config.events?.onEditorCloseCallback &&
         typeof config.events.onEditorCloseCallback === "function"
       ) {
-        goBack = "event";
+        config.editorGoBack = "event";
       }
 
-      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&action=view&editorGoBack=${goBack}&customization=${customization}`;
+      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&action=view`;
 
       if (config.requestToken) {
         return `${path}&share=${config.requestToken}&is_file=true`;
