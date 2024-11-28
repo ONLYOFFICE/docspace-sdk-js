@@ -29,7 +29,7 @@
     "lint": "eslint src/",
     "test": "jest",
     "docs": "typedoc --entryPoints src/main.ts",
-    "build": "ts-node build.mjs"
+    "build": "ts-node tools/build.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
