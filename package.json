@@ -21,7 +21,6 @@
     "sdk",
     "js-sdk"
   ],
-  "type": "module",
   "main": "./dist/cjs/main.js",
   "module": "./dist/esm/main.js",
   "types": "./dist/types/main.d.ts",
@@ -30,6 +29,10 @@
     "test": "jest",
     "docs": "typedoc --entryPoints src/main.ts",
     "build": "ts-node tools/build.mjs"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=8"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
