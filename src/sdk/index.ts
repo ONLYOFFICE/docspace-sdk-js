@@ -16,7 +16,7 @@
 
 import { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
-import SDKInstance from "../instance";
+import { SDKInstance } from "../instance";
 
 /**
  * The SDK class is responsible for managing multiple SDKInstance objects.
@@ -35,9 +35,9 @@ import SDKInstance from "../instance";
  *
  * @public
  */
-export default class SDK {
+export class SDK {
   instances: SDKInstance[] = [];
-  frames = {};
+  frames: Record<string, SDKInstance> = {};
 
   /**
    * Initializes an SDK instance with the provided configuration.

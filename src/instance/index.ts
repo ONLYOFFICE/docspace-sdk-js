@@ -52,7 +52,7 @@ import { InstanceMethods, MessageTypes } from "../enums";
  * - Modal operations
  *
  */
-export default class SDKInstance {
+export class SDKInstance {
   #isConnected: boolean = false;
   #frameOpacity: string = "0";
   #callbacks: ((data: object) => void)[] = [];

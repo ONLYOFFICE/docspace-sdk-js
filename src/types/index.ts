@@ -25,7 +25,7 @@ import {
   FilterSortBy,
   MessageTypes,
 } from "../enums";
-import SDKInstance from "../instance";
+import { SDKInstance } from "../instance";
 
 declare global {
   interface Window {

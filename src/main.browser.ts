@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import SDK from "./sdk";
+import { SDK } from "./sdk";
 import { getConfigFromParams } from "./utils";
 
 window.DocSpace = window.DocSpace || {};
