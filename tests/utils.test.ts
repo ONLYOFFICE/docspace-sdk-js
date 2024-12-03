@@ -21,10 +21,10 @@ import {
   getCSPErrorBody,
   getLoaderStyle,
   getFramePath,
-} from "./utils";
-import { cspErrorText, defaultConfig } from "./constants";
-import { TFrameConfig } from "./types";
-import { SDKMode } from "./enums";
+} from "../src/utils";
+import { cspErrorText, defaultConfig } from "../src/constants";
+import { TFrameConfig } from "../src/types";
+import { SDKMode } from "../src/enums";
 
 describe("customUrlSearchParams", () => {
   it("should convert an object with string values to URLSearchParams", () => {
