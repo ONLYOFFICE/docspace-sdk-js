@@ -1,11 +1,18 @@
 module.exports = {
+  preset: "ts-jest",
   testEnvironment: "jsdom",
-  roots: ["<rootDir>/src"],
-  testMatch: [
-    "**/__tests__/**/*.+(ts|tsx|js)",
-    "**/?(*.)+(spec|test).+(ts|tsx|js)",
-  ],
+  moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   transform: {
-    "^.+\\.(ts|tsx)$": "ts-jest",
+    "^.+\\.tsx?$": "ts-jest",
+  },
+  testMatch: ["**/?(*.)+(test).[t]s?(x)"],
+  coverageDirectory: "coverage",
+  collectCoverageFrom: [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+    "!src/**/index.ts",
+  ],
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
   },
 };
