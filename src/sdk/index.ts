@@ -33,7 +33,6 @@ import { SDKInstance } from "../instance";
  * const instance = sdk.init(config);
  * ```
  *
- * @public
  */
 export class SDK {
   instances: SDKInstance[] = [];
@@ -66,23 +65,65 @@ export class SDK {
     return instance;
   };
 
+  /**
+   * Initializes the frame with the given configuration.
+   *
+   * @param config - The configuration object for the frame.
+   * @returns The initialized SDK instance.
+   */
   initFrame = (config: TFrameConfig) => this.init(config);
 
+  /**
+   * Initializes the manager with the provided configuration.
+   *
+   * @param config - The configuration object for initializing the manager.
+   * @returns The initialized SDK instance.
+   */
   initManager = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Manager });
 
+  /**
+   * Initializes the viewer with the provided configuration.
+   *
+   * @param config - The configuration object for the viewer.
+   * @returns The initialized SDK instance.
+   */
   initViewer = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Viewer });
 
+  /**
+   * Initializes the editor with the given configuration.
+   *
+   * @param config - The configuration object for the editor.
+   * @returns The initialized SDK instance.
+   */
   initEditor = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Editor });
 
+  /**
+   * Initializes the Room Selector with the provided configuration.
+   *
+   * @param config - The configuration object for initializing the Room Selector.
+   * @returns The initialized SDK instance.
+   */
   initRoomSelector = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.RoomSelector });
 
+  /**
+   * Initializes the file selector with the given configuration.
+   *
+   * @param config - The configuration object for the file selector.
+   * @returns The initialized SDK instance.
+   */
   initFileSelector = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.FileSelector });
 
+  /**
+   * Initializes the system with the provided configuration.
+   *
+   * @param config - The configuration object for initializing the system.
+   * @returns The initialized SDK instance.
+   */
   initSystem = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.System });
 }
