@@ -26,9 +26,9 @@ import {
   HeaderBannerDisplaying,
 } from "../enums";
 
-export const CSPApiUrl = "/api/2.0/security/csp";
+export const CSPApiUrl = "/api/2.0/security/csp" as const;
 
-export const FRAME_NAME = "frameDocSpace";
+export const FRAME_NAME = "frameDocSpace" as const;
 
 export const defaultConfig: TFrameConfig = {
   src: "",
@@ -91,9 +91,9 @@ export const defaultConfig: TFrameConfig = {
     onContentReady: null,
     onEditorOpen: null,
   },
-};
+} as const;
 
 export const cspErrorText =
-  "The current domain is not set in the Content Security Policy (CSP) settings.";
+  "The current domain is not set in the Content Security Policy (CSP) settings." as const;
 
-export const connectErrorText = "Message bus is not connected with frame";
+export const connectErrorText = "Message bus is not connected with frame" as const;
