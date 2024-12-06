@@ -27,7 +27,7 @@
   "scripts": {
     "lint": "eslint src/",
     "test": "jest",
-    "docs": "typedoc --entryPoints src/index.ts",
+    "docs": "typedoc --entryPoints src/index.ts --json docs/docspace-sdk-js.json",
     "build": "ts-node tools/build.mjs"
   },
   "engines": {
