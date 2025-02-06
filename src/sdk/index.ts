@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TFrameConfig } from "../types";
+import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 import { SDKInstance } from "../instance";
 
@@ -47,19 +47,18 @@ export class SDK {
    * @returns The initialized SDK instance.
    */
   init = (config: TFrameConfig): SDKInstance => {
-    const existInstance = this.instances.find(
-      (i) => i.config.frameId === config.frameId
-    );
+    const { frameId } = config;
+    const existingInstance = this.frames[frameId];
 
-    if (existInstance) {
-      existInstance.initFrame(config);
-      return existInstance;
+    if (existingInstance) {
+      existingInstance.initFrame(config);
+      return existingInstance;
     }
 
     const instance = new SDKInstance(config);
-
     instance.initFrame(config);
 
+    this.frames[frameId] = instance;
     this.instances.push(instance);
 
     return instance;

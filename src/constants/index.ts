@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TFrameConfig } from "../types";
+import type { TFrameConfig } from "../types";
 import {
   EditorType,
   ManagerViewMode,
@@ -61,6 +61,7 @@ export const defaultConfig: TFrameConfig = {
   disableActionButton: false,
   showSettings: false,
   waiting: false,
+  noLoader: false,
   withSearch: true,
   withBreadCrumbs: true,
   withSubtitle: true,
@@ -96,4 +97,5 @@ export const defaultConfig: TFrameConfig = {
 export const cspErrorText =
   "The current domain is not set in the Content Security Policy (CSP) settings." as const;
 
-export const connectErrorText = "Message bus is not connected with frame" as const;
+export const connectErrorText =
+  "Message bus is not connected with frame" as const;

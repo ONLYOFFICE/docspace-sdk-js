@@ -23,7 +23,7 @@ import {
   getFramePath,
 } from "../src/utils";
 import { cspErrorText, defaultConfig } from "../src/constants";
-import { TFrameConfig } from "../src/types";
+import type { TFrameConfig } from "../src/types";
 import { SDKMode } from "../src/enums";
 
 describe("customUrlSearchParams", () => {
@@ -54,6 +54,14 @@ describe("customUrlSearchParams", () => {
   it("should handle empty object", () => {
     const params = customUrlSearchParams({});
     expect(params.toString()).toBe("");
+  });
+
+  it("should handle multiple keys", () => {
+    const params = customUrlSearchParams({
+      key1: "value1",
+      key2: "value2",
+    });
+    expect(params.toString()).toBe("key1=value1&key2=value2");
   });
 });
 
@@ -123,13 +131,25 @@ describe("validateCSP", () => {
       cspErrorText
     );
   });
+
+  it("should throw an error for invalid JSON response", async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        json: () => Promise.reject("Invalid JSON"),
+      })
+    ) as jest.Mock;
+
+    await expect(validateCSP("https://example.com")).rejects.toThrow(
+      "CSP validation failed: Invalid JSON"
+    );
+  });
 });
 
 describe("getConfigFromParams", () => {
   it("should return the correct config from URL parameters", () => {
     Object.defineProperty(document, "currentScript", {
       value: {
-        src: "https://example.com/api.js?showHeaderBanner=none&showMenu=false&withSearch=true&count=100",
+        src: "https://example.com/api.js?src=&showHeaderBanner=none&showMenu=false&withSearch=true&count=100&mode=manager",
       },
       writable: true,
     });
@@ -140,24 +160,29 @@ describe("getConfigFromParams", () => {
   });
 
   it("should return the correct config if URL has empty options", () => {
+    const scriptElement = document.createElement('script');
+    scriptElement.src = 'https://example.com?src=https://example.com&mode=editor';
+    document.body.appendChild(scriptElement);
     Object.defineProperty(document, "currentScript", {
-      value: {
-        src: "https://example.com/api.js",
-      },
-      writable: true,
+      value: scriptElement,
     });
 
-    const result = getConfigFromParams();
+    const config = getConfigFromParams();
 
-    expect(result).toEqual(defaultConfig);
+    expect(config).toEqual({
+      ...defaultConfig,
+      src: 'https://example.com',
+      mode: 'editor',
+    });
+
+    document.body.removeChild(scriptElement);
   });
 
   it("should return the correct config with extended options on main level of config", () => {
     Object.defineProperty(document, "currentScript", {
       value: {
-        src: "https://example.com/api.js?test=value",
+        src: "https://example.com/api.js?src=https://example.com&mode=editor&test=true",
       },
-      writable: true,
     });
 
     const result = getConfigFromParams();
@@ -227,7 +252,7 @@ describe("getFramePath", () => {
         rootPath: "/root",
       };
       const path = getFramePath(config);
-      expect(path).toBe("/sdk/room-selector");
+      expect(path).toBe(`/sdk/room-selector`);
     });
   });
 
@@ -292,4 +317,15 @@ describe("getFramePath", () => {
     });
   });
 
+  it("should handle all mode combinations correctly", () => {
+    const modes = Object.values(SDKMode);
+    modes.forEach((mode) => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode,
+      };
+      expect(() => getFramePath(config)).not.toThrow();
+    });
+  });
 });

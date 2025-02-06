@@ -168,6 +168,14 @@ export type TFrameEvents = {
  * Frame configuration
  */
 export type TFrameConfig = {
+  /** Disable loader */
+  noLoader?: boolean;
+  /** Selector room type */
+  roomType?: string;
+  /** Label for selector accept button */
+  acceptButtonLabel?: string;
+  /** Label for selector cancel button */
+  cancelButtonLabel?: string;
   /** Button color */
   buttonColor?: string;
   /** Check Content Security Policy */
@@ -265,6 +273,11 @@ export type TMessageData = {
   commandName: string;
   /** Event return data */
   eventReturnData?: TEventReturnData;
+  /** Error information */
+  error?: {
+    message: string;
+    code?: number;
+  };
   /** Frame identifier */
   frameId: string;
   /** Method return data */

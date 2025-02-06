@@ -18,7 +18,7 @@ jest.mock("../src/instance");
 
 import { SDKMode } from "../src/enums";
 import { SDKInstance } from "../src/instance";
-import { TFrameConfig } from "../src/types";
+import type { TFrameConfig } from "../src/types";
 import { SDK } from "../src/sdk/index";
 
 describe("SDK class", () => {
@@ -110,5 +110,57 @@ describe("SDK class", () => {
       ...config,
       mode: SDKMode.System,
     });
+  });
+});
+
+describe("SDK init function", () => {
+  let sdk: SDK;
+  let config: TFrameConfig;
+
+  beforeEach(() => {
+    sdk = new SDK();
+    config = {
+      frameId: "ds-frame",
+      mode: SDKMode.Viewer,
+      src: "https://example.com",
+    };
+  });
+
+  it("should create a new instance when frameId doesn't exist", () => {
+    const instance = new SDKInstance(config);
+    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+
+    const result = sdk.init(config);
+
+    expect(result).toBe(instance);
+    expect(instance.initFrame).toHaveBeenCalledWith(config);
+    expect(sdk.instances).toContain(instance);
+    expect(sdk.frames[config.frameId]).toBe(instance);
+  });
+
+  it("should reinitialize existing instance when frameId exists", () => {
+    const existingInstance = new SDKInstance(config);
+    sdk.frames[config.frameId] = existingInstance;
+    sdk.instances.push(existingInstance);
+
+    const result = sdk.init(config);
+
+    expect(result).toBe(existingInstance);
+    expect(existingInstance.initFrame).toHaveBeenCalledWith(config);
+    expect(sdk.instances.length).toBe(1);
+    expect(sdk.frames[config.frameId]).toBe(existingInstance);
+  });
+
+  it("should maintain instances array correctly when reinitializing", () => {
+    const instance = new SDKInstance(config);
+    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    sdk.init(config);
+
+    const newConfig = { ...config, src: "https://new.example.com" };
+    sdk.init(newConfig);
+
+    expect(sdk.instances.length).toBe(1);
+    expect(sdk.instances[0]).toBe(instance);
+    expect(sdk.frames[config.frameId]).toBe(instance);
   });
 });

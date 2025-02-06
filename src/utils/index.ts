@@ -15,7 +15,7 @@
  */
 
 import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
-import { TFrameConfig, TEditorCustomization } from "../types";
+import type { TFrameConfig, TEditorCustomization } from "../types";
 import { SDKMode } from "../enums";
 
 /**
@@ -25,8 +25,16 @@ import { SDKMode } from "../enums";
  * @returns A new instance of URLSearchParams initialized with the provided object.
  */
 export const customUrlSearchParams = (
-  data: Record<string, string | number | boolean>
-) => new URLSearchParams(data as Record<string, string>);
+  data: Record<string, string | number | boolean | undefined | null>
+) => {
+  if (!data) return "";
+
+  Object.keys(data).forEach(
+    (key) => (data[key] === undefined || data[key] === null) && delete data[key]
+  );
+
+  return new URLSearchParams(data as Record<string, string>).toString();
+};
 
 /**
  * Validates the Content Security Policy (CSP) of the target source.
@@ -41,10 +49,21 @@ export const validateCSP = async (targetSrc: string) => {
 
   if (origin.includes(targetSrc)) return;
 
-  const response = await fetch(`${targetSrc}${CSPApiUrl}`);
+  const response = await fetch(`${targetSrc}${CSPApiUrl}`, {
+    method: "get",
+    headers: new Headers({
+      "ngrok-skip-browser-warning": "69420",
+    }),
+  });
+  let json;
+  try {
+    json = await response.json();
+  } catch (error) {
+    throw new Error(`CSP validation failed: ${error}`);
+  }
   const {
     response: { domains },
-  } = await response.json();
+  } = json;
 
   const currentSrcHost = host || new URL(origin).host;
 
@@ -82,19 +101,26 @@ export const getLoaderStyle = (className: string) => {
  */
 export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
-  const searchParams = new URL(decodeURIComponent(scriptElement.src)).searchParams;
+  const searchParams = new URL(decodeURIComponent(scriptElement.src))
+    .searchParams;
+
   const configTemplate: TFrameConfig = { ...defaultConfig };
 
   type FilterParams = Record<string, string | number | boolean>;
 
   searchParams.forEach((value, key) => {
-    const parsedValue = value === "true" ? true : value === "false" ? false : value;
+    const parsedValue =
+      value === "true" ? true : value === "false" ? false : value;
     if (defaultConfig.filter && key in defaultConfig.filter) {
       (configTemplate.filter as FilterParams)[key] = parsedValue;
     } else {
       (configTemplate as unknown as FilterParams)[key] = parsedValue;
     }
   });
+
+  // Ensure default values for mode and src
+  configTemplate.mode = searchParams.get("mode") || "manager";
+  configTemplate.src = searchParams.get("src") || "";
 
   return configTemplate;
 };
@@ -138,20 +164,66 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.RoomSelector: {
-      return `/sdk/room-selector`;
+      const roomSelectorConfig = {
+        acceptLabel: config.acceptButtonLabel,
+        cancel: config.showSelectorCancel,
+        cancelLabel: config.cancelButtonLabel,
+        header: config.showSelectorHeader,
+        locale: config.locale,
+        roomType: config.roomType,
+        search: config.withSearch,
+        theme: config.theme,
+      };
+
+      const urlParams = customUrlSearchParams(roomSelectorConfig);
+
+      return `/sdk/room-selector${urlParams ? `?${urlParams}` : ""}`;
     }
 
     case SDKMode.FileSelector: {
-      return `/sdk/file-selector?selectorType=${config.selectorType}`;
+      const fileSelectorConfig = {
+        acceptLabel: config.acceptButtonLabel,
+        breadCrumbs: config.withBreadCrumbs,
+        cancel: config.showSelectorCancel,
+        cancelLabel: config.cancelButtonLabel,
+        filter: config.filterParam,
+        header: config.showSelectorHeader,
+        id: config.id,
+        locale: config.locale,
+        roomType: config.roomType,
+        search: config.withSearch,
+        selectorType: config.selectorType,
+        subtitle: config.withSubtitle,
+        theme: config.theme,
+      };
+
+      const urlParams = customUrlSearchParams(fileSelectorConfig);
+
+      return `/sdk/file-selector${urlParams ? `?${urlParams}` : ""}`;
+    }
+
+    case SDKMode.PublicRoom: {
+      const publicRoomConfig = {
+        theme: config.theme,
+        locale: config.locale,
+        folder: config.id,
+        key: config.requestToken,
+      };
+
+      const urlParams = customUrlSearchParams(publicRoomConfig);
+
+      return `/sdk/public-room${urlParams ? `?${urlParams}` : ""}`;
     }
 
     case SDKMode.System: {
-      return `/sdk/system`;
+      return `/old-sdk/system`;
     }
 
     case SDKMode.Editor: {
-      (config?.editorCustomization as TEditorCustomization).uiTheme =
-        config.theme;
+      if (config?.editorCustomization) {
+        (config?.editorCustomization as TEditorCustomization).uiTheme =
+          config.theme;
+      }
 
       if (!config.id || config.id === "undefined" || config.id === "null") {
         config.id = -1; //editor default wrong file id error
@@ -174,8 +246,10 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Viewer: {
-      (config?.editorCustomization as TEditorCustomization).uiTheme =
-        config.theme;
+      if (config?.editorCustomization) {
+        (config?.editorCustomization as TEditorCustomization).uiTheme =
+          config.theme;
+      }
 
       if (!config.id || config.id === "undefined" || config.id === "null") {
         config.id = -1; //editor default wrong file id error
