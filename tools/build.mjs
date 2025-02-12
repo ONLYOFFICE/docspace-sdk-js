@@ -61,7 +61,7 @@ async function buildAll() {
         ])
       ),
       build(
-        createBuildConfig("iife", "./dist/api-dev.js", "./src/main.browser.ts")
+        createBuildConfig("iife", "./dist/api.js", "./src/main.browser.ts")
       ),
     ]);
   } catch (error) {

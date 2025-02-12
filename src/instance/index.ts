@@ -306,7 +306,8 @@ export class SDKInstance {
       targetFrame.style.position = "relative";
       targetFrame.style.width = this.config.width!;
       targetFrame.style.height = this.config.height!;
-      (targetFrame.parentNode as HTMLElement).style.height = this.config.height!;
+      (targetFrame.parentNode as HTMLElement).style.height =
+        this.config.height!;
 
       if (loader) {
         loader.remove();

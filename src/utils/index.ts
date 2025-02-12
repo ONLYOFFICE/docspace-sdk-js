@@ -120,7 +120,7 @@ export const getConfigFromParams = (): TFrameConfig | null => {
 
   // Ensure default values for mode and src
   configTemplate.mode = searchParams.get("mode") || "manager";
-  configTemplate.src = searchParams.get("src") || "";
+  configTemplate.src = searchParams.get("src") || new URL(decodeURIComponent(scriptElement.src)).origin;
 
   return configTemplate;
 };

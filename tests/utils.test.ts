@@ -313,7 +313,7 @@ describe("getFramePath", () => {
         mode: SDKMode.System,
       };
       const path = getFramePath(config);
-      expect(path).toBe("/sdk/system");
+      expect(path).toBe("/old-sdk/system");
     });
   });
 
