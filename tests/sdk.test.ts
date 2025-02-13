@@ -36,7 +36,7 @@ describe("SDK class", () => {
 
   it("should initialize manager mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.Manager });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initManager(config);
 
@@ -49,7 +49,7 @@ describe("SDK class", () => {
 
   it("should initialize viewer mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.Viewer });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initViewer(config);
 
@@ -62,7 +62,7 @@ describe("SDK class", () => {
 
   it("should initialize editor mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.Editor });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initEditor(config);
 
@@ -75,7 +75,7 @@ describe("SDK class", () => {
 
   it("should initialize room selector mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.RoomSelector });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initRoomSelector(config);
 
@@ -88,7 +88,7 @@ describe("SDK class", () => {
 
   it("should initialize file selector mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.FileSelector });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initFileSelector(config);
 
@@ -101,7 +101,7 @@ describe("SDK class", () => {
 
   it("should initialize system mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.System });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initSystem(config);
 
@@ -128,7 +128,7 @@ describe("SDK init function", () => {
 
   it("should create a new instance when frameId doesn't exist", () => {
     const instance = new SDKInstance(config);
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.init(config);
 
@@ -153,7 +153,7 @@ describe("SDK init function", () => {
 
   it("should maintain instances array correctly when reinitializing", () => {
     const instance = new SDKInstance(config);
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
     sdk.init(config);
 
     const newConfig = { ...config, src: "https://new.example.com" };
