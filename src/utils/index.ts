@@ -120,7 +120,9 @@ export const getConfigFromParams = (): TFrameConfig | null => {
 
   // Ensure default values for mode and src
   configTemplate.mode = searchParams.get("mode") || "manager";
-  configTemplate.src = searchParams.get("src") || new URL(decodeURIComponent(scriptElement.src)).origin;
+  configTemplate.src =
+    searchParams.get("src") ||
+    new URL(decodeURIComponent(scriptElement.src)).origin;
 
   return configTemplate;
 };
@@ -220,27 +222,44 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Editor: {
-      if (config?.editorCustomization) {
+      const editorConfig: {
+        locale: string | null | undefined;
+        theme: string | undefined;
+        fileId: string | number;
+        editorType: "desktop" | "embedded" | "mobile" | undefined;
+        share?: string;
+        editorGoBack?: boolean | "event";
+        is_file?: boolean;
+      } = {
+        locale: config.locale,
+        theme: config.theme,
+        fileId:
+          !config.id || config.id === "undefined" || config.id === "null"
+            ? -1
+            : config.id,
+        editorType: config.editorType,
+      };
+
+      /* if (config?.editorCustomization) {
         (config?.editorCustomization as TEditorCustomization).uiTheme =
           config.theme;
-      }
-
-      if (!config.id || config.id === "undefined" || config.id === "null") {
-        config.id = -1; //editor default wrong file id error
-      }
+      } */
 
       if (
         config.events?.onEditorCloseCallback &&
         typeof config.events.onEditorCloseCallback === "function"
       ) {
-        config.editorGoBack = "event";
+        editorConfig.editorGoBack = "event";
       }
-
-      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}`;
 
       if (config.requestToken) {
-        return `${path}&share=${config.requestToken}&is_file=true`;
+        editorConfig.share = config.requestToken;
+        editorConfig.is_file = true;
       }
+
+      const urlParams = customUrlSearchParams(editorConfig);
+
+      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
 
       return path;
     }
