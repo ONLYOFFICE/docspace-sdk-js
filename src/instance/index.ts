@@ -53,6 +53,11 @@ export class SDKInstance {
     this.config = config;
   }
 
+  private static _loaderCache = {
+    style: new Map<string, HTMLStyleElement>(),
+    container: document.createElement("div"),
+  };
+
   /**
    * Creates and returns a loader HTML element with specified configuration.
    *
@@ -71,26 +76,34 @@ export class SDKInstance {
    * The container's dimensions are set using the width and height from the config.
    */
   #createLoader = (config: TFrameConfig): HTMLElement => {
-    const container = document.createElement("div");
+    const { frameId, width, height } = config;
+    const loaderClassName = `${frameId}-loader__element`;
+
+    if (!SDKInstance._loaderCache.style.has(loaderClassName)) {
+      const style = document.createElement("style");
+      style.textContent = getLoaderStyle(loaderClassName);
+
+      document.head.append(style);
+
+      SDKInstance._loaderCache.style.set(loaderClassName, style);
+    }
+
+    const container =
+      SDKInstance._loaderCache.container.cloneNode() as HTMLElement;
+    container.id = `${frameId}-loader`;
+
+    Object.assign(container.style, {
+      width,
+      height,
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+    });
+
     const loader = document.createElement("div");
-    const loaderStyle = document.createElement("style");
-
-    const loaderClassName = config.frameId + "-loader__element";
-    const loaderStyleText = getLoaderStyle(loaderClassName);
-
     loader.className = loaderClassName;
-    container.id = config.frameId + "-loader";
 
-    container.style.width = config.width!;
-    container.style.height = config.height!;
-    container.style.display = "flex";
-    container.style.justifyContent = "center";
-    container.style.alignItems = "center";
-
-    loaderStyle.insertAdjacentHTML("afterbegin", loaderStyleText);
-
-    container.append(loaderStyle, loader);
-
+    container.append(loader);
     return container;
   };
 
@@ -107,34 +120,38 @@ export class SDKInstance {
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
     const iframe = document.createElement("iframe");
-
     const path = getFramePath(config);
 
-    iframe.id = config.frameId;
-    iframe.src = config.src + path;
-    iframe.name = FRAME_NAME + "__#" + config.frameId;
+    Object.assign(iframe, {
+      id: config.frameId,
+      src: config.src + path,
+      name: `${FRAME_NAME}__#${config.frameId}`,
+      allowFullscreen: true,
+    });
 
-    iframe.style.width = config.width!;
-    iframe.style.height = config.height!;
-    iframe.style.border = "0px";
+    Object.assign(iframe.style, {
+      width: config.width!,
+      height: config.height!,
+      border: "0px",
+      ...(config.type === "mobile" && {
+        position: "fixed",
+        overflow: "hidden",
+      }),
+    });
 
-    iframe.allowFullscreen = true;
     iframe.setAttribute("allow", "storage-access *");
 
-    if (config.type == "mobile") {
-      iframe.style.position = "fixed";
-      iframe.style.overflow = "hidden";
+    if (config.type === "mobile") {
       document.body.style.overscrollBehaviorY = "contain";
     }
 
     if (config.checkCSP) {
-      validateCSP(config.src).catch((e: Error) => {
-        config.events?.onAppError?.(e.message);
-
-        const errorBody = getCSPErrorBody(config.src);
-        iframe.srcdoc = errorBody;
-
-        this.setIsLoaded();
+      requestAnimationFrame(() => {
+        validateCSP(config.src).catch((e: Error) => {
+          config.events?.onAppError?.(e.message);
+          iframe.srcdoc = getCSPErrorBody(config.src);
+          this.setIsLoaded();
+        });
       });
     }
 
@@ -190,21 +207,22 @@ export class SDKInstance {
   #onMessage = (e: MessageEvent) => {
     if (typeof e.data !== "string") return;
 
-    try {
-      const data = this.#parseMessageData(e.data);
-      if (data.frameId !== this.config.frameId) return;
+    const data = this.#parseMessageData(e.data);
+    if (data.frameId !== this.config.frameId) return;
 
-      const handlers = {
-        [MessageTypes.OnMethodReturn]: () => this.#handleMethodResponse(data),
-        [MessageTypes.OnEventReturn]: () =>
-          this.#processEvent(data.eventReturnData),
-        [MessageTypes.OnCallCommand]: () => this.#executeCommand(data),
-        [MessageTypes.Error]: () => data.error && this.#handleError(data.error),
-      };
-
-      handlers[data.type]?.();
-    } catch (error) {
-      console.error("Message handling error:", error);
+    switch (data.type) {
+      case MessageTypes.OnMethodReturn:
+        this.#handleMethodResponse(data);
+        break;
+      case MessageTypes.OnEventReturn:
+        data.eventReturnData && this.#processEvent(data.eventReturnData);
+        break;
+      case MessageTypes.OnCallCommand:
+        this.#executeCommand(data);
+        break;
+      case MessageTypes.Error:
+        data.error && this.#handleError(data.error);
+        break;
     }
   };
 
@@ -277,8 +295,8 @@ export class SDKInstance {
     callback: (data: object) => void
   ): void {
     if (!this.#isConnected) {
-      this.config.events?.onAppError?.(connectErrorText);
-      return console.error(connectErrorText);
+      this.#handleError({ message: connectErrorText });
+      return;
     }
 
     this.#callbacks = [...this.#callbacks, callback];
@@ -298,22 +316,25 @@ export class SDKInstance {
    * based on the configuration. It also ensures the parent node's height is set to inherit.
    */
   setIsLoaded(): void {
-    const targetFrame = document.getElementById(this.config.frameId);
-    const loader = document.getElementById(this.config.frameId + "-loader");
+    const frameId = this.config.frameId;
+    const targetFrame = document.getElementById(frameId);
+    const parent = targetFrame?.parentElement;
 
-    if (targetFrame) {
-      targetFrame.style.opacity = "1";
-      targetFrame.style.position = "relative";
-      targetFrame.style.width = this.config.width!;
-      targetFrame.style.height = this.config.height!;
-      (targetFrame.parentNode as HTMLElement).style.height =
-        this.config.height!;
+    if (!targetFrame || !parent) return;
 
-      if (loader) {
-        loader.remove();
-        this.config.events?.onContentReady?.();
-      }
-    }
+    Object.assign(targetFrame.style, {
+      opacity: "1",
+      position: "relative",
+      width: this.config.width!,
+      height: this.config.height!,
+    });
+
+    parent.style.height = this.config.height!;
+
+    const loader = document.getElementById(`${frameId}-loader`);
+    loader?.remove();
+
+    this.config.events?.onContentReady?.();
   }
 
   /**
@@ -407,22 +428,20 @@ export class SDKInstance {
   destroyFrame(): void {
     const frameId = this.config.frameId;
     const frameElement = document.getElementById(frameId);
+    const sdkFrames = window.DocSpace?.SDK?.frames;
 
     if (frameElement) {
-      const replacement = document.createElement("div");
-      replacement.id = frameId;
-      replacement.className = this.#classNames;
-      replacement.innerHTML = this.config.destroyText || "";
+      frameElement.innerHTML = this.config.destroyText || "";
+      frameElement.className = this.#classNames;
 
-      frameElement.replaceWith(replacement);
+      frameElement.replaceWith(frameElement.cloneNode(false));
     }
 
     window.removeEventListener("message", this.#onMessage, false);
-
     this.#isConnected = false;
 
-    if (window.DocSpace?.SDK?.frames) {
-      delete window.DocSpace.SDK.frames[frameId];
+    if (sdkFrames) {
+      delete sdkFrames[frameId];
     }
   }
 
