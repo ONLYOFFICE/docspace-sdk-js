@@ -61,7 +61,7 @@ export const defaultConfig: TFrameConfig = {
   disableActionButton: false,
   showSettings: false,
   waiting: false,
-  noLoader: false,
+  noLoader: true,
   withSearch: true,
   withBreadCrumbs: true,
   withSubtitle: true,

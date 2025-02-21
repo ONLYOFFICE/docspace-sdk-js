@@ -350,6 +350,10 @@ export class SDKInstance {
 
     if (!target) return null;
 
+    if (this.config.mode === "manager" || this.config.mode === "system") {
+      this.config.noLoader = false;
+    }
+
     this.#classNames = target.className;
 
     const fragment = document.createDocumentFragment();

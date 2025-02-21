@@ -238,11 +238,6 @@ export const getFramePath = (config: TFrameConfig) => {
         editorType: config.editorType,
       };
 
-      /* if (config?.editorCustomization) {
-        (config?.editorCustomization as TEditorCustomization).uiTheme =
-          config.theme;
-      } */
-
       if (
         config.events?.onEditorCloseCallback &&
         typeof config.events.onEditorCloseCallback === "function"
