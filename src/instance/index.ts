@@ -1,4 +1,4 @@
-/*
+/**
  * (c) Copyright Ascensio System SIA 2024
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +12,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * @license
+ */
+
+/**
+ * @module
+ * @mergeModuleWith <project>
  */
 
 import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
@@ -47,6 +54,7 @@ export class SDKInstance {
   #callbacks: ((data: object) => void)[] = [];
   #tasks: TTask[] = [];
   #classNames: string = "";
+  /** Configuration options for the iframe. */
   config: TFrameConfig;
 
   constructor(config: TFrameConfig) {
@@ -55,7 +63,6 @@ export class SDKInstance {
 
   /**
    * Creates and returns a loader HTML element with specified configuration.
-   *
    *
    * @param config - The configuration object for the frame
    *
