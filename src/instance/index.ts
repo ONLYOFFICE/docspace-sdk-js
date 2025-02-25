@@ -54,6 +54,7 @@ export class SDKInstance {
   #callbacks: ((data: object) => void)[] = [];
   #tasks: TTask[] = [];
   #classNames: string = "";
+  /** Configuration options for the iframe. */
   config: TFrameConfig;
 
   constructor(config: TFrameConfig) {
@@ -62,7 +63,6 @@ export class SDKInstance {
 
   /**
    * Creates and returns a loader HTML element with specified configuration.
-   *
    *
    * @param config - The configuration object for the frame
    *

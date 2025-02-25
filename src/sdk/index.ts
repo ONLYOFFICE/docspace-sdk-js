@@ -42,7 +42,15 @@ import { SDKInstance } from "../instance";
  *
  */
 export class SDK {
+  /**
+   * Array containing instances of SDKInstance.
+   * Each instance represents a separate SDK configuration.
+   */
   instances: SDKInstance[] = [];
+  /**
+   * Maps frame IDs to their corresponding SDKInstance objects.
+   * Used to track and manage multiple SDK instances across different frames.
+   */
   frames: Record<string, SDKInstance> = {};
 
   /**
