@@ -136,33 +136,28 @@ describe("SDK init function", () => {
 
     expect(result).toBe(instance);
     expect(instance.initFrame).toHaveBeenCalledWith(config);
-    expect(sdk.instances).toContain(instance);
     expect(sdk.frames[config.frameId]).toBe(instance);
   });
 
   it("should reinitialize existing instance when frameId exists", () => {
     const existingInstance = new SDKInstance(config);
     sdk.frames[config.frameId] = existingInstance;
-    sdk.instances.push(existingInstance);
 
     const result = sdk.init(config);
 
     expect(result).toBe(existingInstance);
     expect(existingInstance.initFrame).toHaveBeenCalledWith(config);
-    expect(sdk.instances.length).toBe(1);
     expect(sdk.frames[config.frameId]).toBe(existingInstance);
   });
 
-  it("should maintain instances array correctly when reinitializing", () => {
+  it("should maintain frames object correctly when reinitializing", () => {
     const instance = new SDKInstance(config);
     (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
     sdk.init(config);
 
     const newConfig = { ...config, src: "https://new.example.com" };
     sdk.init(newConfig);
-
-    expect(sdk.instances.length).toBe(1);
-    expect(sdk.instances[0]).toBe(instance);
+    
     expect(sdk.frames[config.frameId]).toBe(instance);
   });
 });

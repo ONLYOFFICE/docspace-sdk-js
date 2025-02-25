@@ -284,7 +284,7 @@ describe("getFramePath", () => {
         theme: "Base",
       };
       const path = getFramePath(config);
-      expect(path).toContain("/doceditor?fileId=123&editorType=desktop");
+      expect(path).toContain("/doceditor?theme=Base&fileId=123&editorType=desktop");
     });
   });
 
@@ -302,7 +302,7 @@ describe("getFramePath", () => {
       };
       const path = getFramePath(config);
       expect(path).toContain(
-        "/doceditor?fileId=123&editorType=embedded&action=view"
+        "/doceditor?theme=Dark&fileId=123&editorType=embedded&action=view"
       );
     });
   });
