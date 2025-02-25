@@ -149,6 +149,41 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  *
  */
 export const getFramePath = (config: TFrameConfig) => {
+  type EditorOptions = {
+    locale: string | null | undefined;
+    theme: string | undefined;
+    fileId: string | number;
+    editorType: "desktop" | "embedded" | "mobile" | undefined;
+    share?: string;
+    editorGoBack?: boolean | "event";
+    is_file?: boolean;
+    action?: string;
+  };
+
+  const baseFrameOptions = {
+    theme: config.theme,
+    locale: config.locale,
+  };
+
+  const baseSelectorOptions = {
+    acceptLabel: config.acceptButtonLabel,
+    cancel: config.showSelectorCancel,
+    cancelLabel: config.cancelButtonLabel,
+    header: config.showSelectorHeader,
+    roomType: config.roomType,
+    search: config.withSearch,
+  };
+
+  const baseEditorOptions = {
+    fileId:
+      !config.id || config.id === "undefined" || config.id === "null"
+        ? -1
+        : config.id,
+    editorType: config.editorType,
+    share: config.requestToken ? config.requestToken : undefined,
+    is_file: config.requestToken ? true : undefined,
+  };
+
   switch (config.mode) {
     case SDKMode.Manager: {
       if (config.id) config.filter!.folder = config.id as string;
@@ -172,14 +207,8 @@ export const getFramePath = (config: TFrameConfig) => {
 
     case SDKMode.RoomSelector: {
       const roomSelectorConfig = {
-        acceptLabel: config.acceptButtonLabel,
-        cancel: config.showSelectorCancel,
-        cancelLabel: config.cancelButtonLabel,
-        header: config.showSelectorHeader,
-        locale: config.locale,
-        roomType: config.roomType,
-        search: config.withSearch,
-        theme: config.theme,
+        ...baseFrameOptions,
+        ...baseSelectorOptions,
       };
 
       const urlParams = customUrlSearchParams(roomSelectorConfig);
@@ -189,19 +218,13 @@ export const getFramePath = (config: TFrameConfig) => {
 
     case SDKMode.FileSelector: {
       const fileSelectorConfig = {
-        acceptLabel: config.acceptButtonLabel,
+        ...baseFrameOptions,
+        ...baseSelectorOptions,
         breadCrumbs: config.withBreadCrumbs,
-        cancel: config.showSelectorCancel,
-        cancelLabel: config.cancelButtonLabel,
         filter: config.filterParam,
-        header: config.showSelectorHeader,
         id: config.id,
-        locale: config.locale,
-        roomType: config.roomType,
-        search: config.withSearch,
         selectorType: config.selectorType,
         subtitle: config.withSubtitle,
-        theme: config.theme,
       };
 
       const urlParams = customUrlSearchParams(fileSelectorConfig);
@@ -211,8 +234,7 @@ export const getFramePath = (config: TFrameConfig) => {
 
     case SDKMode.PublicRoom: {
       const publicRoomConfig = {
-        theme: config.theme,
-        locale: config.locale,
+        ...baseFrameOptions,
         folder: config.id,
         key: config.requestToken,
       };
@@ -223,26 +245,14 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.System: {
-      return `/old-sdk/system`;
+      const urlParams = customUrlSearchParams(baseFrameOptions);
+      return `/old-sdk/system${urlParams ? `?${urlParams}` : ""}`;
     }
 
     case SDKMode.Editor: {
-      const editorConfig: {
-        locale: string | null | undefined;
-        theme: string | undefined;
-        fileId: string | number;
-        editorType: "desktop" | "embedded" | "mobile" | undefined;
-        share?: string;
-        editorGoBack?: boolean | "event";
-        is_file?: boolean;
-      } = {
-        locale: config.locale,
-        theme: config.theme,
-        fileId:
-          !config.id || config.id === "undefined" || config.id === "null"
-            ? -1
-            : config.id,
-        editorType: config.editorType,
+      const editorConfig: EditorOptions = {
+        ...baseFrameOptions,
+        ...baseEditorOptions,
       };
 
       if (
@@ -250,11 +260,6 @@ export const getFramePath = (config: TFrameConfig) => {
         typeof config.events.onEditorCloseCallback === "function"
       ) {
         editorConfig.editorGoBack = "event";
-      }
-
-      if (config.requestToken) {
-        editorConfig.share = config.requestToken;
-        editorConfig.is_file = true;
       }
 
       const urlParams = customUrlSearchParams(editorConfig);
@@ -265,23 +270,9 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Viewer: {
-      const viewerConfig: {
-        locale: string | null | undefined;
-        theme: string | undefined;
-        fileId: string | number;
-        editorType: "desktop" | "embedded" | "mobile" | undefined;
-        share?: string;
-        editorGoBack?: boolean | "event";
-        is_file?: boolean;
-        action?: string;
-      } = {
-        locale: config.locale,
-        theme: config.theme,
-        fileId:
-          !config.id || config.id === "undefined" || config.id === "null"
-            ? -1
-            : config.id,
-        editorType: config.editorType,
+      const viewerConfig: EditorOptions = {
+        ...baseFrameOptions,
+        ...baseEditorOptions,
         action: "view",
       };
 
@@ -290,11 +281,6 @@ export const getFramePath = (config: TFrameConfig) => {
         typeof config.events.onEditorCloseCallback === "function"
       ) {
         viewerConfig.editorGoBack = "event";
-      }
-
-      if (config.requestToken) {
-        viewerConfig.share = config.requestToken;
-        viewerConfig.is_file = true;
       }
 
       const urlParams = customUrlSearchParams(viewerConfig);
