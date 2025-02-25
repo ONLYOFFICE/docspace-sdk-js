@@ -282,7 +282,9 @@ export type TMessageData = {
   eventReturnData?: TEventReturnData;
   /** Error information */
   error?: {
+    /** Error message */
     message: string;
+    /** Error code */
     code?: number;
   };
   /** Frame identifier */
