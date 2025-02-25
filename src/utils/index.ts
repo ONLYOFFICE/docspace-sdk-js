@@ -22,7 +22,7 @@
  */
 
 import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
-import type { TFrameConfig, TEditorCustomization } from "../types";
+import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 
 /**
@@ -265,27 +265,41 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Viewer: {
-      if (config?.editorCustomization) {
-        (config?.editorCustomization as TEditorCustomization).uiTheme =
-          config.theme;
-      }
-
-      if (!config.id || config.id === "undefined" || config.id === "null") {
-        config.id = -1; //editor default wrong file id error
-      }
+      const viewerConfig: {
+        locale: string | null | undefined;
+        theme: string | undefined;
+        fileId: string | number;
+        editorType: "desktop" | "embedded" | "mobile" | undefined;
+        share?: string;
+        editorGoBack?: boolean | "event";
+        is_file?: boolean;
+        action?: string;
+      } = {
+        locale: config.locale,
+        theme: config.theme,
+        fileId:
+          !config.id || config.id === "undefined" || config.id === "null"
+            ? -1
+            : config.id,
+        editorType: config.editorType,
+        action: "view",
+      };
 
       if (
         config.events?.onEditorCloseCallback &&
         typeof config.events.onEditorCloseCallback === "function"
       ) {
-        config.editorGoBack = "event";
+        viewerConfig.editorGoBack = "event";
       }
-
-      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&action=view`;
 
       if (config.requestToken) {
-        return `${path}&share=${config.requestToken}&is_file=true`;
+        viewerConfig.share = config.requestToken;
+        viewerConfig.is_file = true;
       }
+
+      const urlParams = customUrlSearchParams(viewerConfig);
+
+      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
 
       return path;
     }
