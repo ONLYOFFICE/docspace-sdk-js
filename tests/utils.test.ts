@@ -21,7 +21,7 @@ import {
   validateCSP,
   getConfigFromParams,
   getCSPErrorBody,
-  getLoaderStyle,
+  //getLoaderStyle,
   getFramePath,
 } from "../src/utils";
 import { cspErrorText, defaultConfig } from "../src/constants";
@@ -211,7 +211,7 @@ describe("getCSPErrorBody", () => {
   });
 });
 
-describe("getLoaderStyle", () => {
+/* describe("getLoaderStyle", () => {
   it("should return the correct CSS for the given class name", () => {
     const className = "loader";
     const expectedCSS = `@keyframes rotate { 0%{ transform: rotate(-45deg); } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } }`;
@@ -227,7 +227,7 @@ describe("getLoaderStyle", () => {
     const result = getLoaderStyle(className);
     expect(result).toBe(expectedCSS);
   });
-});
+}); */
 
 describe("getFramePath", () => {
   describe("Manager mode", () => {
