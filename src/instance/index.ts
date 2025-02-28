@@ -50,7 +50,6 @@ import { InstanceMethods, MessageTypes } from "../enums";
  */
 export class SDKInstance {
   #isConnected: boolean = false;
-  #frameOpacity: string = "0";
   #callbacks: ((data: object) => void)[] = [];
   #tasks: TTask[] = [];
   #classNames: string = "";
@@ -64,6 +63,12 @@ export class SDKInstance {
   private static _loaderCache = {
     style: new Map<string, HTMLStyleElement>(),
     container: document.createElement("div"),
+    templates: new Map<string, HTMLElement>(),
+  };
+
+  private static _iframeCache: {
+    template: HTMLIFrameElement;
+    pathCache: Map<string, string>;
   };
 
   /**
@@ -85,32 +90,53 @@ export class SDKInstance {
   #createLoader = (config: TFrameConfig): HTMLElement => {
     const { frameId, width, height } = config;
     const loaderClassName = `${frameId}-loader__element`;
+    const templateKey = `${width}_${height}`;
 
     if (!SDKInstance._loaderCache.style.has(loaderClassName)) {
       const style = document.createElement("style");
       style.textContent = getLoaderStyle(loaderClassName);
 
-      document.head.append(style);
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(style);
+      document.head.appendChild(fragment);
 
       SDKInstance._loaderCache.style.set(loaderClassName, style);
     }
 
-    const container =
-      SDKInstance._loaderCache.container.cloneNode() as HTMLElement;
-    container.id = `${frameId}-loader`;
+    let container: HTMLElement;
 
-    Object.assign(container.style, {
-      width,
-      height,
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-    });
+    if (SDKInstance._loaderCache.templates.has(templateKey)) {
+      container = SDKInstance._loaderCache.templates
+        .get(templateKey)!
+        .cloneNode(true) as HTMLElement;
+      container.id = `${frameId}-loader`;
+    } else {
+      container = SDKInstance._loaderCache.container.cloneNode() as HTMLElement;
 
-    const loader = document.createElement("div");
-    loader.className = loaderClassName;
+      Object.assign(container.style, {
+        width,
+        height,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        position: "relative",
+        zIndex: "1",
+        backgroundColor: "transparent",
+        transition: "opacity 0.15s ease-out",
+      });
 
-    container.append(loader);
+      const loader = document.createElement("div");
+      loader.className = loaderClassName;
+      container.appendChild(loader);
+
+      SDKInstance._loaderCache.templates.set(
+        templateKey,
+        container.cloneNode(true) as HTMLElement
+      );
+
+      container.id = `${frameId}-loader`;
+    }
+
     return container;
   };
 
@@ -126,36 +152,59 @@ export class SDKInstance {
    * If CSP validation fails, it sets an error message in the iframe's srcdoc.
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
-    const iframe = document.createElement("iframe");
-    const path = getFramePath(config);
+    if (!SDKInstance._iframeCache) {
+      SDKInstance._iframeCache = {
+        template: document.createElement("iframe"),
+        pathCache: new Map<string, string>(),
+      };
 
-    Object.assign(iframe, {
-      id: config.frameId,
-      src: config.src + path,
-      name: `${FRAME_NAME}__#${config.frameId}`,
-      allowFullscreen: true,
-    });
+      SDKInstance._iframeCache.template.allowFullscreen = true;
+      SDKInstance._iframeCache.template.setAttribute(
+        "allow",
+        "storage-access *"
+      );
+    }
+
+    const iframe =
+      SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
+    const cacheKey = `${config.mode}_${config.id || ""}_${config.frameId}`;
+    let path = SDKInstance._iframeCache.pathCache.get(cacheKey);
+
+    if (!path) {
+      path = getFramePath(config);
+      SDKInstance._iframeCache.pathCache.set(cacheKey, path);
+    }
+
+    iframe.id = config.frameId;
+    iframe.name = `${FRAME_NAME}__#${config.frameId}`;
+    iframe.src = config.src + path;
 
     Object.assign(iframe.style, {
       width: config.width!,
       height: config.height!,
       border: "0px",
+      opacity: "0",
       ...(config.type === "mobile" && {
         position: "fixed",
         overflow: "hidden",
+        webkitOverflowScrolling: "touch",
       }),
     });
 
-    iframe.setAttribute("allow", "storage-access *");
-
     if (config.type === "mobile") {
       document.body.style.overscrollBehaviorY = "contain";
+
+      if ("loading" in HTMLIFrameElement.prototype) {
+        iframe.loading = "eager";
+      }
     }
 
     if (config.checkCSP) {
       requestAnimationFrame(() => {
         validateCSP(config.src).catch((e: Error) => {
-          config.events?.onAppError?.(e.message);
+          if (config.events?.onAppError) {
+            config.events.onAppError(e.message);
+          }
           iframe.srcdoc = getCSPErrorBody(config.src);
           this.setIsLoaded();
         });
@@ -164,6 +213,56 @@ export class SDKInstance {
 
     return iframe;
   };
+
+  /**
+   * Sets the target frame as loaded by updating its styles and removing the loader element.
+   * If the loader element is found and removed, it triggers the `onContentReady` event if it exists.
+   *
+   * @remarks
+   * This method modifies the styles of the target frame to make it visible and adjusts its dimensions
+   * based on the configuration. It also ensures the parent node's height is set to inherit.
+   * Uses performance-optimized transitions for smooth appearance.
+   */
+  setIsLoaded(): void {
+    const frameId = this.config.frameId;
+    const targetFrame = document.getElementById(frameId);
+    const parent = targetFrame?.parentElement;
+
+    if (!targetFrame || !parent) return;
+
+    requestAnimationFrame(() => {
+      parent.style.height = this.config.height!;
+
+      const loader = document.getElementById(`${frameId}-loader`);
+
+      if (loader) {
+        loader.style.opacity = "0";
+
+        const removeLoader = () => {
+          if (loader.parentNode) {
+            loader.parentNode.removeChild(loader);
+          }
+          this.config.events?.onContentReady?.();
+        };
+
+        requestAnimationFrame(() => {
+          removeLoader();
+        });
+        
+      } else {
+        this.config.events?.onContentReady?.();
+      }
+
+      requestAnimationFrame(() => {
+        Object.assign(targetFrame.style, {
+          opacity: "1",
+          position: "relative",
+          width: this.config.width!,
+          height: this.config.height!,
+        });
+      });
+    });
+  }
 
   /**
    * Sends a message to the target iframe specified by the frameId in the configuration.
@@ -315,36 +414,6 @@ export class SDKInstance {
   }
 
   /**
-   * Sets the target frame as loaded by updating its styles and removing the loader element.
-   * If the loader element is found and removed, it triggers the `onContentReady` event if it exists.
-   *
-   * @remarks
-   * This method modifies the styles of the target frame to make it visible and adjusts its dimensions
-   * based on the configuration. It also ensures the parent node's height is set to inherit.
-   */
-  setIsLoaded(): void {
-    const frameId = this.config.frameId;
-    const targetFrame = document.getElementById(frameId);
-    const parent = targetFrame?.parentElement;
-
-    if (!targetFrame || !parent) return;
-
-    Object.assign(targetFrame.style, {
-      opacity: "1",
-      position: "relative",
-      width: this.config.width!,
-      height: this.config.height!,
-    });
-
-    parent.style.height = this.config.height!;
-
-    const loader = document.getElementById(`${frameId}-loader`);
-    loader?.remove();
-
-    this.config.events?.onContentReady?.();
-  }
-
-  /**
    * Initializes an iframe with the given configuration and appends it to the target element.
    *
    * @param config - The configuration object for the iframe.
@@ -369,25 +438,37 @@ export class SDKInstance {
     Object.assign(renderContainer, {
       id: this.config.frameId + "-container",
       className: "frame-container",
-    });
-
-    Object.assign(renderContainer.style, {
-      position: "relative",
-      width: this.config.width,
-      height: this.config.height,
+      style: {
+        position: "relative",
+        width: this.config.width,
+        height: this.config.height,
+      },
     });
 
     const iframe = this.#createIframe(this.config);
 
     Object.assign(iframe.style, {
-      opacity: this.config.noLoader ? "1" : this.#frameOpacity,
+      opacity: this.config.noLoader ? "1" : "0",
       zIndex: "2",
       position: this.config.noLoader ? "relative" : "absolute",
-      width: "100%",
-      height: "100%",
+      width: this.config.noLoader ? this.config.width : "100%",
+      height: this.config.noLoader ? this.config.height : "100%",
       top: "0",
       left: "0",
     });
+
+    const handleFrameLoad = () => {
+      window.addEventListener("message", this.#onMessage.bind(this));
+      this.#isConnected = true;
+
+      if (this.config.noLoader) {
+        this.config.events?.onContentReady?.();
+      }
+
+      iframe.removeEventListener("load", handleFrameLoad);
+    };
+
+    iframe.addEventListener("load", handleFrameLoad);
 
     if (!this.config.waiting || this.config.mode === "system") {
       fragment.appendChild(iframe);
@@ -395,24 +476,17 @@ export class SDKInstance {
 
     if (!this.config.noLoader) {
       const frameLoader = this.#createLoader(this.config);
-
       fragment.appendChild(frameLoader);
     }
 
     renderContainer.appendChild(fragment);
 
-    const isSelfReplace = target.parentNode?.isEqualNode(
-      document.getElementById(this.config.frameId + "-container")
-    );
-
-    if (isSelfReplace) {
-      (target.parentNode as HTMLElement)?.replaceWith(renderContainer);
+    if (target.parentNode) {
+      target.parentNode.insertBefore(renderContainer, target);
+      target.remove();
     } else {
       target.replaceWith(renderContainer);
     }
-
-    window.addEventListener("message", this.#onMessage, false);
-    this.#isConnected = true;
 
     window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
     window.DocSpace.SDK.frames[this.config.frameId] = this;
