@@ -149,17 +149,6 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  *
  */
 export const getFramePath = (config: TFrameConfig) => {
-  type EditorOptions = {
-    locale: string | null | undefined;
-    theme: string | undefined;
-    fileId: string | number;
-    editorType: "desktop" | "embedded" | "mobile" | undefined;
-    share?: string;
-    editorGoBack?: boolean | "event";
-    is_file?: boolean;
-    action?: string;
-  };
-
   const baseFrameOptions = {
     theme: config.theme,
     locale: config.locale,
@@ -182,6 +171,13 @@ export const getFramePath = (config: TFrameConfig) => {
     editorType: config.editorType,
     share: config.requestToken ? config.requestToken : undefined,
     is_file: config.requestToken ? true : undefined,
+    editorGoBack:
+      config.events?.onEditorCloseCallback &&
+      typeof config.events.onEditorCloseCallback === "function"
+        ? "event"
+        : config.editorGoBack
+        ? config.editorGoBack
+        : undefined,
   };
 
   switch (config.mode) {
@@ -250,17 +246,10 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Editor: {
-      const editorConfig: EditorOptions = {
+      const editorConfig = {
         ...baseFrameOptions,
         ...baseEditorOptions,
       };
-
-      if (
-        config.events?.onEditorCloseCallback &&
-        typeof config.events.onEditorCloseCallback === "function"
-      ) {
-        editorConfig.editorGoBack = "event";
-      }
 
       const urlParams = customUrlSearchParams(editorConfig);
 
@@ -270,18 +259,11 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.Viewer: {
-      const viewerConfig: EditorOptions = {
+      const viewerConfig = {
         ...baseFrameOptions,
         ...baseEditorOptions,
         action: "view",
       };
-
-      if (
-        config.events?.onEditorCloseCallback &&
-        typeof config.events.onEditorCloseCallback === "function"
-      ) {
-        viewerConfig.editorGoBack = "event";
-      }
 
       const urlParams = customUrlSearchParams(viewerConfig);
 

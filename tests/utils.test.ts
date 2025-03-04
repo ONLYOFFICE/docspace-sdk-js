@@ -279,7 +279,7 @@ describe("getFramePath", () => {
         mode: SDKMode.Editor,
         id: "123",
         editorType: "desktop",
-        editorGoBack: "back",
+        editorGoBack: true,
         editorCustomization: {},
         theme: "Base",
       };
@@ -296,7 +296,7 @@ describe("getFramePath", () => {
         mode: SDKMode.Viewer,
         id: "123",
         editorType: "embedded",
-        editorGoBack: "back",
+        editorGoBack: false,
         editorCustomization: {},
         theme: "Dark",
       };
