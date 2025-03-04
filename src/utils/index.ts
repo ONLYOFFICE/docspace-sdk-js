@@ -171,6 +171,7 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  * @remarks
  * The function handles different modes specified in the `config.mode` property:
  * - `SDKMode.Manager`: Generates a path for the manager mode, including optional request tokens and filters.
+ * - `SDKMode.PublicRoom`: Generates a path for the public room mode, including request tokens and filters.
  * - `SDKMode.RoomSelector`: Returns a fixed path for the room selector.
  * - `SDKMode.FileSelector`: Returns a path for the file selector with the specified selector type.
  * - `SDKMode.System`: Returns a fixed path for the system mode.
