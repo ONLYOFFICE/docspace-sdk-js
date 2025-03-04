@@ -93,7 +93,37 @@ export const getCSPErrorBody = (src: string) => {
 };
 
 export const getLoaderStyle = (className: string) => {
-  return `@keyframes rotate { 0%{ transform: rotate(-45deg); } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } }`;
+  return `
+@keyframes rotate { 
+  0%{ transform: rotate(-45deg); will-change: transform; } 
+  15%{ transform: rotate(45deg); } 
+  30%{ transform: rotate(135deg); } 
+  45%{ transform: rotate(225deg); } 
+  60%, 100%{ transform: rotate(315deg); } 
+} 
+.${className} { 
+  width: 74px; 
+  height: 74px; 
+  border: 4px solid rgba(51,51,51, 0.1); 
+  border-top-color: #333333; 
+  border-radius: 50%; 
+  transform: rotate(-45deg); 
+  position: relative; 
+  box-sizing: border-box; 
+  animation: 1s linear infinite rotate; 
+  will-change: transform;
+} 
+@media (prefers-color-scheme: dark) { 
+  .${className} { 
+    border-color: rgba(204, 204, 204, 0.1); 
+    border-top-color: #CCCCCC; 
+  } 
+}
+@media (prefers-reduced-motion: reduce) {
+  .${className} {
+    animation-duration: 1.5s;
+  }
+}`;
 };
 
 /**
@@ -273,6 +303,6 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     default:
-      return config.rootPath;
+      return config.rootPath || "/";
   }
 };
