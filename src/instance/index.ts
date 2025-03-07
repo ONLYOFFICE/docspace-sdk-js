@@ -232,6 +232,7 @@ export class SDKInstance {
 
     requestAnimationFrame(() => {
       parent.style.height = this.config.height!;
+      parent.style.width = this.config.width!;
 
       const loader = document.getElementById(`${frameId}-loader`);
 
@@ -479,6 +480,7 @@ export class SDKInstance {
       fragment.appendChild(frameLoader);
     } else {
       renderContainer.style.height = this.config.height!;
+      renderContainer.style.width = this.config.width!;
     }
 
     renderContainer.appendChild(fragment);
