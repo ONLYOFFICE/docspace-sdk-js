@@ -477,6 +477,8 @@ export class SDKInstance {
     if (!this.config.noLoader) {
       const frameLoader = this.#createLoader(this.config);
       fragment.appendChild(frameLoader);
+    } else {
+      renderContainer.style.height = this.config.height!;
     }
 
     renderContainer.appendChild(fragment);
