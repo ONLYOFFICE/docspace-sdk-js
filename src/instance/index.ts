@@ -249,7 +249,6 @@ export class SDKInstance {
         requestAnimationFrame(() => {
           removeLoader();
         });
-        
       } else {
         this.config.events?.onContentReady?.();
       }
@@ -401,7 +400,7 @@ export class SDKInstance {
     params: object | null,
     callback: (data: object) => void
   ): void {
-    if (!this.#isConnected) {
+    if (!this.#isConnected && methodName !== InstanceMethods.SetConfig) {
       this.#handleError({ message: connectErrorText });
       return;
     }
@@ -499,35 +498,42 @@ export class SDKInstance {
   }
 
   /**
-   * Destroys the current frame by replacing it with a new div element.
+   * Destroys the current frame and cleans up all associated resources.
    *
-   * This method performs the following actions:
-   * 1. Creates a new div element and sets its id, innerHTML, and className based on the current configuration.
-   * 2. Retrieves the target frame element using the configured frameId.
-   * 3. Removes the 'message' event listener from the window.
-   * 4. Sets the internal connection status to false.
-   * 5. Replaces the target frame element with the newly created div element.
-   *
-   * @remarks
-   * The method assumes that the frameId and destroyText are defined in the configuration object.
-   * The method also assumes that the class names are stored in a private property `#classNames`.
-   *
-   * @throws If the frameId is not defined in the configuration.
+   * This method:
+   * 1. Finds the frame container element
+   * 2. Creates a replacement div with the original ID and class
+   * 3. Replaces the container with the new div
+   * 4. Cleans up all event listeners and internal state
+   * 5. Removes the instance from global frame registry
    */
   destroyFrame(): void {
     const frameId = this.config.frameId;
-    const frameElement = document.getElementById(frameId);
+    const containerElement = document.getElementById(`${frameId}-container`);
     const sdkFrames = window.DocSpace?.SDK?.frames;
 
-    if (frameElement) {
-      frameElement.innerHTML = this.config.destroyText || "";
-      frameElement.className = this.#classNames;
+    const replacementDiv = document.createElement("div");
+    replacementDiv.id = frameId;
+    replacementDiv.className = this.#classNames;
+    replacementDiv.innerHTML = this.config.destroyText || "";
 
-      frameElement.replaceWith(frameElement.cloneNode(false));
+    if (containerElement) {
+      if (containerElement.parentNode) {
+        containerElement.parentNode.insertBefore(
+          replacementDiv,
+          containerElement
+        );
+        containerElement.parentNode.removeChild(containerElement);
+      } else {
+        document.body.appendChild(replacementDiv);
+      }
     }
 
-    window.removeEventListener("message", this.#onMessage, false);
+    window.removeEventListener("message", this.#onMessage);
+
     this.#isConnected = false;
+    this.#callbacks = [];
+    this.#tasks = [];
 
     if (sdkFrames) {
       delete sdkFrames[frameId];
