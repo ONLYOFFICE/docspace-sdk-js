@@ -21,7 +21,7 @@
  * @mergeModuleWith <project>
  */
 
-import { TFrameConfig } from "../types";
+import type { TFrameConfig } from "../types";
 import {
   EditorType,
   ManagerViewMode,
@@ -105,6 +105,7 @@ export const defaultConfig: TFrameConfig = {
   showSettings: false,
   /** Loading state indicator */
   waiting: false,
+  noLoader: true,
   /** Enable/disable search functionality */
   withSearch: true,
   /** Show/hide breadcrumb navigation */

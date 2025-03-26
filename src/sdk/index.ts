@@ -21,7 +21,7 @@
  * @mergeModuleWith <project>
  */
 
-import { TFrameConfig } from "../types";
+import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 import { SDKInstance } from "../instance";
 
@@ -43,11 +43,6 @@ import { SDKInstance } from "../instance";
  */
 export class SDK {
   /**
-   * Array containing instances of SDKInstance.
-   * Each instance represents a separate SDK configuration.
-   */
-  instances: SDKInstance[] = [];
-  /**
    * Maps frame IDs to their corresponding SDKInstance objects.
    * Used to track and manage multiple SDK instances across different frames.
    */
@@ -62,20 +57,18 @@ export class SDK {
    * @returns The initialized SDK instance.
    */
   init = (config: TFrameConfig): SDKInstance => {
-    const existInstance = this.instances.find(
-      (i) => i.config.frameId === config.frameId
-    );
+    const { frameId } = config;
+    const existingInstance = this.frames[frameId];
 
-    if (existInstance) {
-      existInstance.initFrame(config);
-      return existInstance;
+    if (existingInstance) {
+      existingInstance.initFrame(config);
+      return existingInstance;
     }
 
     const instance = new SDKInstance(config);
-
     instance.initFrame(config);
 
-    this.instances.push(instance);
+    this.frames[frameId] = instance;
 
     return instance;
   };

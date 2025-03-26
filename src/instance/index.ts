@@ -22,7 +22,7 @@
  */
 
 import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
-import {
+import type {
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
@@ -50,7 +50,6 @@ import { InstanceMethods, MessageTypes } from "../enums";
  */
 export class SDKInstance {
   #isConnected: boolean = false;
-  #frameOpacity: string = "0";
   #callbacks: ((data: object) => void)[] = [];
   #tasks: TTask[] = [];
   #classNames: string = "";
@@ -60,6 +59,17 @@ export class SDKInstance {
   constructor(config: TFrameConfig) {
     this.config = config;
   }
+
+  private static _loaderCache = {
+    style: new Map<string, HTMLStyleElement>(),
+    container: document.createElement("div"),
+    templates: new Map<string, HTMLElement>(),
+  };
+
+  private static _iframeCache: {
+    template: HTMLIFrameElement;
+    pathCache: Map<string, string>;
+  };
 
   /**
    * Creates and returns a loader HTML element with specified configuration.
@@ -78,25 +88,54 @@ export class SDKInstance {
    * The container's dimensions are set using the width and height from the config.
    */
   #createLoader = (config: TFrameConfig): HTMLElement => {
-    const container = document.createElement("div");
-    const loader = document.createElement("div");
-    const loaderStyle = document.createElement("style");
+    const { frameId, width, height } = config;
+    const loaderClassName = `${frameId}-loader__element`;
+    const templateKey = `${width}_${height}`;
 
-    const loaderClassName = config.frameId + "-loader__element";
-    const loaderStyleText = getLoaderStyle(loaderClassName);
+    if (!SDKInstance._loaderCache.style.has(loaderClassName)) {
+      const style = document.createElement("style");
+      style.textContent = getLoaderStyle(loaderClassName);
 
-    loader.className = loaderClassName;
-    container.id = config.frameId + "-loader";
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(style);
+      document.head.appendChild(fragment);
 
-    container.style.width = config.width!;
-    container.style.height = config.height!;
-    container.style.display = "flex";
-    container.style.justifyContent = "center";
-    container.style.alignItems = "center";
+      SDKInstance._loaderCache.style.set(loaderClassName, style);
+    }
 
-    loaderStyle.insertAdjacentHTML("afterbegin", loaderStyleText);
+    let container: HTMLElement;
 
-    container.append(loaderStyle, loader);
+    if (SDKInstance._loaderCache.templates.has(templateKey)) {
+      container = SDKInstance._loaderCache.templates
+        .get(templateKey)!
+        .cloneNode(true) as HTMLElement;
+      container.id = `${frameId}-loader`;
+    } else {
+      container = SDKInstance._loaderCache.container.cloneNode() as HTMLElement;
+
+      Object.assign(container.style, {
+        width,
+        height,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        position: "relative",
+        zIndex: "1",
+        backgroundColor: "transparent",
+        transition: "opacity 0.15s ease-out",
+      });
+
+      const loader = document.createElement("div");
+      loader.className = loaderClassName;
+      container.appendChild(loader);
+
+      SDKInstance._loaderCache.templates.set(
+        templateKey,
+        container.cloneNode(true) as HTMLElement
+      );
+
+      container.id = `${frameId}-loader`;
+    }
 
     return container;
   };
@@ -113,40 +152,117 @@ export class SDKInstance {
    * If CSP validation fails, it sets an error message in the iframe's srcdoc.
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
-    const iframe = document.createElement("iframe");
+    if (!SDKInstance._iframeCache) {
+      SDKInstance._iframeCache = {
+        template: document.createElement("iframe"),
+        pathCache: new Map<string, string>(),
+      };
 
-    const path = getFramePath(config);
+      SDKInstance._iframeCache.template.allowFullscreen = true;
+      SDKInstance._iframeCache.template.setAttribute(
+        "allow",
+        "storage-access *"
+      );
+    }
+
+    const iframe =
+      SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
+    const cacheKey = `${config.mode}_${config.id || ""}_${config.frameId}`;
+    let path = SDKInstance._iframeCache.pathCache.get(cacheKey);
+
+    if (!path) {
+      path = getFramePath(config);
+      SDKInstance._iframeCache.pathCache.set(cacheKey, path);
+    }
 
     iframe.id = config.frameId;
+    iframe.name = `${FRAME_NAME}__#${config.frameId}`;
     iframe.src = config.src + path;
-    iframe.name = FRAME_NAME + "__#" + config.frameId;
 
-    iframe.style.width = config.width!;
-    iframe.style.height = config.height!;
-    iframe.style.border = "0px";
+    Object.assign(iframe.style, {
+      width: config.width!,
+      height: config.height!,
+      border: "0px",
+      opacity: "0",
+      ...(config.type === "mobile" && {
+        position: "fixed",
+        overflow: "hidden",
+        webkitOverflowScrolling: "touch",
+      }),
+    });
 
-    iframe.allowFullscreen = true;
-    iframe.setAttribute("allow", "storage-access *");
-
-    if (config.type == "mobile") {
-      iframe.style.position = "fixed";
-      iframe.style.overflow = "hidden";
+    if (config.type === "mobile") {
       document.body.style.overscrollBehaviorY = "contain";
+
+      if ("loading" in HTMLIFrameElement.prototype) {
+        iframe.loading = "eager";
+      }
     }
 
     if (config.checkCSP) {
-      validateCSP(config.src).catch((e: Error) => {
-        config.events?.onAppError?.(e.message);
-
-        const errorBody = getCSPErrorBody(config.src);
-        iframe.srcdoc = errorBody;
-
-        this.setIsLoaded();
+      requestAnimationFrame(() => {
+        validateCSP(config.src).catch((e: Error) => {
+          if (config.events?.onAppError) {
+            config.events.onAppError(e.message);
+          }
+          iframe.srcdoc = getCSPErrorBody(config.src);
+          this.setIsLoaded();
+        });
       });
     }
 
     return iframe;
   };
+
+  /**
+   * Sets the target frame as loaded by updating its styles and removing the loader element.
+   * If the loader element is found and removed, it triggers the `onContentReady` event if it exists.
+   *
+   * @remarks
+   * This method modifies the styles of the target frame to make it visible and adjusts its dimensions
+   * based on the configuration. It also ensures the parent node's height is set to inherit.
+   * Uses performance-optimized transitions for smooth appearance.
+   */
+  setIsLoaded(): void {
+    const frameId = this.config.frameId;
+    const targetFrame = document.getElementById(frameId);
+    const parent = targetFrame?.parentElement;
+
+    if (!targetFrame || !parent) return;
+
+    requestAnimationFrame(() => {
+      parent.style.height = this.config.height!;
+      parent.style.width = this.config.width!;
+
+      const loader = document.getElementById(`${frameId}-loader`);
+
+      if (loader) {
+        loader.style.opacity = "0";
+
+        const removeLoader = () => {
+          if (loader.parentNode) {
+            loader.parentNode.removeChild(loader);
+          }
+          this.config.events?.onContentReady?.();
+        };
+
+        requestAnimationFrame(() => {
+          removeLoader();
+        });
+      } else {
+        this.config.events?.onContentReady?.();
+      }
+
+      requestAnimationFrame(() => {
+        Object.assign(targetFrame.style, {
+          opacity: "1",
+          position: "relative",
+          width: this.config.width!,
+          height: this.config.height!,
+        });
+      });
+    });
+  }
 
   /**
    * Sends a message to the target iframe specified by the frameId in the configuration.
@@ -161,24 +277,22 @@ export class SDKInstance {
    * string representations.
    */
   #sendMessage = (message: TTask) => {
-    const mes = {
-      frameId: this.config.frameId,
-      type: "",
-      data: message,
-    };
-
-    const targetFrame = document.getElementById(
+    const iframe = document.getElementById(
       this.config.frameId
     ) as HTMLIFrameElement;
+    if (!iframe?.contentWindow) return;
 
-    if (targetFrame && !!targetFrame.contentWindow) {
-      targetFrame.contentWindow.postMessage(
-        JSON.stringify(mes, (_, value) =>
-          typeof value === "function" ? value.toString() : value
-        ),
-        this.config.src
-      );
-    }
+    iframe.contentWindow.postMessage(
+      JSON.stringify(
+        {
+          frameId: this.config.frameId,
+          type: "",
+          data: message,
+        },
+        (_, value) => (typeof value === "function" ? value.toString() : value)
+      ),
+      this.config.src
+    );
   };
 
   /**
@@ -197,83 +311,76 @@ export class SDKInstance {
    * If the message data cannot be parsed, it logs an error and sets the data to a default error object.
    */
   #onMessage = (e: MessageEvent) => {
-    if (typeof e.data == "string") {
-      let data = {} as TMessageData;
+    if (typeof e.data !== "string") return;
 
-      try {
-        data = JSON.parse(e.data);
-      } catch (err) {
-        console.log("SDK #onMessage data parse error:", err);
-        data = {
-          commandName: "error",
-          frameId: "error",
-          type: MessageTypes.Error,
-        };
-      }
+    const data = this.#parseMessageData(e.data);
+    if (data.frameId !== this.config.frameId) return;
 
-      if (this.config.frameId !== data.frameId) {
-        return;
-      }
-
-      switch (data.type) {
-        case MessageTypes.OnMethodReturn: {
-          if (this.#callbacks.length > 0) {
-            const callback = this.#callbacks.shift();
-
-            if (callback) {
-              callback(data.methodReturnData!);
-            }
-          }
-
-          if (this.#tasks.length > 0) {
-            const task = this.#tasks.shift() as TTask;
-            this.#sendMessage(task);
-          }
-          break;
-        }
-        case MessageTypes.OnEventReturn: {
-          if (Object.keys(this.config).length === 0 || !data.eventReturnData)
-            return;
-
-          const eventName = data.eventReturnData.event as keyof TFrameEvents;
-          const events = this.config.events as TFrameEvents;
-
-          if (Object.prototype.hasOwnProperty.call(events, eventName)) {
-            const eventHandler = events[eventName];
-
-            if (typeof eventHandler === "function") {
-              try {
-                eventHandler.call(events, data.eventReturnData.data);
-              } catch (error) {
-                console.log(
-                  "SDK #onMessage error executing event handler for ",
-                  eventName,
-                  error
-                );
-              }
-            }
-          }
-          break;
-        }
-        case MessageTypes.OnCallCommand: {
-          const commandName = data.commandName;
-
-          const command = (this as Record<string, unknown>)[commandName];
-
-          if (typeof command === "function") {
-            (command as (data: object) => void).call(
-              this,
-              data.commandData as object
-            );
-          }
-
-          break;
-        }
-        default:
-          break;
-      }
+    switch (data.type) {
+      case MessageTypes.OnMethodReturn:
+        this.#handleMethodResponse(data);
+        break;
+      case MessageTypes.OnEventReturn:
+        data.eventReturnData && this.#processEvent(data.eventReturnData);
+        break;
+      case MessageTypes.OnCallCommand:
+        this.#executeCommand(data);
+        break;
+      case MessageTypes.Error:
+        data.error && this.#handleError(data.error);
+        break;
     }
   };
+
+  #parseMessageData(data: string): TMessageData {
+    try {
+      return JSON.parse(data);
+    } catch (error) {
+      console.warn("Failed to parse message:", error);
+      return {
+        frameId: "error",
+        type: MessageTypes.Error,
+        commandName: "parseMessageData",
+        error: { message: "Invalid message format" },
+      };
+    }
+  }
+
+  #handleMethodResponse(data: TMessageData) {
+    const callback = this.#callbacks.shift();
+    callback?.(data.methodReturnData!);
+
+    if (this.#tasks.length > 0) {
+      this.#sendMessage(this.#tasks.shift()!);
+    }
+  }
+
+  #processEvent(eventData?: TMessageData["eventReturnData"]) {
+    if (!eventData?.event) return;
+
+    const eventName = eventData.event as keyof TFrameEvents;
+    const handler = this.config.events?.[eventName];
+
+    if (typeof handler === "function") {
+      try {
+        handler(eventData.data);
+      } catch (error) {
+        console.error("Event handler failed:", eventName, error);
+      }
+    }
+  }
+
+  #executeCommand(data: TMessageData) {
+    const command = this[data.commandName as keyof this];
+    if (typeof command === "function") {
+      (command as (data: unknown) => void).call(this, data.commandData);
+    }
+  }
+
+  #handleError(error: { message: string }) {
+    console.error("SDK Error:", error);
+    this.config.events?.onAppError?.(error.message);
+  }
 
   /**
    * Executes a method by sending a message to the connected frame.
@@ -288,58 +395,22 @@ export class SDKInstance {
    * It then pushes the callback to the callbacks array and constructs a message object.
    * If there are other pending callbacks, it queues the message; otherwise, it sends the message immediately.
    */
-  #executeMethod = (
+  #executeMethod(
     methodName: string,
     params: object | null,
     callback: (data: object) => void
-  ): void => {
-    if (!this.#isConnected) {
-      this.config.events?.onAppError?.(connectErrorText);
-
-      console.error(connectErrorText);
+  ): void {
+    if (!this.#isConnected && methodName !== InstanceMethods.SetConfig) {
+      this.#handleError({ message: connectErrorText });
       return;
     }
 
-    this.#callbacks.push(callback);
+    this.#callbacks = [...this.#callbacks, callback];
+    const message = { type: "method", methodName, data: params };
 
-    const message: TTask = {
-      type: "method",
-      methodName,
-      data: params,
-    };
-
-    if (this.#callbacks.length !== 1) {
-      this.#tasks.push(message);
-      return;
-    }
-
-    this.#sendMessage(message);
-  };
-
-  /**
-   * Sets the target frame as loaded by updating its styles and removing the loader element.
-   * If the loader element is found and removed, it triggers the `onContentReady` event if it exists.
-   *
-   * @remarks
-   * This method modifies the styles of the target frame to make it visible and adjusts its dimensions
-   * based on the configuration. It also ensures the parent node's height is set to inherit.
-   */
-  setIsLoaded(): void {
-    const targetFrame = document.getElementById(this.config.frameId);
-    const loader = document.getElementById(this.config.frameId + "-loader");
-
-    if (targetFrame) {
-      targetFrame.style.opacity = "1";
-      targetFrame.style.position = "relative";
-      targetFrame.style.width = this.config.width!;
-      targetFrame.style.height = this.config.height!;
-      (targetFrame.parentNode as HTMLElement).style.height = "inherit";
-
-      if (loader) {
-        loader.remove();
-        this.config.events?.onContentReady?.();
-      }
-    }
+    this.#callbacks.length > 1
+      ? (this.#tasks = [...this.#tasks, message])
+      : this.#sendMessage(message);
   }
 
   /**
@@ -348,100 +419,125 @@ export class SDKInstance {
    * @param config - The configuration object for the iframe.
    * @returns The created iframe element.
    */
-  initFrame(config: TFrameConfig): HTMLIFrameElement {
-    const configFull = { ...defaultConfig, ...config };
-
-    this.config = { ...this.config, ...configFull };
+  initFrame(config: TFrameConfig): HTMLIFrameElement | null {
+    this.config = { ...this.config, ...defaultConfig, ...config };
 
     const target = document.getElementById(this.config.frameId);
 
-    let iframe = null;
+    if (!target) return null;
 
-    if (target) {
-      iframe = this.#createIframe(this.config);
-
-      iframe.style.opacity = this.#frameOpacity;
-      iframe.style.zIndex = "2";
-      iframe.style.position = "absolute";
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.top = "0";
-      iframe.style.left = "0";
-
-      const frameLoader = this.#createLoader(this.config);
-
-      this.#classNames = target.className;
-
-      const renderContainer = document.createElement("div");
-
-      renderContainer.id = this.config.frameId + "-container";
-      renderContainer.style.position = "relative";
-      renderContainer.style.width = "100%";
-      renderContainer.style.height = "100%";
-
-      renderContainer.classList.add("frame-container");
-
-      if (!this.config.waiting || this.config.mode === "system") {
-        renderContainer.appendChild(iframe);
-      }
-
-      renderContainer.appendChild(frameLoader);
-
-      const isSelfReplace = (target.parentNode as HTMLElement).isEqualNode(
-        document.getElementById(this.config.frameId + "-container")
-      );
-
-      if (isSelfReplace) {
-        (target.parentNode as HTMLElement).replaceWith(renderContainer);
-      } else {
-        target.replaceWith(renderContainer);
-      }
-
-      window.addEventListener("message", this.#onMessage, false);
-
-      this.#isConnected = true;
-
-      window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
-
-      window.DocSpace.SDK.frames[this.config.frameId] = this;
+    if (this.config.mode === "manager" || this.config.mode === "system") {
+      this.config.noLoader = false;
     }
 
-    return iframe as HTMLIFrameElement;
+    this.#classNames = target.className;
+
+    const fragment = document.createDocumentFragment();
+    const renderContainer = document.createElement("div");
+
+    Object.assign(renderContainer, {
+      id: this.config.frameId + "-container",
+      className: "frame-container",
+      style: {
+        position: "relative",
+        width: this.config.width,
+        height: this.config.height,
+      },
+    });
+
+    const iframe = this.#createIframe(this.config);
+
+    Object.assign(iframe.style, {
+      opacity: this.config.noLoader ? "1" : "0",
+      zIndex: "2",
+      position: this.config.noLoader ? "relative" : "absolute",
+      width: this.config.noLoader ? this.config.width : "100%",
+      height: this.config.noLoader ? this.config.height : "100%",
+      top: "0",
+      left: "0",
+    });
+
+    const handleFrameLoad = () => {
+      window.addEventListener("message", this.#onMessage.bind(this));
+      this.#isConnected = true;
+
+      if (this.config.noLoader) {
+        this.config.events?.onContentReady?.();
+      }
+
+      iframe.removeEventListener("load", handleFrameLoad);
+    };
+
+    iframe.addEventListener("load", handleFrameLoad);
+
+    if (!this.config.waiting || this.config.mode === "system") {
+      fragment.appendChild(iframe);
+    }
+
+    if (!this.config.noLoader) {
+      const frameLoader = this.#createLoader(this.config);
+      fragment.appendChild(frameLoader);
+    } else {
+      renderContainer.style.height = this.config.height!;
+      renderContainer.style.width = this.config.width!;
+    }
+
+    renderContainer.appendChild(fragment);
+
+    if (target.parentNode) {
+      target.parentNode.insertBefore(renderContainer, target);
+      target.remove();
+    } else {
+      target.replaceWith(renderContainer);
+    }
+
+    window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
+    window.DocSpace.SDK.frames[this.config.frameId] = this;
+
+    return iframe;
   }
 
   /**
-   * Destroys the current frame by replacing it with a new div element.
+   * Destroys the current frame and cleans up all associated resources.
    *
-   * This method performs the following actions:
-   * 1. Creates a new div element and sets its id, innerHTML, and className based on the current configuration.
-   * 2. Retrieves the target frame element using the configured frameId.
-   * 3. Removes the 'message' event listener from the window.
-   * 4. Sets the internal connection status to false.
-   * 5. Replaces the target frame element with the newly created div element.
-   *
-   * @remarks
-   * The method assumes that the frameId and destroyText are defined in the configuration object.
-   * The method also assumes that the class names are stored in a private property `#classNames`.
-   *
-   * @throws If the frameId is not defined in the configuration.
+   * This method:
+   * 1. Finds the frame container element
+   * 2. Creates a replacement div with the original ID and class
+   * 3. Replaces the container with the new div
+   * 4. Cleans up all event listeners and internal state
+   * 5. Removes the instance from global frame registry
    */
   destroyFrame(): void {
-    const target = document.createElement("div");
+    const frameId = this.config.frameId;
+    const containerElement = document.getElementById(`${frameId}-container`);
+    const sdkFrames = window.DocSpace?.SDK?.frames;
 
-    target.setAttribute("id", this.config.frameId);
-    target.innerHTML = this.config.destroyText as string;
-    target.className = this.#classNames;
+    const replacementDiv = document.createElement("div");
+    replacementDiv.id = frameId;
+    replacementDiv.className = this.#classNames;
+    replacementDiv.innerHTML = this.config.destroyText || "";
 
-    const targetFrame = document.getElementById(
-      this.config.frameId + "-container"
-    );
+    if (containerElement) {
+      if (containerElement.parentNode) {
+        containerElement.parentNode.insertBefore(
+          replacementDiv,
+          containerElement
+        );
+        containerElement.parentNode.removeChild(containerElement);
+      } else {
+        document.body.appendChild(replacementDiv);
+      }
+    }
 
-    window.removeEventListener("message", this.#onMessage, false);
+    window.removeEventListener("message", this.#onMessage);
+
     this.#isConnected = false;
+    this.#callbacks = [];
+    this.#tasks = [];
 
-    delete window.DocSpace.SDK.frames[this.config.frameId];
-
-    targetFrame?.parentNode?.replaceChild(target, targetFrame);
+    if (sdkFrames) {
+      delete sdkFrames[frameId];
+    }
   }
 
   /**
@@ -449,7 +545,7 @@ export class SDKInstance {
    *
    * @param methodName - The name of the method to execute.
    * @param params - The parameters to pass to the method. Defaults to null.
-   * @returns A promise that resolves with the result of the method execution or the current configuration if reloaded.
+   * @returns A promise that resolves to an object containing the result of the method execution or the current configuration if reloaded.
    */
   #getMethodPromise = (
     methodName: string,

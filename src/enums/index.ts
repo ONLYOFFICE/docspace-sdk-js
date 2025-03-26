@@ -24,7 +24,7 @@
 /**
  * Available modes in the SDK
  */
-export const enum SDKMode {
+export enum SDKMode {
   /** Manager mode */
   Manager = "manager",
   /** Editor mode */
@@ -37,6 +37,8 @@ export const enum SDKMode {
   FileSelector = "file-selector",
   /** System mode */
   System = "system",
+  /** Public room mode */
+  PublicRoom = "public-room",
 }
 
 /**

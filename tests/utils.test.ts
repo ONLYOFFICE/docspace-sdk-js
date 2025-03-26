@@ -25,7 +25,7 @@ import {
   getFramePath,
 } from "../src/utils";
 import { cspErrorText, defaultConfig } from "../src/constants";
-import { TFrameConfig } from "../src/types";
+import type { TFrameConfig } from "../src/types";
 import { SDKMode } from "../src/enums";
 
 describe("customUrlSearchParams", () => {
@@ -56,6 +56,14 @@ describe("customUrlSearchParams", () => {
   it("should handle empty object", () => {
     const params = customUrlSearchParams({});
     expect(params.toString()).toBe("");
+  });
+
+  it("should handle multiple keys", () => {
+    const params = customUrlSearchParams({
+      key1: "value1",
+      key2: "value2",
+    });
+    expect(params.toString()).toBe("key1=value1&key2=value2");
   });
 });
 
@@ -125,13 +133,25 @@ describe("validateCSP", () => {
       cspErrorText
     );
   });
+
+  it("should throw an error for invalid JSON response", async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        json: () => Promise.reject("Invalid JSON"),
+      })
+    ) as jest.Mock;
+
+    await expect(validateCSP("https://example.com")).rejects.toThrow(
+      "CSP validation failed: Invalid JSON"
+    );
+  });
 });
 
 describe("getConfigFromParams", () => {
   it("should return the correct config from URL parameters", () => {
     Object.defineProperty(document, "currentScript", {
       value: {
-        src: "https://example.com/api.js?showHeaderBanner=none&showMenu=false&withSearch=true&count=100",
+        src: "https://example.com/api.js?src=&showHeaderBanner=none&showMenu=false&withSearch=true&count=100&mode=manager",
       },
       writable: true,
     });
@@ -142,24 +162,29 @@ describe("getConfigFromParams", () => {
   });
 
   it("should return the correct config if URL has empty options", () => {
+    const scriptElement = document.createElement('script');
+    scriptElement.src = 'https://example.com?src=https://example.com&mode=editor';
+    document.body.appendChild(scriptElement);
     Object.defineProperty(document, "currentScript", {
-      value: {
-        src: "https://example.com/api.js",
-      },
-      writable: true,
+      value: scriptElement,
     });
 
-    const result = getConfigFromParams();
+    const config = getConfigFromParams();
 
-    expect(result).toEqual(defaultConfig);
+    expect(config).toEqual({
+      ...defaultConfig,
+      src: 'https://example.com',
+      mode: 'editor',
+    });
+
+    document.body.removeChild(scriptElement);
   });
 
   it("should return the correct config with extended options on main level of config", () => {
     Object.defineProperty(document, "currentScript", {
       value: {
-        src: "https://example.com/api.js?test=value",
+        src: "https://example.com/api.js?src=https://example.com&mode=editor&test=true",
       },
-      writable: true,
     });
 
     const result = getConfigFromParams();
@@ -189,7 +214,7 @@ describe("getCSPErrorBody", () => {
 describe("getLoaderStyle", () => {
   it("should return the correct CSS for the given class name", () => {
     const className = "loader";
-    const expectedCSS = `@keyframes rotate { 0%{ transform: rotate(-45deg); } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } }`;
+    const expectedCSS = `@keyframes rotate { 0%{ transform: rotate(-45deg); will-change: transform; } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; will-change: transform; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } } @media (prefers-reduced-motion: reduce) { .${className} { animation-duration: 1.5s; } }`;
 
     const result = getLoaderStyle(className);
     expect(result).toBe(expectedCSS);
@@ -197,7 +222,7 @@ describe("getLoaderStyle", () => {
 
   it("should handle different class names correctly", () => {
     const className = "spinner";
-    const expectedCSS = `@keyframes rotate { 0%{ transform: rotate(-45deg); } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } }`;
+    const expectedCSS = `@keyframes rotate { 0%{ transform: rotate(-45deg); will-change: transform; } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; will-change: transform; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } } @media (prefers-reduced-motion: reduce) { .${className} { animation-duration: 1.5s; } }`;
 
     const result = getLoaderStyle(className);
     expect(result).toBe(expectedCSS);
@@ -229,7 +254,7 @@ describe("getFramePath", () => {
         rootPath: "/root",
       };
       const path = getFramePath(config);
-      expect(path).toBe("/sdk/room-selector");
+      expect(path).toBe(`/sdk/room-selector`);
     });
   });
 
@@ -254,12 +279,12 @@ describe("getFramePath", () => {
         mode: SDKMode.Editor,
         id: "123",
         editorType: "desktop",
-        editorGoBack: "back",
+        editorGoBack: true,
         editorCustomization: {},
         theme: "Base",
       };
       const path = getFramePath(config);
-      expect(path).toContain("/doceditor?fileId=123&editorType=desktop");
+      expect(path).toContain("/doceditor?theme=Base&fileId=123&editorType=desktop");
     });
   });
 
@@ -271,13 +296,13 @@ describe("getFramePath", () => {
         mode: SDKMode.Viewer,
         id: "123",
         editorType: "embedded",
-        editorGoBack: "back",
+        editorGoBack: false,
         editorCustomization: {},
         theme: "Dark",
       };
       const path = getFramePath(config);
       expect(path).toContain(
-        "/doceditor?fileId=123&editorType=embedded&action=view"
+        "/doceditor?theme=Dark&fileId=123&editorType=embedded&action=view"
       );
     });
   });
@@ -290,8 +315,19 @@ describe("getFramePath", () => {
         mode: SDKMode.System,
       };
       const path = getFramePath(config);
-      expect(path).toBe("/sdk/system");
+      expect(path).toBe("/old-sdk/system");
     });
   });
 
+  it("should handle all mode combinations correctly", () => {
+    const modes = Object.values(SDKMode);
+    modes.forEach((mode) => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode,
+      };
+      expect(() => getFramePath(config)).not.toThrow();
+    });
+  });
 });

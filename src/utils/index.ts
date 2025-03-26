@@ -22,7 +22,7 @@
  */
 
 import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
-import { TFrameConfig, TEditorCustomization } from "../types";
+import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 
 /**
@@ -32,8 +32,16 @@ import { SDKMode } from "../enums";
  * @returns A new instance of URLSearchParams initialized with the provided object.
  */
 export const customUrlSearchParams = (
-  data: Record<string, string | number | boolean>
-) => new URLSearchParams(data as Record<string, string>);
+  data: Record<string, string | number | boolean | undefined | null>
+) => {
+  if (!data) return "";
+
+  Object.keys(data).forEach(
+    (key) => (data[key] === undefined || data[key] === null) && delete data[key]
+  );
+
+  return new URLSearchParams(data as Record<string, string>).toString();
+};
 
 /**
  * Validates the Content Security Policy (CSP) of the target source.
@@ -48,10 +56,21 @@ export const validateCSP = async (targetSrc: string) => {
 
   if (origin.includes(targetSrc)) return;
 
-  const response = await fetch(`${targetSrc}${CSPApiUrl}`);
+  const response = await fetch(`${targetSrc}${CSPApiUrl}`, {
+    method: "get",
+    headers: new Headers({
+      "ngrok-skip-browser-warning": "69420",
+    }),
+  });
+  let json;
+  try {
+    json = await response.json();
+  } catch (error) {
+    throw new Error(`CSP validation failed: ${error}`);
+  }
   const {
     response: { domains },
-  } = await response.json();
+  } = json;
 
   const currentSrcHost = host || new URL(origin).host;
 
@@ -74,7 +93,7 @@ export const getCSPErrorBody = (src: string) => {
 };
 
 export const getLoaderStyle = (className: string) => {
-  return `@keyframes rotate { 0%{ transform: rotate(-45deg); } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } }`;
+  return `@keyframes rotate { 0%{ transform: rotate(-45deg); will-change: transform; } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; will-change: transform; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } } @media (prefers-reduced-motion: reduce) { .${className} { animation-duration: 1.5s; } }`;
 };
 
 /**
@@ -89,19 +108,26 @@ export const getLoaderStyle = (className: string) => {
  */
 export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
-  const searchParams = new URL(decodeURIComponent(scriptElement.src)).searchParams;
+  const searchParams = new URL(decodeURIComponent(scriptElement.src))
+    .searchParams;
+
   const configTemplate: TFrameConfig = { ...defaultConfig };
 
   type FilterParams = Record<string, string | number | boolean>;
 
   searchParams.forEach((value, key) => {
-    const parsedValue = value === "true" ? true : value === "false" ? false : value;
+    const parsedValue =
+      value === "true" ? true : value === "false" ? false : value;
     if (defaultConfig.filter && key in defaultConfig.filter) {
       (configTemplate.filter as FilterParams)[key] = parsedValue;
     } else {
       (configTemplate as unknown as FilterParams)[key] = parsedValue;
     }
   });
+
+  // Ensure default values for mode and src
+  configTemplate.mode = searchParams.get("mode") || "manager";
+  configTemplate.src = searchParams.get("src") || "";
 
   return configTemplate;
 };
@@ -115,6 +141,7 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  * @remarks
  * The function handles different modes specified in the `config.mode` property:
  * - `SDKMode.Manager`: Generates a path for the manager mode, including optional request tokens and filters.
+ * - `SDKMode.PublicRoom`: Generates a path for the public room mode, including request tokens and filters.
  * - `SDKMode.RoomSelector`: Returns a fixed path for the room selector.
  * - `SDKMode.FileSelector`: Returns a path for the file selector with the specified selector type.
  * - `SDKMode.System`: Returns a fixed path for the system mode.
@@ -123,6 +150,37 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  *
  */
 export const getFramePath = (config: TFrameConfig) => {
+  const baseFrameOptions = {
+    theme: config.theme,
+    locale: config.locale,
+  };
+
+  const baseSelectorOptions = {
+    acceptLabel: config.acceptButtonLabel,
+    cancel: config.showSelectorCancel,
+    cancelLabel: config.cancelButtonLabel,
+    header: config.showSelectorHeader,
+    roomType: config.roomType,
+    search: config.withSearch,
+  };
+
+  const baseEditorOptions = {
+    fileId:
+      !config.id || config.id === "undefined" || config.id === "null"
+        ? -1
+        : config.id,
+    editorType: config.editorType,
+    share: config.requestToken ? config.requestToken : undefined,
+    is_file: config.requestToken ? true : undefined,
+    editorGoBack:
+      config.events?.onEditorCloseCallback &&
+      typeof config.events.onEditorCloseCallback === "function"
+        ? "event"
+        : config.editorGoBack
+        ? config.editorGoBack
+        : undefined,
+  };
+
   switch (config.mode) {
     case SDKMode.Manager: {
       if (config.id) config.filter!.folder = config.id as string;
@@ -145,66 +203,77 @@ export const getFramePath = (config: TFrameConfig) => {
     }
 
     case SDKMode.RoomSelector: {
-      return `/sdk/room-selector`;
+      const roomSelectorConfig = {
+        ...baseFrameOptions,
+        ...baseSelectorOptions,
+      };
+
+      const urlParams = customUrlSearchParams(roomSelectorConfig);
+
+      return `/sdk/room-selector${urlParams ? `?${urlParams}` : ""}`;
     }
 
     case SDKMode.FileSelector: {
-      return `/sdk/file-selector?selectorType=${config.selectorType}`;
+      const fileSelectorConfig = {
+        ...baseFrameOptions,
+        ...baseSelectorOptions,
+        breadCrumbs: config.withBreadCrumbs,
+        filter: config.filterParam,
+        id: config.id,
+        selectorType: config.selectorType,
+        subtitle: config.withSubtitle,
+      };
+
+      const urlParams = customUrlSearchParams(fileSelectorConfig);
+
+      return `/sdk/file-selector${urlParams ? `?${urlParams}` : ""}`;
+    }
+
+    case SDKMode.PublicRoom: {
+      const publicRoomConfig = {
+        ...baseFrameOptions,
+        folder: config.id,
+        key: config.requestToken,
+      };
+
+      const urlParams = customUrlSearchParams(publicRoomConfig);
+
+      return `/sdk/public-room${urlParams ? `?${urlParams}` : ""}`;
     }
 
     case SDKMode.System: {
-      return `/sdk/system`;
+      const urlParams = customUrlSearchParams(baseFrameOptions);
+      return `/old-sdk/system${urlParams ? `?${urlParams}` : ""}`;
     }
 
     case SDKMode.Editor: {
-      (config?.editorCustomization as TEditorCustomization).uiTheme =
-        config.theme;
+      const editorConfig = {
+        ...baseFrameOptions,
+        ...baseEditorOptions,
+      };
 
-      if (!config.id || config.id === "undefined" || config.id === "null") {
-        config.id = -1; //editor default wrong file id error
-      }
+      const urlParams = customUrlSearchParams(editorConfig);
 
-      if (
-        config.events?.onEditorCloseCallback &&
-        typeof config.events.onEditorCloseCallback === "function"
-      ) {
-        config.editorGoBack = "event";
-      }
-
-      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}`;
-
-      if (config.requestToken) {
-        return `${path}&share=${config.requestToken}&is_file=true`;
-      }
+      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
 
       return path;
     }
 
     case SDKMode.Viewer: {
-      (config?.editorCustomization as TEditorCustomization).uiTheme =
-        config.theme;
+      const viewerConfig = {
+        ...baseFrameOptions,
+        ...baseEditorOptions,
+        action: "view",
+      };
 
-      if (!config.id || config.id === "undefined" || config.id === "null") {
-        config.id = -1; //editor default wrong file id error
-      }
+      const urlParams = customUrlSearchParams(viewerConfig);
 
-      if (
-        config.events?.onEditorCloseCallback &&
-        typeof config.events.onEditorCloseCallback === "function"
-      ) {
-        config.editorGoBack = "event";
-      }
-
-      const path = `/doceditor?fileId=${config.id}&editorType=${config.editorType}&action=view`;
-
-      if (config.requestToken) {
-        return `${path}&share=${config.requestToken}&is_file=true`;
-      }
+      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
 
       return path;
     }
 
     default:
-      return config.rootPath;
+      return config.rootPath || "/";
   }
 };

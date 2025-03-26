@@ -20,7 +20,7 @@ jest.mock("../src/instance");
 
 import { SDKMode } from "../src/enums";
 import { SDKInstance } from "../src/instance";
-import { TFrameConfig } from "../src/types";
+import type { TFrameConfig } from "../src/types";
 import { SDK } from "../src/sdk/index";
 
 describe("SDK class", () => {
@@ -38,7 +38,7 @@ describe("SDK class", () => {
 
   it("should initialize manager mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.Manager });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initManager(config);
 
@@ -51,7 +51,7 @@ describe("SDK class", () => {
 
   it("should initialize viewer mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.Viewer });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initViewer(config);
 
@@ -64,7 +64,7 @@ describe("SDK class", () => {
 
   it("should initialize editor mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.Editor });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initEditor(config);
 
@@ -77,7 +77,7 @@ describe("SDK class", () => {
 
   it("should initialize room selector mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.RoomSelector });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initRoomSelector(config);
 
@@ -90,7 +90,7 @@ describe("SDK class", () => {
 
   it("should initialize file selector mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.FileSelector });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initFileSelector(config);
 
@@ -103,7 +103,7 @@ describe("SDK class", () => {
 
   it("should initialize system mode correctly", () => {
     const instance = new SDKInstance({ ...config, mode: SDKMode.System });
-    (SDKInstance as jest.Mock).mockImplementation(() => instance);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
 
     const result = sdk.initSystem(config);
 
@@ -112,5 +112,52 @@ describe("SDK class", () => {
       ...config,
       mode: SDKMode.System,
     });
+  });
+});
+
+describe("SDK init function", () => {
+  let sdk: SDK;
+  let config: TFrameConfig;
+
+  beforeEach(() => {
+    sdk = new SDK();
+    config = {
+      frameId: "ds-frame",
+      mode: SDKMode.Viewer,
+      src: "https://example.com",
+    };
+  });
+
+  it("should create a new instance when frameId doesn't exist", () => {
+    const instance = new SDKInstance(config);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
+
+    const result = sdk.init(config);
+
+    expect(result).toBe(instance);
+    expect(instance.initFrame).toHaveBeenCalledWith(config);
+    expect(sdk.frames[config.frameId]).toBe(instance);
+  });
+
+  it("should reinitialize existing instance when frameId exists", () => {
+    const existingInstance = new SDKInstance(config);
+    sdk.frames[config.frameId] = existingInstance;
+
+    const result = sdk.init(config);
+
+    expect(result).toBe(existingInstance);
+    expect(existingInstance.initFrame).toHaveBeenCalledWith(config);
+    expect(sdk.frames[config.frameId]).toBe(existingInstance);
+  });
+
+  it("should maintain frames object correctly when reinitializing", () => {
+    const instance = new SDKInstance(config);
+    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
+    sdk.init(config);
+
+    const newConfig = { ...config, src: "https://new.example.com" };
+    sdk.init(newConfig);
+    
+    expect(sdk.frames[config.frameId]).toBe(instance);
   });
 });
