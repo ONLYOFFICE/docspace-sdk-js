@@ -234,6 +234,9 @@ export const getFramePath = (config: TFrameConfig) => {
         ...baseFrameOptions,
         folder: config.id,
         key: config.requestToken,
+        showFilter: config.showFilter,
+        showHeader: config.showHeader,
+        showTitle: config.showTitle,
       };
 
       const urlParams = customUrlSearchParams(publicRoomConfig);
