@@ -414,29 +414,58 @@ export class SDKInstance {
   }
 
   /**
-   * Initializes an iframe with the given configuration and appends it to the target element.
-   *
-   * @param config - The configuration object for the iframe.
-   * @returns The created iframe element.
+   * Prepares the frame configuration by merging with default config
+   * 
+   * @param config - The configuration object for the iframe
+   * @returns The merged configuration object
    */
-  initFrame(config: TFrameConfig): HTMLIFrameElement | null {
-    this.config = { ...this.config, ...defaultConfig, ...config };
+  #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
+    const mergedConfig = { ...this.config, ...defaultConfig, ...config };
+    
+    if (mergedConfig.mode === "manager" || mergedConfig.mode === "system") {
+      mergedConfig.noLoader = false;
+    }
+    
+    return mergedConfig;
+  }
 
-    const target = document.getElementById(this.config.frameId);
+  /**
+   * Sets up the container for the frame
+   * 
+   * @param targetId - The ID of the target element
+   * @returns Object containing the container element and reference to target element or null if target not found
+   */
+  #setupContainer(targetId: string): { container: HTMLElement; target: HTMLElement | null } | null {
+    const target = document.getElementById(targetId);
 
     if (!target) return null;
 
-    if (this.config.mode === "manager" || this.config.mode === "system") {
-      this.config.noLoader = false;
+    const existingContainer = document.getElementById(`${targetId}-container`);
+
+    if (existingContainer) {
+      const restoredTarget = document.createElement('div');
+
+      restoredTarget.id = targetId;
+      
+      if (existingContainer.parentNode) {
+        existingContainer.parentNode.replaceChild(restoredTarget, existingContainer);
+
+        const casheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
+
+        console.log("Element already exist, clear cache and recreate:", casheKey);
+
+        SDKInstance._iframeCache.pathCache.delete(casheKey);
+
+        return this.#setupContainer(targetId);
+      }
     }
 
     this.#classNames = target.className;
-
-    const fragment = document.createDocumentFragment();
+    
     const renderContainer = document.createElement("div");
-
+    
     Object.assign(renderContainer, {
-      id: this.config.frameId + "-container",
+      id: targetId + "-container",
       className: "frame-container",
       style: {
         position: "relative",
@@ -445,6 +474,15 @@ export class SDKInstance {
       },
     });
 
+    return { container: renderContainer, target };
+  }
+
+  /**
+   * Creates and configures the iframe element
+   * 
+   * @returns The configured iframe element
+   */
+  #setupIframe(): HTMLIFrameElement {
     const iframe = this.#createIframe(this.config);
 
     Object.assign(iframe.style, {
@@ -457,6 +495,15 @@ export class SDKInstance {
       left: "0",
     });
 
+    return iframe;
+  }
+
+  /**
+   * Sets up event handlers for the iframe
+   * 
+   * @param iframe - The iframe element
+   */
+  #setupFrameEventHandlers(iframe: HTMLIFrameElement): void {
     const handleFrameLoad = () => {
       window.addEventListener("message", this.#onMessage.bind(this));
       this.#isConnected = true;
@@ -469,6 +516,22 @@ export class SDKInstance {
     };
 
     iframe.addEventListener("load", handleFrameLoad);
+  }
+
+  /**
+   * Assembles all frame components and adds them to the DOM
+   * 
+   * @param container - The container element
+   * @param target - The target element to replace
+   * @param iframe - The iframe element
+   * @returns The iframe element
+   */
+  #assembleFrame(
+    container: HTMLElement,
+    target: HTMLElement | null,
+    iframe: HTMLIFrameElement
+  ): HTMLIFrameElement {
+    const fragment = document.createDocumentFragment();
 
     if (!this.config.waiting || this.config.mode === "system") {
       fragment.appendChild(iframe);
@@ -478,22 +541,51 @@ export class SDKInstance {
       const frameLoader = this.#createLoader(this.config);
       fragment.appendChild(frameLoader);
     } else {
-      renderContainer.style.height = this.config.height!;
-      renderContainer.style.width = this.config.width!;
+      container.style.height = this.config.height!;
+      container.style.width = this.config.width!;
     }
 
-    renderContainer.appendChild(fragment);
+    container.appendChild(fragment);
 
-    if (target.parentNode) {
-      target.parentNode.insertBefore(renderContainer, target);
+    if (target?.parentNode) {
+      target.parentNode.insertBefore(container, target);
       target.remove();
     } else {
-      target.replaceWith(renderContainer);
+      target?.replaceWith(container);
     }
 
+    return iframe;
+  }
+
+  /**
+   * Registers the frame in the global registry
+   */
+  #registerFrame(): void {
     window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
     window.DocSpace.SDK.frames[this.config.frameId] = this;
+  }
 
+  /**
+   * Initializes an iframe with the given configuration and appends it to the target element.
+   *
+   * @param config - The configuration object for the iframe.
+   * @returns The created iframe element or null if initialization fails.
+   */
+  initFrame(config: TFrameConfig): HTMLIFrameElement | null {
+    this.config = this.#prepareFrameConfig(config);
+    
+    const setupResult = this.#setupContainer(this.config.frameId);
+
+    if (!setupResult) return null;
+    
+    const { container, target } = setupResult;
+
+    const iframe = this.#setupIframe();
+
+    this.#setupFrameEventHandlers(iframe);
+    this.#assembleFrame(container, target, iframe);
+    this.#registerFrame();
+    
     return iframe;
   }
 
