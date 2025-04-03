@@ -505,7 +505,7 @@ export class SDKInstance {
    */
   #setupFrameEventHandlers(iframe: HTMLIFrameElement): void {
     const handleFrameLoad = () => {
-      window.addEventListener("message", this.#onMessage.bind(this));
+      window.addEventListener("message", this.#onMessage, false);
       this.#isConnected = true;
 
       if (this.config.noLoader) {
