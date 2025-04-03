@@ -450,11 +450,11 @@ export class SDKInstance {
       if (existingContainer.parentNode) {
         existingContainer.parentNode.replaceChild(restoredTarget, existingContainer);
 
-        const casheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
+        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
 
-        console.log("Element already exist, clear cache and recreate:", casheKey);
+        console.log("Element already exist, clear cache and recreate:", cacheKey);
 
-        SDKInstance._iframeCache.pathCache.delete(casheKey);
+        SDKInstance._iframeCache.pathCache.delete(cacheKey);
 
         return this.#setupContainer(targetId);
       }
