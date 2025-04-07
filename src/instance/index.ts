@@ -69,6 +69,7 @@ export class SDKInstance {
   private static _iframeCache: {
     template: HTMLIFrameElement;
     pathCache: Map<string, string>;
+    styleCache: Map<string, Partial<CSSStyleDeclaration>>;
   };
 
   /**
@@ -153,23 +154,24 @@ export class SDKInstance {
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
     if (!SDKInstance._iframeCache) {
+      const template = document.createElement("iframe");
+      template.allowFullscreen = true;
+      template.setAttribute("allow", "storage-access *");
+      
       SDKInstance._iframeCache = {
-        template: document.createElement("iframe"),
+        template,
         pathCache: new Map<string, string>(),
+        styleCache: new Map<string, Partial<CSSStyleDeclaration>>(),
       };
-
-      SDKInstance._iframeCache.template.allowFullscreen = true;
-      SDKInstance._iframeCache.template.setAttribute(
-        "allow",
-        "storage-access *"
-      );
     }
 
-    const iframe =
-      SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
+    const iframe = SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
+    
     const cacheKey = `${config.mode}_${config.id || ""}_${config.frameId}`;
+    const isMobile = config.type === "mobile";
+    const styleCacheKey = `${config.width}_${config.height}_${isMobile ? 'mobile' : 'desktop'}`;
+    
     let path = SDKInstance._iframeCache.pathCache.get(cacheKey);
-
     if (!path) {
       path = getFramePath(config);
       SDKInstance._iframeCache.pathCache.set(cacheKey, path);
@@ -178,21 +180,29 @@ export class SDKInstance {
     iframe.id = config.frameId;
     iframe.name = `${FRAME_NAME}__#${config.frameId}`;
     iframe.src = config.src + path;
+    
+    let styleObj = SDKInstance._iframeCache.styleCache.get(styleCacheKey);
+    if (!styleObj) {
+      styleObj = {
+        width: config.width!,
+        height: config.height!,
+        border: "0px",
+        opacity: "0",
+        ...(isMobile && {
+          position: "fixed",
+          overflow: "hidden",
+          webkitOverflowScrolling: "touch",
+        }),
+      };
+      SDKInstance._iframeCache.styleCache.set(styleCacheKey, styleObj);
+    }
+    
+    Object.assign(iframe.style, styleObj);
 
-    Object.assign(iframe.style, {
-      width: config.width!,
-      height: config.height!,
-      border: "0px",
-      opacity: "0",
-      ...(config.type === "mobile" && {
-        position: "fixed",
-        overflow: "hidden",
-        webkitOverflowScrolling: "touch",
-      }),
-    });
-
-    if (config.type === "mobile") {
-      document.body.style.overscrollBehaviorY = "contain";
+    if (isMobile) {
+      if (document.body.style.overscrollBehaviorY !== "contain") {
+        document.body.style.overscrollBehaviorY = "contain";
+      }
 
       if ("loading" in HTMLIFrameElement.prototype) {
         iframe.loading = "eager";
@@ -415,71 +425,77 @@ export class SDKInstance {
 
   /**
    * Prepares the frame configuration by merging with default config
-   * 
+   *
    * @param config - The configuration object for the iframe
    * @returns The merged configuration object
    */
   #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
     const mergedConfig = { ...this.config, ...defaultConfig, ...config };
-    
+
     if (mergedConfig.mode === "manager" || mergedConfig.mode === "system") {
       mergedConfig.noLoader = false;
     }
-    
+
     return mergedConfig;
   }
 
   /**
-   * Sets up the container for the frame
-   * 
+   * Creates a container for the frame
+   *
    * @param targetId - The ID of the target element
    * @returns Object containing the container element and reference to target element or null if target not found
    */
-  #setupContainer(targetId: string): { container: HTMLElement; target: HTMLElement | null } | null {
+  #createContainer(
+    targetId: string
+  ): { container: HTMLElement; target: HTMLElement | null } | null {
     const target = document.getElementById(targetId);
-
     if (!target) return null;
 
-    const existingContainer = document.getElementById(`${targetId}-container`);
-
+    let existingContainer = document.getElementById(`${targetId}-container`);
+    
     if (existingContainer) {
-      const restoredTarget = document.createElement('div');
-
-      restoredTarget.id = targetId;
+      const parentNode = existingContainer.parentNode;
       
-      if (existingContainer.parentNode) {
-        existingContainer.parentNode.replaceChild(restoredTarget, existingContainer);
-
-        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
-
-        console.log("Element already exist, clear cache and recreate:", cacheKey);
-
-        SDKInstance._iframeCache.pathCache.delete(cacheKey);
-
-        return this.#setupContainer(targetId);
+      if (parentNode) {
+        const restoredTarget = document.createElement("div");
+        restoredTarget.id = targetId;
+        
+        parentNode.replaceChild(restoredTarget, existingContainer);
+        
+        return this.#setupContainer(restoredTarget);
       }
     }
-
-    this.#classNames = target.className;
     
+    this.#classNames = target.className;
+    return this.#setupContainer(target);
+  }
+  
+  /**
+   * Sets up the container for the given target element
+   * 
+   * @param target - The target element to create a container for
+   * @returns Object containing the container element and reference to target
+   */
+  #setupContainer(
+    target: HTMLElement
+  ): { container: HTMLElement; target: HTMLElement | null } {
     const renderContainer = document.createElement("div");
     
-    Object.assign(renderContainer, {
-      id: targetId + "-container",
-      className: "frame-container",
-      style: {
-        position: "relative",
-        width: this.config.width,
-        height: this.config.height,
-      },
+    renderContainer.id = target.id + "-container";
+    renderContainer.className = "frame-container";
+    
+    Object.assign(renderContainer.style, {
+      position: "relative",
+      width: this.config.width,
+      height: this.config.height,
     });
-
+    
     return { container: renderContainer, target };
   }
 
   /**
    * Creates and configures the iframe element
-   * 
+   *
    * @returns The configured iframe element
    */
   #setupIframe(): HTMLIFrameElement {
@@ -500,7 +516,7 @@ export class SDKInstance {
 
   /**
    * Sets up event handlers for the iframe
-   * 
+   *
    * @param iframe - The iframe element
    */
   #setupFrameEventHandlers(iframe: HTMLIFrameElement): void {
@@ -520,7 +536,7 @@ export class SDKInstance {
 
   /**
    * Assembles all frame components and adds them to the DOM
-   * 
+   *
    * @param container - The container element
    * @param target - The target element to replace
    * @param iframe - The iframe element
@@ -573,11 +589,11 @@ export class SDKInstance {
    */
   initFrame(config: TFrameConfig): HTMLIFrameElement | null {
     this.config = this.#prepareFrameConfig(config);
-    
-    const setupResult = this.#setupContainer(this.config.frameId);
+
+    const setupResult = this.#createContainer(this.config.frameId);
 
     if (!setupResult) return null;
-    
+
     const { container, target } = setupResult;
 
     const iframe = this.#setupIframe();
@@ -585,7 +601,7 @@ export class SDKInstance {
     this.#setupFrameEventHandlers(iframe);
     this.#assembleFrame(container, target, iframe);
     this.#registerFrame();
-    
+
     return iframe;
   }
 
