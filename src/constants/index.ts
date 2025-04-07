@@ -80,7 +80,7 @@ export const defaultConfig: TFrameConfig = {
   /** Show/hide selector header */
   showSelectorHeader: false,
   /** Show/hide main header */
-  showHeader: false,
+  showHeader: true,
   /** Header banner display setting */
   showHeaderBanner: HeaderBannerDisplaying.None,
   /** Show/hide title */
