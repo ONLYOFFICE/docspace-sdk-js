@@ -287,22 +287,36 @@ export class SDKInstance {
    * string representations.
    */
   #sendMessage = (message: TTask) => {
-    const iframe = document.getElementById(
-      this.config.frameId
-    ) as HTMLIFrameElement;
-    if (!iframe?.contentWindow) return;
+    try {
+      const { frameId, src } = this.config;
+      
+      const iframe = document.getElementById(frameId) as HTMLIFrameElement | null;
+      
+      if (!iframe?.contentWindow) {
+        if (this.config.events?.onAppError) {
+          this.config.events.onAppError(`Cannot find iframe with id ${frameId} or its content window`);
+        }
+        return;
+      }
 
-    iframe.contentWindow.postMessage(
-      JSON.stringify(
-        {
-          frameId: this.config.frameId,
-          type: "",
-          data: message,
-        },
-        (_, value) => (typeof value === "function" ? value.toString() : value)
-      ),
-      this.config.src
-    );
+      const messageEnvelope = {
+        frameId,
+        type: "",
+        data: message
+      };
+
+      iframe.contentWindow.postMessage(
+        JSON.stringify(messageEnvelope, 
+          (_, value) => (typeof value === "function" ? value.toString() : value)
+        ),
+        src
+      );
+    } catch (error) {
+      console.error("Error sending message:", error);
+      this.config.events?.onAppError?.(
+        error instanceof Error ? error.message : "Failed to send message to frame"
+      );
+    }
   };
 
   /**
