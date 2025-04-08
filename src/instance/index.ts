@@ -145,7 +145,6 @@ export class SDKInstance {
    * Creates and configures an HTMLIFrameElement based on the provided configuration.
    *
    * @param config - The configuration object for creating the iframe
-   *
    * @returns A configured HTMLIFrameElement instance
    *
    * @remarks
@@ -157,7 +156,7 @@ export class SDKInstance {
       const template = document.createElement("iframe");
       template.allowFullscreen = true;
       template.setAttribute("allow", "storage-access *");
-      
+
       SDKInstance._iframeCache = {
         template,
         pathCache: new Map<string, string>(),
@@ -165,27 +164,34 @@ export class SDKInstance {
       };
     }
 
-    const iframe = SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
-    
-    const cacheKey = `${config.mode}_${config.id || ""}_${config.frameId}`;
-    const isMobile = config.type === "mobile";
-    const styleCacheKey = `${config.width}_${config.height}_${isMobile ? 'mobile' : 'desktop'}`;
-    
+    const { mode, id, frameId, type, width, height, src, events, checkCSP } =
+      config;
+    const isMobile = type === "mobile";
+
+    const iframe =
+      SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
+
+    const cacheKey = `${mode}_${id || ""}_${frameId}`;
+    const styleCacheKey = `${width}_${height}_${
+      isMobile ? "mobile" : "desktop"
+    }`;
+
     let path = SDKInstance._iframeCache.pathCache.get(cacheKey);
     if (!path) {
       path = getFramePath(config);
       SDKInstance._iframeCache.pathCache.set(cacheKey, path);
     }
 
-    iframe.id = config.frameId;
-    iframe.name = `${FRAME_NAME}__#${config.frameId}`;
-    iframe.src = config.src + path;
-    
+    iframe.id = frameId;
+    iframe.name = `${FRAME_NAME}__#${frameId}`;
+    iframe.src = src + path;
+
     let styleObj = SDKInstance._iframeCache.styleCache.get(styleCacheKey);
+    
     if (!styleObj) {
       styleObj = {
-        width: config.width!,
-        height: config.height!,
+        width: width!,
+        height: height!,
         border: "0px",
         opacity: "0",
         ...(isMobile && {
@@ -196,7 +202,7 @@ export class SDKInstance {
       };
       SDKInstance._iframeCache.styleCache.set(styleCacheKey, styleObj);
     }
-    
+
     Object.assign(iframe.style, styleObj);
 
     if (isMobile) {
@@ -209,20 +215,33 @@ export class SDKInstance {
       }
     }
 
-    if (config.checkCSP) {
-      requestAnimationFrame(() => {
-        validateCSP(config.src).catch((e: Error) => {
-          if (config.events?.onAppError) {
-            config.events.onAppError(e.message);
-          }
-          iframe.srcdoc = getCSPErrorBody(config.src);
-          this.setIsLoaded();
-        });
-      });
+    if (checkCSP) {
+      this.#setupCSPValidation(iframe, src, events);
     }
 
     return iframe;
   };
+
+  /**
+   * Sets up CSP validation for the iframe
+   *
+   * @param iframe - The iframe element to validate
+   * @param src - The source URL to validate against
+   * @param events - Event handlers that might be triggered
+   */
+  #setupCSPValidation(
+    iframe: HTMLIFrameElement,
+    src: string,
+    events?: TFrameEvents
+  ): void {
+    requestAnimationFrame(() => {
+      validateCSP(src).catch((e: Error) => {
+        events?.onAppError?.(e.message);
+        iframe.srcdoc = getCSPErrorBody(src);
+        this.setIsLoaded();
+      });
+    });
+  }
 
   /**
    * Sets the target frame as loaded by updating its styles and removing the loader element.
@@ -235,12 +254,12 @@ export class SDKInstance {
    */
   setIsLoaded(): void {
     const { frameId, width, height, events } = this.config;
-    
+
     const targetFrame = document.getElementById(frameId);
     const parent = targetFrame?.parentElement;
-    
+
     if (!targetFrame || !parent) return;
-    
+
     requestAnimationFrame(() => {
       try {
         parent.style.width = width!;
@@ -250,7 +269,7 @@ export class SDKInstance {
 
         if (loader) {
           loader.style.opacity = "0";
-          
+
           requestAnimationFrame(() => {
             try {
               if (loader.parentNode) {
@@ -297,12 +316,16 @@ export class SDKInstance {
   #sendMessage = (message: TTask) => {
     try {
       const { frameId, src } = this.config;
-      
-      const iframe = document.getElementById(frameId) as HTMLIFrameElement | null;
-      
+
+      const iframe = document.getElementById(
+        frameId
+      ) as HTMLIFrameElement | null;
+
       if (!iframe?.contentWindow) {
         if (this.config.events?.onAppError) {
-          this.config.events.onAppError(`Cannot find iframe with id ${frameId} or its content window`);
+          this.config.events.onAppError(
+            `Cannot find iframe with id ${frameId} or its content window`
+          );
         }
         return;
       }
@@ -310,19 +333,21 @@ export class SDKInstance {
       const messageEnvelope = {
         frameId,
         type: "",
-        data: message
+        data: message,
       };
 
       iframe.contentWindow.postMessage(
-        JSON.stringify(messageEnvelope, 
-          (_, value) => (typeof value === "function" ? value.toString() : value)
+        JSON.stringify(messageEnvelope, (_, value) =>
+          typeof value === "function" ? value.toString() : value
         ),
         src
       );
     } catch (error) {
       console.error("Error sending message:", error);
       this.config.events?.onAppError?.(
-        error instanceof Error ? error.message : "Failed to send message to frame"
+        error instanceof Error
+          ? error.message
+          : "Failed to send message to frame"
       );
     }
   };
@@ -337,7 +362,7 @@ export class SDKInstance {
   #onMessage = (e: MessageEvent) => {
     try {
       if (typeof e.data !== "string") return;
-      
+
       const data = this.#parseMessageData(e.data);
       if (data.frameId !== this.config.frameId) return;
 
@@ -364,7 +389,9 @@ export class SDKInstance {
     } catch (error) {
       console.error("Error processing message:", error);
       this.config.events?.onAppError?.(
-        error instanceof Error ? error.message : "Unknown message processing error"
+        error instanceof Error
+          ? error.message
+          : "Unknown message processing error"
       );
     }
   };
@@ -372,30 +399,31 @@ export class SDKInstance {
   /**
    * Parses a JSON string message into a TMessageData object.
    * Handles parsing errors gracefully by returning a structured error object.
-   * 
+   *
    * @param data - The JSON string to parse
    * @returns A TMessageData object, or an error object if parsing fails
    */
   #parseMessageData(data: string): TMessageData {
     try {
       const parsed = JSON.parse(data);
-      
-      if (!parsed || typeof parsed !== 'object' || !parsed.frameId) {
+
+      if (!parsed || typeof parsed !== "object" || !parsed.frameId) {
         throw new Error("Invalid message structure");
       }
-      
+
       return parsed as TMessageData;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown parsing error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown parsing error";
       console.warn("Failed to parse message:", errorMessage);
-      
+
       return {
         frameId: "error",
         type: MessageTypes.Error,
         commandName: "parseMessageData",
-        error: { 
-          message: "Invalid message format: " + errorMessage
-        }
+        error: {
+          message: "Invalid message format: " + errorMessage,
+        },
       };
     }
   }
@@ -404,7 +432,7 @@ export class SDKInstance {
    * Handles method response messages from the iframe.
    * Executes the next callback in the queue with the response data,
    * then processes the next task in the queue if available.
-   * 
+   *
    * @param data - The message data containing the method return data
    */
   #handleMethodResponse(data: TMessageData) {
@@ -511,48 +539,51 @@ export class SDKInstance {
     if (!target) return null;
 
     let existingContainer = document.getElementById(`${targetId}-container`);
-    
+
     if (existingContainer) {
       const parentNode = existingContainer.parentNode;
-      
+
       if (parentNode) {
         const restoredTarget = document.createElement("div");
         restoredTarget.id = targetId;
-        
+
         parentNode.replaceChild(restoredTarget, existingContainer);
 
-        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
+        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
+          this.config.frameId
+        }`;
 
         SDKInstance._iframeCache.pathCache.delete(cacheKey);
-        
+
         return this.#setupContainer(restoredTarget);
       }
     }
-    
+
     this.#classNames = target.className;
     return this.#setupContainer(target);
   }
-  
+
   /**
    * Sets up the container for the given target element
-   * 
+   *
    * @param target - The target element to create a container for
    * @returns Object containing the container element and reference to target
    */
-  #setupContainer(
-    target: HTMLElement
-  ): { container: HTMLElement; target: HTMLElement | null } {
+  #setupContainer(target: HTMLElement): {
+    container: HTMLElement;
+    target: HTMLElement | null;
+  } {
     const renderContainer = document.createElement("div");
-    
+
     renderContainer.id = target.id + "-container";
     renderContainer.className = "frame-container";
-    
+
     Object.assign(renderContainer.style, {
       position: "relative",
       width: this.config.width,
       height: this.config.height,
     });
-    
+
     return { container: renderContainer, target };
   }
 
@@ -681,7 +712,7 @@ export class SDKInstance {
   destroyFrame(): void {
     const frameId = this.config.frameId;
     const containerElement = document.getElementById(`${frameId}-container`);
-    
+
     const replacementDiv = document.createElement("div");
     replacementDiv.id = frameId;
     replacementDiv.className = this.#classNames;
@@ -689,19 +720,24 @@ export class SDKInstance {
 
     if (containerElement) {
       if (containerElement.parentNode) {
-        containerElement.parentNode.replaceChild(replacementDiv, containerElement);
+        containerElement.parentNode.replaceChild(
+          replacementDiv,
+          containerElement
+        );
       } else {
         document.body.appendChild(replacementDiv);
       }
-      
+
       if (SDKInstance._iframeCache) {
-        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
+        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
+          this.config.frameId
+        }`;
         SDKInstance._iframeCache.pathCache.delete(cacheKey);
       }
     }
 
     window.removeEventListener("message", this.#onMessage);
-    
+
     this.#isConnected = false;
     this.#callbacks = [];
     this.#tasks = [];
