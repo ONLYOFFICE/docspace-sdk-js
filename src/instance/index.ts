@@ -310,14 +310,7 @@ export class SDKInstance {
         frameId
       ) as HTMLIFrameElement | null;
 
-      if (!iframe?.contentWindow) {
-        if (this.config.events?.onAppError) {
-          this.config.events.onAppError(
-            `Cannot find iframe with id ${frameId} or its content window`
-          );
-        }
-        return;
-      }
+      if (!iframe?.contentWindow) return;
 
       const messageEnvelope = {
         frameId,
@@ -332,12 +325,7 @@ export class SDKInstance {
         src
       );
     } catch (error) {
-      console.error("Error sending message:", error);
-      this.config.events?.onAppError?.(
-        error instanceof Error
-          ? error.message
-          : "Failed to send message to frame"
-      );
+      this.#handleError(error as { message: "Failed to send message" });
     }
   };
 
@@ -353,6 +341,7 @@ export class SDKInstance {
       if (typeof e.data !== "string") return;
 
       const data = this.#parseMessageData(e.data);
+
       if (data.frameId !== this.config.frameId) return;
 
       switch (data.type) {
@@ -376,12 +365,7 @@ export class SDKInstance {
           console.warn("Unrecognized message type:", data.type);
       }
     } catch (error) {
-      console.error("Error processing message:", error);
-      this.config.events?.onAppError?.(
-        error instanceof Error
-          ? error.message
-          : "Unknown message processing error"
-      );
+      this.#handleError(error as { message: "Failed to process message" });
     }
   };
 
@@ -426,6 +410,7 @@ export class SDKInstance {
    */
   #handleMethodResponse(data: TMessageData) {
     const callback = this.#callbacks.shift();
+
     if (callback) {
       try {
         callback(data.methodReturnData || {});
@@ -439,7 +424,12 @@ export class SDKInstance {
     }
   }
 
-  #processEvent(eventData?: TMessageData["eventReturnData"]) {
+  /**
+   * Processes event messages from the iframe by invoking the appropriate registered event handler.
+   *
+   * @param eventData - The event data received from the iframe
+   */
+  #processEvent(eventData?: TMessageData["eventReturnData"]): void {
     if (!eventData?.event) return;
 
     const eventName = eventData.event as keyof TFrameEvents;
@@ -447,15 +437,23 @@ export class SDKInstance {
 
     if (typeof handler === "function") {
       try {
-        handler(eventData.data);
+        handler(eventData.data || {});
       } catch (error) {
-        console.error("Event handler failed:", eventName, error);
+        console.error(`Event handler '${eventName}' failed:`, error);
       }
     }
   }
 
-  #executeCommand(data: TMessageData) {
+  /**
+   * Executes a command received from the iframe by dynamically calling the corresponding method on this instance.
+   *
+   * @param data - The message data containing the command to execute and its parameters
+   */
+  #executeCommand(data: TMessageData): void {
+    if (!data.commandName) return;
+
     const command = this[data.commandName as keyof this];
+
     if (typeof command === "function") {
       (command as (data: unknown) => void).call(this, data.commandData);
     }
@@ -463,7 +461,9 @@ export class SDKInstance {
 
   #handleError(error: { message: string }) {
     console.error("SDK Error:", error);
-    this.config.events?.onAppError?.(error.message);
+    this.config.events?.onAppError?.(
+      error instanceof Error ? error.message : "Unown error occurred"
+    );
   }
 
   /**
@@ -689,14 +689,18 @@ export class SDKInstance {
   }
 
   /**
-   * Destroys the current frame and cleans up all associated resources.
-   *
+   * Destroys the current frame instance and performs cleanup operations.
+   * 
    * This method:
-   * 1. Finds the frame container element
-   * 2. Creates a replacement div with the original ID and class
-   * 3. Replaces the container with the new div
-   * 4. Cleans up all event listeners and internal state
-   * 5. Removes the instance from global frame registry
+   * - Removes the iframe container from the DOM
+   * - Replaces it with a div containing optional destroy text
+   * - Cleans up associated cache entries
+   * - Removes message event listeners
+   * - Resets internal connection state and callback queues
+   * - Removes the frame reference from global DocSpace SDK registry
+   * 
+   * After calling this method, the instance will no longer be functional
+   * and a new instance should be created if needed.
    */
   destroyFrame(): void {
     const frameId = this.config.frameId;
