@@ -461,6 +461,10 @@ export class SDKInstance {
         restoredTarget.id = targetId;
         
         parentNode.replaceChild(restoredTarget, existingContainer);
+
+        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
+
+        SDKInstance._iframeCache.pathCache.delete(cacheKey);
         
         return this.#setupContainer(restoredTarget);
       }
