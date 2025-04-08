@@ -622,8 +622,7 @@ export class SDKInstance {
   destroyFrame(): void {
     const frameId = this.config.frameId;
     const containerElement = document.getElementById(`${frameId}-container`);
-    const sdkFrames = window.DocSpace?.SDK?.frames;
-
+    
     const replacementDiv = document.createElement("div");
     replacementDiv.id = frameId;
     replacementDiv.className = this.#classNames;
@@ -631,23 +630,25 @@ export class SDKInstance {
 
     if (containerElement) {
       if (containerElement.parentNode) {
-        containerElement.parentNode.insertBefore(
-          replacementDiv,
-          containerElement
-        );
-        containerElement.parentNode.removeChild(containerElement);
+        containerElement.parentNode.replaceChild(replacementDiv, containerElement);
       } else {
         document.body.appendChild(replacementDiv);
+      }
+      
+      if (SDKInstance._iframeCache) {
+        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${this.config.frameId}`;
+        SDKInstance._iframeCache.pathCache.delete(cacheKey);
       }
     }
 
     window.removeEventListener("message", this.#onMessage);
-
+    
     this.#isConnected = false;
     this.#callbacks = [];
     this.#tasks = [];
 
-    if (sdkFrames) {
+    const sdkFrames = window.DocSpace?.SDK?.frames;
+    if (sdkFrames && frameId in sdkFrames) {
       delete sdkFrames[frameId];
     }
   }
