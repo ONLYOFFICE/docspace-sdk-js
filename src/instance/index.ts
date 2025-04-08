@@ -415,12 +415,14 @@ export class SDKInstance {
       return;
     }
 
-    this.#callbacks = [...this.#callbacks, callback];
+    this.#callbacks.push(callback);
     const message = { type: "method", methodName, data: params };
 
-    this.#callbacks.length > 1
-      ? (this.#tasks = [...this.#tasks, message])
-      : this.#sendMessage(message);
+    if (this.#callbacks.length > 1) {
+      this.#tasks.push(message);
+    } else {
+      this.#sendMessage(message);
+    }
   }
 
   /**
