@@ -76,24 +76,16 @@ export class SDKInstance {
    * Creates and returns a loader HTML element with specified configuration.
    *
    * @param config - The configuration object for the frame
-   *
    * @returns A container div element with the loader and its styles
-   *
-   * @remarks
-   * The loader consists of:
-   * - A container div element with centered flex layout
-   * - A loader div element with animation
-   * - A style element with the loader's CSS animation
-   *
-   * The elements' IDs and classes are based on the frameId from the config.
-   * The container's dimensions are set using the width and height from the config.
    */
   #createLoader = (config: TFrameConfig): HTMLElement => {
     const { frameId, width, height } = config;
     const loaderClassName = `${frameId}-loader__element`;
     const templateKey = `${width}_${height}`;
+    const styleCache = SDKInstance._loaderCache.style;
+    const templateCache = SDKInstance._loaderCache.templates;
 
-    if (!SDKInstance._loaderCache.style.has(loaderClassName)) {
+    if (!styleCache.has(loaderClassName)) {
       const style = document.createElement("style");
       style.textContent = getLoaderStyle(loaderClassName);
 
@@ -101,13 +93,13 @@ export class SDKInstance {
       fragment.appendChild(style);
       document.head.appendChild(fragment);
 
-      SDKInstance._loaderCache.style.set(loaderClassName, style);
+      styleCache.set(loaderClassName, style);
     }
 
     let container: HTMLElement;
 
-    if (SDKInstance._loaderCache.templates.has(templateKey)) {
-      container = SDKInstance._loaderCache.templates
+    if (templateCache.has(templateKey)) {
+      container = templateCache
         .get(templateKey)!
         .cloneNode(true) as HTMLElement;
       container.id = `${frameId}-loader`;
@@ -130,10 +122,7 @@ export class SDKInstance {
       loader.className = loaderClassName;
       container.appendChild(loader);
 
-      SDKInstance._loaderCache.templates.set(
-        templateKey,
-        container.cloneNode(true) as HTMLElement
-      );
+      templateCache.set(templateKey, container.cloneNode(true) as HTMLElement);
 
       container.id = `${frameId}-loader`;
     }
@@ -187,7 +176,7 @@ export class SDKInstance {
     iframe.src = src + path;
 
     let styleObj = SDKInstance._iframeCache.styleCache.get(styleCacheKey);
-    
+
     if (!styleObj) {
       styleObj = {
         width: width!,
