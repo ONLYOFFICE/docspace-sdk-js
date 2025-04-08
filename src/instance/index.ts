@@ -306,39 +306,44 @@ export class SDKInstance {
   };
 
   /**
-   * Handles incoming messages and processes them based on their type.
+   * Handles incoming messages from the iframe and processes them based on their type.
+   * This function is a critical part of the communication system between the parent window
+   * and the DocSpace frame.
    *
-   * @param e - The MessageEvent containing the data to be processed.
-   *
-   * The method performs the following actions:
-   * - Parses the incoming message data as JSON.
-   * - Checks if the frameId in the message matches the instance's frameId.
-   * - Depending on the type of the message, it performs different actions:
-   *   - `onMethodReturn`: Executes the next callback in the queue and sends the next task if available.
-   *   - `onEventReturn`: Invokes the corresponding event handler if it exists in the configuration.
-   *   - `onCallCommand`: Calls the specified command method on the instance.
-   *
-   * If the message data cannot be parsed, it logs an error and sets the data to a default error object.
+   * @param e - The MessageEvent containing the data to be processed
    */
   #onMessage = (e: MessageEvent) => {
-    if (typeof e.data !== "string") return;
+    try {
+      if (typeof e.data !== "string") return;
+      
+      const data = this.#parseMessageData(e.data);
+      if (data.frameId !== this.config.frameId) return;
 
-    const data = this.#parseMessageData(e.data);
-    if (data.frameId !== this.config.frameId) return;
-
-    switch (data.type) {
-      case MessageTypes.OnMethodReturn:
-        this.#handleMethodResponse(data);
-        break;
-      case MessageTypes.OnEventReturn:
-        data.eventReturnData && this.#processEvent(data.eventReturnData);
-        break;
-      case MessageTypes.OnCallCommand:
-        this.#executeCommand(data);
-        break;
-      case MessageTypes.Error:
-        data.error && this.#handleError(data.error);
-        break;
+      switch (data.type) {
+        case MessageTypes.OnMethodReturn:
+          this.#handleMethodResponse(data);
+          break;
+        case MessageTypes.OnEventReturn:
+          if (data.eventReturnData) {
+            this.#processEvent(data.eventReturnData);
+          }
+          break;
+        case MessageTypes.OnCallCommand:
+          this.#executeCommand(data);
+          break;
+        case MessageTypes.Error:
+          if (data.error) {
+            this.#handleError(data.error);
+          }
+          break;
+        default:
+          console.warn("Unrecognized message type:", data.type);
+      }
+    } catch (error) {
+      console.error("Error processing message:", error);
+      this.config.events?.onAppError?.(
+        error instanceof Error ? error.message : "Unknown message processing error"
+      );
     }
   };
 
