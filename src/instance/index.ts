@@ -234,43 +234,51 @@ export class SDKInstance {
    * Uses performance-optimized transitions for smooth appearance.
    */
   setIsLoaded(): void {
-    const frameId = this.config.frameId;
+    const { frameId, width, height, events } = this.config;
+    
     const targetFrame = document.getElementById(frameId);
     const parent = targetFrame?.parentElement;
-
+    
     if (!targetFrame || !parent) return;
-
+    
     requestAnimationFrame(() => {
-      parent.style.height = this.config.height!;
-      parent.style.width = this.config.width!;
+      try {
+        parent.style.width = width!;
+        parent.style.height = height!;
 
-      const loader = document.getElementById(`${frameId}-loader`);
+        const loader = document.getElementById(`${frameId}-loader`);
 
-      if (loader) {
-        loader.style.opacity = "0";
+        if (loader) {
+          loader.style.opacity = "0";
+          
+          requestAnimationFrame(() => {
+            try {
+              if (loader.parentNode) {
+                loader.parentNode.removeChild(loader);
+              }
 
-        const removeLoader = () => {
-          if (loader.parentNode) {
-            loader.parentNode.removeChild(loader);
-          }
-          this.config.events?.onContentReady?.();
-        };
+              events?.onContentReady?.();
+            } catch (error) {
+              console.error("Error removing loader:", error);
+              events?.onContentReady?.();
+            }
+          });
+        } else {
+          events?.onContentReady?.();
+        }
 
         requestAnimationFrame(() => {
-          removeLoader();
+          Object.assign(targetFrame.style, {
+            opacity: "1",
+            position: "relative",
+            width: width!,
+            height: height!,
+          });
         });
-      } else {
-        this.config.events?.onContentReady?.();
+      } catch (error) {
+        console.error("Error in setIsLoaded:", error);
+        events?.onContentReady?.();
       }
-
-      requestAnimationFrame(() => {
-        Object.assign(targetFrame.style, {
-          opacity: "1",
-          position: "relative",
-          width: this.config.width!,
-          height: this.config.height!,
-        });
-      });
     });
   }
 
