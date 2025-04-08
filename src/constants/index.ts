@@ -105,6 +105,7 @@ export const defaultConfig: TFrameConfig = {
   showSettings: false,
   /** Loading state indicator */
   waiting: false,
+  /** Init without loading spinner */
   noLoader: true,
   /** Enable/disable search functionality */
   withSearch: true,
