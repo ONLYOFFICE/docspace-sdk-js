@@ -342,16 +342,33 @@ export class SDKInstance {
     }
   };
 
+  /**
+   * Parses a JSON string message into a TMessageData object.
+   * Handles parsing errors gracefully by returning a structured error object.
+   * 
+   * @param data - The JSON string to parse
+   * @returns A TMessageData object, or an error object if parsing fails
+   */
   #parseMessageData(data: string): TMessageData {
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      
+      if (!parsed || typeof parsed !== 'object' || !parsed.frameId) {
+        throw new Error("Invalid message structure");
+      }
+      
+      return parsed as TMessageData;
     } catch (error) {
-      console.warn("Failed to parse message:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown parsing error";
+      console.warn("Failed to parse message:", errorMessage);
+      
       return {
         frameId: "error",
         type: MessageTypes.Error,
         commandName: "parseMessageData",
-        error: { message: "Invalid message format" },
+        error: { 
+          message: "Invalid message format: " + errorMessage
+        }
       };
     }
   }
