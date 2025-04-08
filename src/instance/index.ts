@@ -356,9 +356,22 @@ export class SDKInstance {
     }
   }
 
+  /**
+   * Handles method response messages from the iframe.
+   * Executes the next callback in the queue with the response data,
+   * then processes the next task in the queue if available.
+   * 
+   * @param data - The message data containing the method return data
+   */
   #handleMethodResponse(data: TMessageData) {
     const callback = this.#callbacks.shift();
-    callback?.(data.methodReturnData!);
+    if (callback) {
+      try {
+        callback(data.methodReturnData || {});
+      } catch (error) {
+        console.error("Error in callback execution:", error);
+      }
+    }
 
     if (this.#tasks.length > 0) {
       this.#sendMessage(this.#tasks.shift()!);
