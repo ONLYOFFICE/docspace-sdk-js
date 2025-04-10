@@ -171,8 +171,6 @@ export const enum InstanceMethods {
   GetSelection = "getSelection",
   /** Get user information */
   GetUserInfo = "getUserInfo",
-  /** Get editor instance */
-  GetEditorInstance = "getEditorInstance",
   /** Perform login */
   Login = "login",
   /** Perform logout */
@@ -185,6 +183,8 @@ export const enum InstanceMethods {
   SetConfig = "setConfig",
   /** Set list view */
   SetListView = "setListView",
+  
+  ExecuteInEditor = "executeInEditor",
 }
 
 /**

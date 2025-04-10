@@ -380,8 +380,12 @@ export class SDKInstance {
     try {
       const parsed = JSON.parse(data);
 
-      if (!parsed || typeof parsed !== "object" || !parsed.frameId) {
+      if (!parsed || typeof parsed !== "object") {
         throw new Error("Invalid message structure");
+      }
+
+      if (!parsed.frameId) {
+        parsed.frameId = "";
       }
 
       return parsed as TMessageData;
@@ -527,7 +531,7 @@ export class SDKInstance {
     const target = document.getElementById(targetId);
     if (!target) return null;
 
-    let existingContainer = document.getElementById(`${targetId}-container`);
+    const existingContainer = document.getElementById(`${targetId}-container`);
 
     if (existingContainer) {
       const parentNode = existingContainer.parentNode;
@@ -1027,12 +1031,9 @@ export class SDKInstance {
     });
   }
 
-  /**
-   * Retrieves object with the editor instance and Asc object helper.
-   *
-   * @returns A promise that resolves to object with the editor instance and Asc object helper.
-   */
-  getEditorInstance(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetEditorInstance);
+  executeInEditor(callback: (data: object) => void, data?: object): void {
+    this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
+      callback, data
+    });
   }
 }
