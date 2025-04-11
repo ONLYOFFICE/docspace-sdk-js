@@ -183,7 +183,7 @@ export const enum InstanceMethods {
   SetConfig = "setConfig",
   /** Set list view */
   SetListView = "setListView",
-  
+  /** Execute callback inside editor context */
   ExecuteInEditor = "executeInEditor",
 }
 

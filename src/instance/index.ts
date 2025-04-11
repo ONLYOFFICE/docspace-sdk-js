@@ -1031,7 +1031,13 @@ export class SDKInstance {
     });
   }
 
-  executeInEditor(callback: (data: object) => void, data?: object): void {
+  /**
+   * Executes a callback function within the editor context
+   * 
+   * @param callback - Function to be executed in the editor that receives data and editor instance as its parameter
+   * @param data - Optional data object to be passed to the callback function
+   */
+  executeInEditor(callback: (instance:object, data?: object) => void, data?: object): void {
     this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
       callback, data
     });
