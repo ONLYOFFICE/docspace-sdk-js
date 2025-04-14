@@ -163,6 +163,7 @@ export const getFramePath = (config: TFrameConfig) => {
   };
 
   const baseEditorOptions = {
+    isSDK: true,
     fileId:
       !config.id || config.id === "undefined" || config.id === "null"
         ? -1
