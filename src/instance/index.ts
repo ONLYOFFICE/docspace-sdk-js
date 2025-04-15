@@ -443,7 +443,7 @@ export class SDKInstance {
       try {
         handler(eventData.data || {});
       } catch (error) {
-        console.error(`Event handler '${eventName}' failed:`, error);
+        console.error("Event handler failed:", eventName, error);
       }
     }
   }
