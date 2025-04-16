@@ -17,9 +17,12 @@
  */
 
 import { SDK } from "./sdk";
+import { getConfigFromParams } from "./utils";
 
 window.DocSpace = window.DocSpace || {};
 
+const config = getConfigFromParams();
+
 window.DocSpace.SDK = window.DocSpace.SDK || new SDK();
 
-export default SDK;
+if (config?.init) window.DocSpace.SDK.init(config);

@@ -1,5 +1,5 @@
-/*
- * (c) Copyright Ascensio System SIA 2024
+/**
+ * (c) Copyright Ascensio System SIA 2025
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,10 +12,17 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * @license
+ */
+
+/**
+ * @module
+ * @mergeModuleWith <project>
  */
 
 import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
-import {
+import type {
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
@@ -33,76 +40,92 @@ import { InstanceMethods, MessageTypes } from "../enums";
 /**
  * Represents an SDK instance for managing frames and communication with DocSpace.
  *
- * @class
- * @description
  * The SDKInstance class provides methods for initializing, managing, and communicating with
  * DocSpace frames. It handles frame creation, message passing, and various operations like
  * file management, user authentication, and room management.
  *
- * @property {TFrameConfig} config - Configuration object for the frame
- *
  * @remarks
  * The class implements a message-based communication system between the parent window
- * and the DocSpace frame. It supports various operations including:
- * - Frame initialization and destruction
- * - File and folder management
- * - User authentication
- * - Room management
- * - Tag management
- * - Modal operations
- *
+ * and the DocSpace frame.
  */
-export default class SDKInstance {
+export class SDKInstance {
   #isConnected: boolean = false;
-  #frameOpacity: string = "0";
   #callbacks: ((data: object) => void)[] = [];
   #tasks: TTask[] = [];
   #classNames: string = "";
+  /** Configuration options for the iframe. */
   config: TFrameConfig;
 
   constructor(config: TFrameConfig) {
     this.config = config;
   }
 
+  private static _loaderCache = {
+    style: new Map<string, HTMLStyleElement>(),
+    container: document.createElement("div"),
+    templates: new Map<string, HTMLElement>(),
+  };
+
+  private static _iframeCache: {
+    template: HTMLIFrameElement;
+    pathCache: Map<string, string>;
+    styleCache: Map<string, Partial<CSSStyleDeclaration>>;
+  };
+
   /**
    * Creates and returns a loader HTML element with specified configuration.
    *
-   *
-   * @param {TFrameConfig} config - The configuration object for the frame
-   *
-   * @returns {HTMLElement} A container div element with the loader and its styles
-   *
-   * @remarks
-   * The loader consists of:
-   * - A container div element with centered flex layout
-   * - A loader div element with animation
-   * - A style element with the loader's CSS animation
-   *
-   * The elements' IDs and classes are based on the frameId from the config.
-   * The container's dimensions are set using the width and height from the config.
-   *
-   * @private
+   * @param config - The configuration object for the frame
+   * @returns A container div element with the loader and its styles
    */
   #createLoader = (config: TFrameConfig): HTMLElement => {
-    const container = document.createElement("div");
-    const loader = document.createElement("div");
-    const loaderStyle = document.createElement("style");
+    const { frameId, width, height } = config;
+    const loaderClassName = `${frameId}-loader__element`;
+    const templateKey = `${width}_${height}`;
+    const styleCache = SDKInstance._loaderCache.style;
+    const templateCache = SDKInstance._loaderCache.templates;
 
-    const loaderClassName = config.frameId + "-loader__element";
-    const loaderStyleText = getLoaderStyle(loaderClassName);
+    if (!styleCache.has(loaderClassName)) {
+      const style = document.createElement("style");
+      style.textContent = getLoaderStyle(loaderClassName);
 
-    loader.className = loaderClassName;
-    container.id = config.frameId + "-loader";
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(style);
+      document.head.appendChild(fragment);
 
-    container.style.width = config.width!;
-    container.style.height = config.height!;
-    container.style.display = "flex";
-    container.style.justifyContent = "center";
-    container.style.alignItems = "center";
+      styleCache.set(loaderClassName, style);
+    }
 
-    loaderStyle.insertAdjacentHTML("afterbegin", loaderStyleText);
+    let container: HTMLElement;
 
-    container.append(loaderStyle, loader);
+    if (templateCache.has(templateKey)) {
+      container = templateCache
+        .get(templateKey)!
+        .cloneNode(true) as HTMLElement;
+      container.id = `${frameId}-loader`;
+    } else {
+      container = SDKInstance._loaderCache.container.cloneNode() as HTMLElement;
+
+      Object.assign(container.style, {
+        width,
+        height,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        position: "relative",
+        zIndex: "1",
+        backgroundColor: "transparent",
+        transition: "opacity 0.15s ease-out",
+      });
+
+      const loader = document.createElement("div");
+      loader.className = loaderClassName;
+      container.appendChild(loader);
+
+      templateCache.set(templateKey, container.cloneNode(true) as HTMLElement);
+
+      container.id = `${frameId}-loader`;
+    }
 
     return container;
   };
@@ -110,225 +133,104 @@ export default class SDKInstance {
   /**
    * Creates and configures an HTMLIFrameElement based on the provided configuration.
    *
-   * @param {TFrameConfig} config - The configuration object for creating the iframe
-   *
-   * @returns {HTMLIFrameElement} A configured HTMLIFrameElement instance
+   * @param config - The configuration object for creating the iframe
+   * @returns A configured HTMLIFrameElement instance
    *
    * @remarks
    * The method handles special configurations for mobile view and CSP validation.
    * If CSP validation fails, it sets an error message in the iframe's srcdoc.
-   *
-   * @private
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
-    const iframe = document.createElement("iframe");
+    if (!SDKInstance._iframeCache) {
+      const template = document.createElement("iframe");
+      template.allowFullscreen = true;
+      template.setAttribute("allow", "storage-access *");
 
-    const path = getFramePath(config);
-
-    iframe.id = config.frameId;
-    iframe.src = config.src + path;
-    iframe.name = FRAME_NAME + "__#" + config.frameId;
-
-    iframe.style.width = config.width!;
-    iframe.style.height = config.height!;
-    iframe.style.border = "0px";
-
-    iframe.allowFullscreen = true;
-    iframe.setAttribute("allow", "storage-access *");
-
-    if (config.type == "mobile") {
-      iframe.style.position = "fixed";
-      iframe.style.overflow = "hidden";
-      document.body.style.overscrollBehaviorY = "contain";
+      SDKInstance._iframeCache = {
+        template,
+        pathCache: new Map<string, string>(),
+        styleCache: new Map<string, Partial<CSSStyleDeclaration>>(),
+      };
     }
 
-    if (config.checkCSP) {
-      validateCSP(config.src).catch((e: Error) => {
-        config.events?.onAppError?.(e.message);
+    const { mode, id, frameId, type, width, height, src, events, checkCSP } =
+      config;
+    const isMobile = type === "mobile";
 
-        const errorBody = getCSPErrorBody(config.src);
-        iframe.srcdoc = errorBody;
+    const iframe =
+      SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
 
-        this.setIsLoaded();
-      });
+    const cacheKey = `${mode}_${id || ""}_${frameId}`;
+    const styleCacheKey = `${width}_${height}_${
+      isMobile ? "mobile" : "desktop"
+    }`;
+
+    let path = SDKInstance._iframeCache.pathCache.get(cacheKey);
+    if (!path) {
+      path = getFramePath(config);
+      SDKInstance._iframeCache.pathCache.set(cacheKey, path);
+    }
+
+    iframe.id = frameId;
+    iframe.name = `${FRAME_NAME}__#${frameId}`;
+    iframe.src = src + path;
+
+    let styleObj = SDKInstance._iframeCache.styleCache.get(styleCacheKey);
+
+    if (!styleObj) {
+      styleObj = {
+        width: width!,
+        height: height!,
+        border: "0px",
+        opacity: "0",
+        ...(isMobile && {
+          position: "fixed",
+          overflow: "hidden",
+          webkitOverflowScrolling: "touch",
+        }),
+      };
+      SDKInstance._iframeCache.styleCache.set(styleCacheKey, styleObj);
+    }
+
+    Object.assign(iframe.style, styleObj);
+
+    if (isMobile) {
+      if (document.body.style.overscrollBehaviorY !== "contain") {
+        document.body.style.overscrollBehaviorY = "contain";
+      }
+
+      if ("loading" in HTMLIFrameElement.prototype) {
+        iframe.loading = "eager";
+      }
+    }
+
+    if (checkCSP) {
+      this.#setupCSPValidation(iframe, src, events);
     }
 
     return iframe;
   };
 
   /**
-   * Sends a message to the target iframe specified by the frameId in the configuration.
-   * The message is serialized to a JSON string before being posted.
+   * Sets up CSP validation for the iframe
    *
-   * @param {TTask} message - The message object to be sent to the iframe.
-   *
-   * @remarks
-   * The message object is expected to be of type `TTask`. The method constructs a message
-   * object containing the frameId, type, and data, and posts it to the content window of
-   * the target iframe. If the message contains functions, they are converted to their
-   * string representations.
-   *
-   * @private
+   * @param iframe - The iframe element to validate
+   * @param src - The source URL to validate against
+   * @param events - Event handlers that might be triggered
    */
-  #sendMessage = (message: TTask) => {
-    const mes = {
-      frameId: this.config.frameId,
-      type: "",
-      data: message,
-    };
-
-    const targetFrame = document.getElementById(
-      this.config.frameId
-    ) as HTMLIFrameElement;
-
-    if (targetFrame && !!targetFrame.contentWindow) {
-      targetFrame.contentWindow.postMessage(
-        JSON.stringify(mes, (_, value) =>
-          typeof value === "function" ? value.toString() : value
-        ),
-        this.config.src
-      );
-    }
-  };
-
-  /**
-   * Handles incoming messages and processes them based on their type.
-   *
-   * @param {MessageEvent} e - The MessageEvent containing the data to be processed.
-   *
-   * The method performs the following actions:
-   * - Parses the incoming message data as JSON.
-   * - Checks if the frameId in the message matches the instance's frameId.
-   * - Depending on the type of the message, it performs different actions:
-   *   - `onMethodReturn`: Executes the next callback in the queue and sends the next task if available.
-   *   - `onEventReturn`: Invokes the corresponding event handler if it exists in the configuration.
-   *   - `onCallCommand`: Calls the specified command method on the instance.
-   *
-   * If the message data cannot be parsed, it logs an error and sets the data to a default error object.
-   *
-   * @private
-   */
-  #onMessage = (e: MessageEvent) => {
-    if (typeof e.data == "string") {
-      let data = {} as TMessageData;
-
-      try {
-        data = JSON.parse(e.data);
-      } catch (err) {
-        console.log("SDK #onMessage data parse error:", err);
-        data = {
-          commandName: "error",
-          frameId: "error",
-          type: MessageTypes.Error,
-        };
-      }
-
-      if (this.config.frameId !== data.frameId) {
-        return;
-      }
-
-      switch (data.type) {
-        case MessageTypes.OnMethodReturn: {
-          if (this.#callbacks.length > 0) {
-            const callback = this.#callbacks.shift();
-
-            if (callback) {
-              callback(data.methodReturnData!);
-            }
-          }
-
-          if (this.#tasks.length > 0) {
-            const task = this.#tasks.shift() as TTask;
-            this.#sendMessage(task);
-          }
-          break;
-        }
-        case MessageTypes.OnEventReturn: {
-          if (Object.keys(this.config).length === 0 || !data.eventReturnData)
-            return;
-
-          const eventName = data.eventReturnData.event as keyof TFrameEvents;
-          const events = this.config.events as TFrameEvents;
-
-          if (Object.prototype.hasOwnProperty.call(events, eventName)) {
-            const eventHandler = events[eventName];
-
-            if (typeof eventHandler === "function") {
-              try {
-                eventHandler.call(events, data.eventReturnData.data);
-              } catch (error) {
-                console.log(
-                  "SDK #onMessage error executing event handler for ",
-                  eventName,
-                  error
-                );
-              }
-            }
-          }
-          break;
-        }
-        case MessageTypes.OnCallCommand: {
-          const commandName = data.commandName;
-
-          const command = (this as Record<string, unknown>)[commandName];
-
-          if (typeof command === "function") {
-            (command as (data: object) => void).call(
-              this,
-              data.commandData as object
-            );
-          }
-
-          break;
-        }
-        default:
-          break;
-      }
-    }
-  };
-
-  /**
-   * Executes a method by sending a message to the connected frame.
-   * If the message bus is not connected, it triggers an application error event.
-   *
-   * @param {string} methodName - The name of the method to be executed.
-   * @param {object | null}params - The parameters to be passed to the method. Can be an object or null.
-   * @param {Function} callback - A callback function that will be called with the response data.
-   *
-   * @remarks
-   * The method checks if the message bus is connected. If not, it triggers an error event.
-   * It then pushes the callback to the callbacks array and constructs a message object.
-   * If there are other pending callbacks, it queues the message; otherwise, it sends the message immediately.
-   *
-   * @private
-   */
-  #executeMethod = (
-    methodName: string,
-    params: object | null,
-    callback: (data: object) => void
-  ): void => {
-    if (!this.#isConnected) {
-      this.config.events?.onAppError?.(connectErrorText);
-
-      console.error(connectErrorText);
-      return;
-    }
-
-    this.#callbacks.push(callback);
-
-    const message: TTask = {
-      type: "method",
-      methodName,
-      data: params,
-    };
-
-    if (this.#callbacks.length !== 1) {
-      this.#tasks.push(message);
-      return;
-    }
-
-    this.#sendMessage(message);
-  };
+  #setupCSPValidation(
+    iframe: HTMLIFrameElement,
+    src: string,
+    events?: TFrameEvents
+  ): void {
+    requestAnimationFrame(() => {
+      validateCSP(src).catch((e: Error) => {
+        events?.onAppError?.(e.message);
+        iframe.srcdoc = getCSPErrorBody(src);
+        this.setIsLoaded();
+      });
+    });
+  }
 
   /**
    * Sets the target frame as loaded by updating its styles and removing the loader element.
@@ -337,155 +239,518 @@ export default class SDKInstance {
    * @remarks
    * This method modifies the styles of the target frame to make it visible and adjusts its dimensions
    * based on the configuration. It also ensures the parent node's height is set to inherit.
-   *
-   * @returns {void}
+   * Uses performance-optimized transitions for smooth appearance.
    */
   setIsLoaded(): void {
-    const targetFrame = document.getElementById(this.config.frameId);
-    const loader = document.getElementById(this.config.frameId + "-loader");
+    const { frameId, width, height, events } = this.config;
 
-    if (targetFrame) {
-      targetFrame.style.opacity = "1";
-      targetFrame.style.position = "relative";
-      targetFrame.style.width = this.config.width!;
-      targetFrame.style.height = this.config.height!;
-      (targetFrame.parentNode as HTMLElement).style.height = "inherit";
+    const targetFrame = document.getElementById(frameId);
+    const parent = targetFrame?.parentElement;
 
-      if (loader) {
-        loader.remove();
-        this.config.events?.onContentReady?.();
+    if (!targetFrame || !parent) return;
+
+    requestAnimationFrame(() => {
+      try {
+        parent.style.width = width!;
+        parent.style.height = height!;
+
+        const loader = document.getElementById(`${frameId}-loader`);
+
+        if (loader) {
+          loader.style.opacity = "0";
+
+          requestAnimationFrame(() => {
+            try {
+              if (loader.parentNode) {
+                loader.parentNode.removeChild(loader);
+              }
+
+              events?.onContentReady?.();
+            } catch (error) {
+              console.error("Error removing loader:", error);
+              events?.onContentReady?.();
+            }
+          });
+        } else {
+          events?.onContentReady?.();
+        }
+
+        requestAnimationFrame(() => {
+          Object.assign(targetFrame.style, {
+            opacity: "1",
+            position: "relative",
+            width: width!,
+            height: height!,
+          });
+        });
+      } catch (error) {
+        console.error("Error in setIsLoaded:", error);
+        events?.onContentReady?.();
+      }
+    });
+  }
+
+  /**
+   * Sends a message to the target iframe specified by the frameId in the configuration.
+   * The message is serialized to a JSON string before being posted.
+   *
+   * @param message - The message object to be sent to the iframe.
+   *
+   * @remarks
+   * The message object is expected to be of type `TTask`. The method constructs a message
+   * object containing the frameId, type, and data, and posts it to the content window of
+   * the target iframe. If the message contains functions, they are converted to their
+   * string representations.
+   */
+  #sendMessage = (message: TTask) => {
+    try {
+      const { frameId, src } = this.config;
+
+      const iframe = document.getElementById(
+        frameId
+      ) as HTMLIFrameElement | null;
+
+      if (!iframe?.contentWindow) return;
+
+      const messageEnvelope = {
+        frameId,
+        type: "",
+        data: message,
+      };
+
+      iframe.contentWindow.postMessage(
+        JSON.stringify(messageEnvelope, (_, value) =>
+          typeof value === "function" ? value.toString() : value
+        ),
+        src
+      );
+    } catch (error) {
+      this.#handleError(error as { message: "Failed to send message" });
+    }
+  };
+
+  /**
+   * Handles incoming messages from the iframe and processes them based on their type.
+   * This function is a critical part of the communication system between the parent window
+   * and the DocSpace frame.
+   *
+   * @param e - The MessageEvent containing the data to be processed
+   */
+  #onMessage = (e: MessageEvent) => {
+    try {
+      if (typeof e.data !== "string") return;
+
+      const data = this.#parseMessageData(e.data);
+
+      if (data.frameId !== this.config.frameId) return;
+
+      switch (data.type) {
+        case MessageTypes.OnMethodReturn:
+          this.#handleMethodResponse(data);
+          break;
+        case MessageTypes.OnEventReturn:
+          if (data.eventReturnData) {
+            this.#processEvent(data.eventReturnData);
+          }
+          break;
+        case MessageTypes.OnCallCommand:
+          this.#executeCommand(data);
+          break;
+        case MessageTypes.Error:
+          if (data.error) {
+            this.#handleError(data.error);
+          }
+          break;
+        default:
+          console.warn("Unrecognized message type:", data.type);
+      }
+    } catch (error) {
+      this.#handleError(error as { message: "Failed to process message" });
+    }
+  };
+
+  /**
+   * Parses a JSON string message into a TMessageData object.
+   * Handles parsing errors gracefully by returning a structured error object.
+   *
+   * @param data - The JSON string to parse
+   * @returns A TMessageData object, or an error object if parsing fails
+   */
+  #parseMessageData(data: string): TMessageData {
+    try {
+      const parsed = JSON.parse(data);
+
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("Invalid message structure");
+      }
+
+      if (!parsed.frameId) {
+        parsed.frameId = "";
+      }
+
+      return parsed as TMessageData;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown parsing error";
+      console.warn("Failed to parse message:", errorMessage);
+
+      return {
+        frameId: "error",
+        type: MessageTypes.Error,
+        commandName: "parseMessageData",
+        error: {
+          message: "Invalid message format: " + errorMessage,
+        },
+      };
+    }
+  }
+
+  /**
+   * Handles method response messages from the iframe.
+   * Executes the next callback in the queue with the response data,
+   * then processes the next task in the queue if available.
+   *
+   * @param data - The message data containing the method return data
+   */
+  #handleMethodResponse(data: TMessageData) {
+    const callback = this.#callbacks.shift();
+
+    if (callback) {
+      try {
+        callback(data.methodReturnData || {});
+      } catch (error) {
+        console.error("Error in callback execution:", error);
       }
     }
+
+    if (this.#tasks.length > 0) {
+      this.#sendMessage(this.#tasks.shift()!);
+    }
+  }
+
+  /**
+   * Processes event messages from the iframe by invoking the appropriate registered event handler.
+   *
+   * @param eventData - The event data received from the iframe
+   */
+  #processEvent(eventData?: TMessageData["eventReturnData"]): void {
+    if (!eventData?.event) return;
+
+    const eventName = eventData.event as keyof TFrameEvents;
+    const handler = this.config.events?.[eventName];
+
+    if (typeof handler === "function") {
+      try {
+        handler(eventData.data || {});
+      } catch (error) {
+        console.error("Event handler failed:", eventName, error);
+      }
+    }
+  }
+
+  /**
+   * Executes a command received from the iframe by dynamically calling the corresponding method on this instance.
+   *
+   * @param data - The message data containing the command to execute and its parameters
+   */
+  #executeCommand(data: TMessageData): void {
+    if (!data.commandName) return;
+
+    const command = this[data.commandName as keyof this];
+
+    if (typeof command === "function") {
+      (command as (data: unknown) => void).call(this, data.commandData);
+    }
+  }
+
+  #handleError(error: { message: string }) {
+    console.error("SDK Error:", error);
+    this.config.events?.onAppError?.(
+      error instanceof Error ? error.message : "Unown error occurred"
+    );
+  }
+
+  /**
+   * Executes a method by sending a message to the connected frame.
+   * If the message bus is not connected, it triggers an application error event.
+   *
+   * @param methodName - The name of the method to be executed.
+   * @param params - The parameters to be passed to the method. Can be an object or null.
+   * @param callback - A callback function that will be called with the response data.
+   *
+   * @remarks
+   * The method checks if the message bus is connected. If not, it triggers an error event.
+   * It then pushes the callback to the callbacks array and constructs a message object.
+   * If there are other pending callbacks, it queues the message; otherwise, it sends the message immediately.
+   */
+  #executeMethod(
+    methodName: string,
+    params: object | null,
+    callback: (data: object) => void
+  ): void {
+    if (!this.#isConnected && methodName !== InstanceMethods.SetConfig) {
+      this.#handleError({ message: connectErrorText });
+      return;
+    }
+
+    this.#callbacks.push(callback);
+    const message = { type: "method", methodName, data: params };
+
+    if (this.#callbacks.length > 1) {
+      this.#tasks.push(message);
+    } else {
+      this.#sendMessage(message);
+    }
+  }
+
+  /**
+   * Prepares the frame configuration by merging with default config
+   *
+   * @param config - The configuration object for the iframe
+   * @returns The merged configuration object
+   */
+  #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
+    const mergedConfig = { ...this.config, ...defaultConfig, ...config };
+
+    if (mergedConfig.mode === "manager" || mergedConfig.mode === "system") {
+      mergedConfig.noLoader = false;
+    }
+
+    return mergedConfig;
+  }
+
+  /**
+   * Creates a container for the frame
+   *
+   * @param targetId - The ID of the target element
+   * @returns Object containing the container element and reference to target element or null if target not found
+   */
+  #createContainer(
+    targetId: string
+  ): { container: HTMLElement; target: HTMLElement | null } | null {
+    const target = document.getElementById(targetId);
+    if (!target) return null;
+
+    const existingContainer = document.getElementById(`${targetId}-container`);
+
+    if (existingContainer) {
+      const parentNode = existingContainer.parentNode;
+
+      if (parentNode) {
+        const restoredTarget = document.createElement("div");
+        restoredTarget.id = targetId;
+
+        parentNode.replaceChild(restoredTarget, existingContainer);
+
+        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
+          this.config.frameId
+        }`;
+
+        SDKInstance._iframeCache.pathCache.delete(cacheKey);
+
+        return this.#setupContainer(restoredTarget);
+      }
+    }
+
+    this.#classNames = target.className;
+    return this.#setupContainer(target);
+  }
+
+  /**
+   * Sets up the container for the given target element
+   *
+   * @param target - The target element to create a container for
+   * @returns Object containing the container element and reference to target
+   */
+  #setupContainer(target: HTMLElement): {
+    container: HTMLElement;
+    target: HTMLElement | null;
+  } {
+    const renderContainer = document.createElement("div");
+
+    renderContainer.id = target.id + "-container";
+    renderContainer.className = "frame-container";
+
+    Object.assign(renderContainer.style, {
+      position: "relative",
+      width: this.config.width,
+      height: this.config.height,
+    });
+
+    return { container: renderContainer, target };
+  }
+
+  /**
+   * Creates and configures the iframe element
+   *
+   * @returns The configured iframe element
+   */
+  #setupIframe(): HTMLIFrameElement {
+    const iframe = this.#createIframe(this.config);
+
+    Object.assign(iframe.style, {
+      opacity: this.config.noLoader ? "1" : "0",
+      zIndex: "2",
+      position: this.config.noLoader ? "relative" : "absolute",
+      width: this.config.noLoader ? this.config.width : "100%",
+      height: this.config.noLoader ? this.config.height : "100%",
+      top: "0",
+      left: "0",
+    });
+
+    return iframe;
+  }
+
+  /**
+   * Sets up event handlers for the iframe
+   *
+   * @param iframe - The iframe element
+   */
+  #setupFrameEventHandlers(iframe: HTMLIFrameElement): void {
+    const handleFrameLoad = () => {
+      window.addEventListener("message", this.#onMessage, false);
+      this.#isConnected = true;
+
+      if (this.config.noLoader) {
+        this.config.events?.onContentReady?.();
+      }
+
+      iframe.removeEventListener("load", handleFrameLoad);
+    };
+
+    iframe.addEventListener("load", handleFrameLoad);
+  }
+
+  /**
+   * Assembles all frame components and adds them to the DOM
+   *
+   * @param container - The container element
+   * @param target - The target element to replace
+   * @param iframe - The iframe element
+   * @returns The iframe element
+   */
+  #assembleFrame(
+    container: HTMLElement,
+    target: HTMLElement | null,
+    iframe: HTMLIFrameElement
+  ): HTMLIFrameElement {
+    const fragment = document.createDocumentFragment();
+
+    if (!this.config.waiting || this.config.mode === "system") {
+      fragment.appendChild(iframe);
+    }
+
+    if (!this.config.noLoader) {
+      const frameLoader = this.#createLoader(this.config);
+      fragment.appendChild(frameLoader);
+    } else {
+      container.style.height = this.config.height!;
+      container.style.width = this.config.width!;
+    }
+
+    container.appendChild(fragment);
+
+    if (target?.parentNode) {
+      target.parentNode.insertBefore(container, target);
+      target.remove();
+    } else {
+      target?.replaceWith(container);
+    }
+
+    return iframe;
+  }
+
+  /**
+   * Registers the frame in the global registry
+   */
+  #registerFrame(): void {
+    window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
+    window.DocSpace.SDK.frames[this.config.frameId] = this;
   }
 
   /**
    * Initializes an iframe with the given configuration and appends it to the target element.
    *
-   * @param {TFrameConfig} config - The configuration object for the iframe.
-   * @returns {HTMLIFrameElement} The created iframe element.
-   *
-   * @remarks
-   * - Merges the provided configuration with the default configuration.
-   * - Updates the instance configuration with the merged configuration.
-   * - Finds the target element by the frame ID specified in the configuration.
-   * - Creates and styles the iframe element.
-   * - Creates a loader element and appends it to the render container.
-   * - Replaces the target element with the render container.
-   * - Adds an event listener for the "message" event.
-   * - Sets the connection status to true.
-   *
-   * @privateRemarks
-   * - The iframe is styled with opacity, z-index, position, width, height, top, and left properties.
-   * - The render container is styled with position, width, and height properties.
-   * - The render container is given a class of "frame-container".
-   * - If the `waiting` property in the configuration is false or the mode is "system", the iframe is appended to the render container.
-   * - The loader element is always appended to the render container.
-   * - Checks if the target element's parent node is the same as the render container before replacing it.
+   * @param config - The configuration object for the iframe.
+   * @returns The created iframe element or null if initialization fails.
    */
-  initFrame(config: TFrameConfig): HTMLIFrameElement {
-    const configFull = { ...defaultConfig, ...config };
+  initFrame(config: TFrameConfig): HTMLIFrameElement | null {
+    this.config = this.#prepareFrameConfig(config);
 
-    this.config = { ...this.config, ...configFull };
+    const setupResult = this.#createContainer(this.config.frameId);
 
-    const target = document.getElementById(this.config.frameId);
+    if (!setupResult) return null;
 
-    let iframe = null;
+    const { container, target } = setupResult;
 
-    if (target) {
-      iframe = this.#createIframe(this.config);
+    const iframe = this.#setupIframe();
 
-      iframe.style.opacity = this.#frameOpacity;
-      iframe.style.zIndex = "2";
-      iframe.style.position = "absolute";
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.top = "0";
-      iframe.style.left = "0";
+    this.#setupFrameEventHandlers(iframe);
+    this.#assembleFrame(container, target, iframe);
+    this.#registerFrame();
 
-      const frameLoader = this.#createLoader(this.config);
-
-      this.#classNames = target.className;
-
-      const renderContainer = document.createElement("div");
-
-      renderContainer.id = this.config.frameId + "-container";
-      renderContainer.style.position = "relative";
-      renderContainer.style.width = "100%";
-      renderContainer.style.height = "100%";
-
-      renderContainer.classList.add("frame-container");
-
-      if (!this.config.waiting || this.config.mode === "system") {
-        renderContainer.appendChild(iframe);
-      }
-
-      renderContainer.appendChild(frameLoader);
-
-      const isSelfReplace = (target.parentNode as HTMLElement).isEqualNode(
-        document.getElementById(this.config.frameId + "-container")
-      );
-
-      if (isSelfReplace) {
-        (target.parentNode as HTMLElement).replaceWith(renderContainer);
-      } else {
-        target.replaceWith(renderContainer);
-      }
-
-      window.addEventListener("message", this.#onMessage, false);
-
-      this.#isConnected = true;
-
-      window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
-
-      window.DocSpace.SDK.frames[this.config.frameId] = this;
-    }
-
-    return iframe as HTMLIFrameElement;
+    return iframe;
   }
 
   /**
-   * Destroys the current frame by replacing it with a new div element.
-   *
-   * This method performs the following actions:
-   * 1. Creates a new div element and sets its id, innerHTML, and className based on the current configuration.
-   * 2. Retrieves the target frame element using the configured frameId.
-   * 3. Removes the 'message' event listener from the window.
-   * 4. Sets the internal connection status to false.
-   * 5. Replaces the target frame element with the newly created div element.
-   *
-   * @remarks
-   * The method assumes that the frameId and destroyText are defined in the configuration object.
-   * The method also assumes that the class names are stored in a private property `#classNames`.
-   *
-   * @throws {Error} If the frameId is not defined in the configuration.
+   * Destroys the current frame instance and performs cleanup operations.
+   * 
+   * This method:
+   * - Removes the iframe container from the DOM
+   * - Replaces it with a div containing optional destroy text
+   * - Cleans up associated cache entries
+   * - Removes message event listeners
+   * - Resets internal connection state and callback queues
+   * - Removes the frame reference from global DocSpace SDK registry
+   * 
+   * After calling this method, the instance will no longer be functional
+   * and a new instance should be created if needed.
    */
   destroyFrame(): void {
-    const target = document.createElement("div");
+    const frameId = this.config.frameId;
+    const containerElement = document.getElementById(`${frameId}-container`);
 
-    target.setAttribute("id", this.config.frameId);
-    target.innerHTML = this.config.destroyText as string;
-    target.className = this.#classNames;
+    const replacementDiv = document.createElement("div");
+    replacementDiv.id = frameId;
+    replacementDiv.className = this.#classNames;
+    replacementDiv.innerHTML = this.config.destroyText || "";
 
-    const targetFrame = document.getElementById(
-      this.config.frameId + "-container"
-    );
+    if (containerElement) {
+      if (containerElement.parentNode) {
+        containerElement.parentNode.replaceChild(
+          replacementDiv,
+          containerElement
+        );
+      } else {
+        document.body.appendChild(replacementDiv);
+      }
 
-    window.removeEventListener("message", this.#onMessage, false);
+      if (SDKInstance._iframeCache) {
+        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
+          this.config.frameId
+        }`;
+        SDKInstance._iframeCache.pathCache.delete(cacheKey);
+      }
+    }
+
+    window.removeEventListener("message", this.#onMessage);
+
     this.#isConnected = false;
+    this.#callbacks = [];
+    this.#tasks = [];
 
-    delete window.DocSpace.SDK.frames[this.config.frameId];
-
-    targetFrame?.parentNode?.replaceChild(target, targetFrame);
+    const sdkFrames = window.DocSpace?.SDK?.frames;
+    if (sdkFrames && frameId in sdkFrames) {
+      delete sdkFrames[frameId];
+    }
   }
 
   /**
    * Returns a promise that resolves with the result of executing a specified method.
    *
-   * @param {string} methodName - The name of the method to execute.
-   * @param {object | null} params - The parameters to pass to the method. Defaults to null.
-   * @returns {Promise<object>} A promise that resolves with the result of the method execution or the current configuration if reloaded.
-   *
-   * @private
+   * @param methodName - The name of the method to execute.
+   * @param params - The parameters to pass to the method. Defaults to null.
+   * @returns A promise that resolves to an object containing the result of the method execution or the current configuration if reloaded.
    */
   #getMethodPromise = (
     methodName: string,
@@ -499,8 +764,8 @@ export default class SDKInstance {
   /**
    * Sets the configuration for the instance.
    *
-   * @param {TFrameConfig} config - The configuration object to be set. Defaults to `defaultConfig`.
-   * @returns {Promise<object>} A promise that resolves to an object.
+   * @param config - The configuration object to be set. Defaults to `defaultConfig`.
+   * @returns A promise that resolves to an object.
    */
   setConfig(config: TFrameConfig = defaultConfig): Promise<object> {
     this.config = { ...this.config, ...config };
@@ -511,7 +776,7 @@ export default class SDKInstance {
   /**
    * Retrieves the current configuration.
    *
-   * @returns {TFrameConfig} The current configuration object.
+   * @returns The current configuration object.
    */
   getConfig(): TFrameConfig {
     return this.config;
@@ -520,7 +785,7 @@ export default class SDKInstance {
   /**
    * Retrieves information about a folder.
    *
-   * @returns {Promise<object>} A promise that resolves to an object containing folder information.
+   * @returns A promise that resolves to an object containing folder information.
    */
   getFolderInfo(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetFolderInfo);
@@ -529,7 +794,7 @@ export default class SDKInstance {
   /**
    * Retrieves the current selection.
    *
-   * @returns {Promise<object>} A promise that resolves to the current selection object.
+   * @returns A promise that resolves to the current selection object.
    */
   getSelection(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetSelection);
@@ -538,7 +803,7 @@ export default class SDKInstance {
   /**
    * Retrieves a list of files.
    *
-   * @returns {Promise<object>} A promise that resolves to an object containing the files.
+   * @returns A promise that resolves to an object containing the files.
    */
   getFiles(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetFiles);
@@ -547,7 +812,7 @@ export default class SDKInstance {
   /**
    * Retrieves a list of folders.
    *
-   * @returns {Promise<object>} A promise that resolves to an object containing folder information.
+   * @returns A promise that resolves to an object containing folder information.
    */
   getFolders(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetFolders);
@@ -555,7 +820,7 @@ export default class SDKInstance {
 
   /**
    * Retrieves a list of files and folders.
-   * @returns {Promise<object>} A promise that resolves to an object containing the list of files and folders.
+   * @returns A promise that resolves to an object containing the list of files and folders.
    */
   getList(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetList);
@@ -564,8 +829,8 @@ export default class SDKInstance {
   /**
    * Retrieves a list of rooms based on the provided filter.
    *
-   * @param {TFrameFilter} filter - The criteria used to filter the rooms.
-   * @returns {Promise<object>} A promise that resolves to an object containing the filtered rooms.
+   * @param filter - The criteria used to filter the rooms.
+   * @returns A promise that resolves to an object containing the filtered rooms.
    */
   getRooms(filter: TFrameFilter): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetRooms, filter);
@@ -574,7 +839,7 @@ export default class SDKInstance {
   /**
    * Retrieves user information.
    *
-   * @returns {Promise<object>} A promise that resolves to an object containing user information.
+   * @returns A promise that resolves to an object containing user information.
    */
   getUserInfo(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetUserInfo);
@@ -583,7 +848,7 @@ export default class SDKInstance {
   /**
    * Retrieves the hash settings.
    *
-   * @returns {Promise<object>} A promise that resolves to an object containing the hash settings.
+   * @returns A promise that resolves to an object containing the hash settings.
    */
   getHashSettings(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetHashSettings);
@@ -592,9 +857,9 @@ export default class SDKInstance {
   /**
    * Opens a modal of the specified type with the given options.
    *
-   * @param {string} type - The type of modal to open.
-   * @param {object} options - An object containing options for the modal.
-   * @returns {Promise<object>} A promise that resolves to an object containing the result of the modal operation.
+   * @param type - The type of modal to open.
+   * @param options - An object containing options for the modal.
+   * @returns A promise that resolves to an object containing the result of the modal operation.
    */
   openModal(type: string, options: object): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.OpenModal, { type, options });
@@ -603,11 +868,11 @@ export default class SDKInstance {
   /**
    * Creates a new file in the specified folder.
    *
-   * @param {string} folderId - The ID of the folder where the file will be created.
-   * @param {string} title - The title of the new file.
-   * @param {string} templateId - The ID of the template to be used for the new file.
-   * @param {string} formId - The ID of the form associated with the new file.
-   * @returns {Promise<object>} A promise that resolves to an object representing the created file.
+   * @param folderId - The ID of the folder where the file will be created.
+   * @param title - The title of the new file.
+   * @param templateId - The ID of the template to be used for the new file.
+   * @param formId - The ID of the form associated with the new file.
+   * @returns A promise that resolves to an object representing the created file.
    */
   createFile(
     folderId: string,
@@ -626,9 +891,9 @@ export default class SDKInstance {
   /**
    * Creates a new folder within the specified parent folder.
    *
-   * @param {string} parentFolderId - The ID of the parent folder where the new folder will be created.
-   * @param {string} title - The title of the new folder.
-   * @returns {Promise<object>} A promise that resolves to an object containing the details of the created folder.
+   * @param parentFolderId - The ID of the parent folder where the new folder will be created.
+   * @param title - The title of the new folder.
+   * @returns A promise that resolves to an object containing the details of the created folder.
    */
   createFolder(parentFolderId: string, title: string): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateFolder, {
@@ -640,15 +905,15 @@ export default class SDKInstance {
   /**
    * Creates a new room with the specified parameters.
    *
-   * @param {string} title - The title of the room.
-   * @param {string} roomType - The type of the room.
-   * @param {number} quota - (Optional) The quota for the room.
-   * @param {string[]} tags - (Optional) An array of tags associated with the room.
-   * @param {string} color - (Optional) The main color of the room logo.
-   * @param {string} cover - (Optional) The cover image of the room.
-   * @param {boolean} indexing - (Optional) Whether the room should be indexed (VDR only).
-   * @param {boolean} denyDownload - (Optional) Whether downloading is denied in the room (VDR only).
-   * @returns {Promise<object>} A promise that resolves to an object representing the created room.
+   * @param title - The title of the room.
+   * @param roomType - The type of the room.
+   * @param quota - (Optional) The quota for the room.
+   * @param tags - (Optional) An array of tags associated with the room.
+   * @param color - (Optional) The main color of the room logo.
+   * @param cover - (Optional) The cover image of the room.
+   * @param indexing - (Optional) Whether the room should be indexed (VDR only).
+   * @param denyDownload - (Optional) Whether downloading is denied in the room (VDR only).
+   * @returns A promise that resolves to an object representing the created room.
    */
   createRoom(
     title: string,
@@ -675,8 +940,8 @@ export default class SDKInstance {
   /**
    * Sets the list view type for the instance.
    *
-   * @param {string} viewType - The type of view to set. This could be a string representing different view types (e.g., "grid", "list").
-   * @returns {Promise<object>} A promise that resolves to an object indicating the result of the operation.
+   * @param viewType - The type of view to set. This could be a string representing different view types (e.g., "grid", "list").
+   * @returns A promise that resolves to an object indicating the result of the operation.
    */
   setListView(viewType: string): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.SetListView, { viewType });
@@ -685,9 +950,9 @@ export default class SDKInstance {
   /**
    * Creates a hash for the given password using the specified hash settings.
    *
-   * @param {string} password - The password to be hashed.
-   * @param {string} hashSettings - An object containing settings for the hash function.
-   * @returns {Promise<object>} A promise that resolves to an object containing the hash.
+   * @param password - The password to be hashed.
+   * @param hashSettings - An object containing settings for the hash function.
+   * @returns A promise that resolves to an object containing the hash.
    */
   createHash(password: string, hashSettings: object): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateHash, {
@@ -699,11 +964,11 @@ export default class SDKInstance {
   /**
    * Logs in a user with the provided credentials.
    *
-   * @param {string }email - The email address of the user.
-   * @param {string} passwordHash - The hashed password of the user.
-   * @param {string} password - (Optional) The plaintext password of the user.
-   * @param {boolean} session - (Optional) A boolean indicating whether to create a session.
-   * @returns {Promise<object>} A promise that resolves to an object containing the login result.
+   * @param email - The email address of the user.
+   * @param passwordHash - The hashed password of the user.
+   * @param password - (Optional) The plaintext password of the user.
+   * @param session - (Optional) A boolean indicating whether to create a session.
+   * @returns A promise that resolves to an object containing the login result.
    */
   login(
     email: string,
@@ -722,7 +987,7 @@ export default class SDKInstance {
   /**
    * Logs out the current user by invoking the "logout" method.
    *
-   * @returns {Promise<object>} A promise that resolves to an object upon successful logout.
+   * @returns A promise that resolves to an object upon successful logout.
    */
   logout(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.Logout);
@@ -731,8 +996,8 @@ export default class SDKInstance {
   /**
    * Creates a new tag with the specified name.
    *
-   * @param {string} name - The name of the tag to be created.
-   * @returns {Promise<object>} A promise that resolves to an object representing the created tag.
+   * @param name - The name of the tag to be created.
+   * @returns A promise that resolves to an object representing the created tag.
    */
   createTag(name: string): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateTag, { name });
@@ -741,9 +1006,9 @@ export default class SDKInstance {
   /**
    * Adds tags to a specified room.
    *
-   * @param {string} roomId - The unique identifier of the room to which tags will be added.
-   * @param {string[]} tags - An array of tags to be added to the room.
-   * @returns {Promise<object>}A promise that resolves to an object containing the result of the operation.
+   * @param roomId - The unique identifier of the room to which tags will be added.
+   * @param tags - An array of tags to be added to the room.
+   * @returns A promise that resolves to an object containing the result of the operation.
    */
   addTagsToRoom(roomId: string, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.AddTagsToRoom, {
@@ -755,9 +1020,9 @@ export default class SDKInstance {
   /**
    * Removes specified tags from a room.
    *
-   * @param {string}roomId - The unique identifier of the room.
-   * @param {string[]}tags - An array of tags to be removed from the room.
-   * @returns {Promise<object>} A promise that resolves to an object containing the result of the operation.
+   * @param roomId - The unique identifier of the room.
+   * @param tags - An array of tags to be removed from the room.
+   * @returns A promise that resolves to an object containing the result of the operation.
    */
   removeTagsFromRoom(roomId: string, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.RemoveTagsFromRoom, {
@@ -767,11 +1032,14 @@ export default class SDKInstance {
   }
 
   /**
-   * Retrieves object with the editor instance and Asc object helper.
-   *
-   * @returns {Promise<object>} A promise that resolves to object with the editor instance and Asc object helper.
+   * Executes a callback function within the editor context
+   * 
+   * @param callback - Function to be executed in the editor that receives data and editor instance as its parameter
+   * @param data - Optional data object to be passed to the callback function
    */
-  getEditorInstance(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetEditorInstance);
+  executeInEditor(callback: (instance:object, data?: object) => void, data?: object): void {
+    this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
+      callback, data
+    });
   }
 }
