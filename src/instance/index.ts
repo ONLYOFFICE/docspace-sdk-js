@@ -917,7 +917,7 @@ export class SDKInstance {
    */
   createRoom(
     title: string,
-    roomType: string,
+    roomType: string | number,
     quota?: number,
     tags?: string[],
     color?: string,
