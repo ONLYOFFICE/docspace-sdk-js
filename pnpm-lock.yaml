@@ -10,10 +10,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      pnpm:
-        specifier: 9.15.4
-        version: 9.15.4
     devDependencies:
       '@eslint/js':
         specifier: 9.24.0
@@ -39,6 +35,9 @@ importers:
       jest-environment-jsdom:
         specifier: 29.7.0
         version: 29.7.0
+      pnpm:
+        specifier: 10.11.0
+        version: 10.11.0
       ts-jest:
         specifier: 29.3.2
         version: 29.3.2(@babel/core@7.26.0)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.26.0))(esbuild@0.25.2)(jest@29.7.0(@types/node@22.10.1)(ts-node@10.9.2(@types/node@22.10.1)(typescript@5.7.2)))(typescript@5.7.2)
@@ -1648,8 +1647,8 @@ packages:
     resolution: {integrity: sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ==}
     engines: {node: '>=8'}
 
-  pnpm@9.15.4:
-    resolution: {integrity: sha512-stwg4vxys+GISEWbNzWaMgZGY+VielHkx0ssKd2OjgSRSDw6u0B4nP1Xi/Ni+2uoJhsF8Dh9dnku1uI+o7G2oA==}
+  pnpm@10.11.0:
+    resolution: {integrity: sha512-ZUBYP0HMX2KOs9l3Ps7oAvT575kjzEW2mJD7R5kdSwkpZGlOw6T3OKQgyRijMwYsi5JdMS9C5PDCY+tgNVH5dw==}
     engines: {node: '>=18.12'}
     hasBin: true
 
@@ -3956,7 +3955,7 @@ snapshots:
     dependencies:
       find-up: 4.1.0
 
-  pnpm@9.15.4: {}
+  pnpm@10.11.0: {}
 
   prelude-ls@1.2.1: {}
 
