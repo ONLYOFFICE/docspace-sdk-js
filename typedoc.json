@@ -14,18 +14,6 @@
       "name": "json",
       "path": "docs/docspace-sdk-js.json"
     },
-    {
-      "name": "html",
-      "path": "docs/website",
-      "options": {
-        "navigation": {
-          "includeCategories": true,
-          "includeGroups": true
-        }
-      }
-    }
   ],
-  // "treatValidationWarningsAsErrors": true,
-  // "treatWarningsAsErrors": true,
   "validation": true
 }
