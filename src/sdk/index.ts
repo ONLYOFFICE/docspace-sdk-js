@@ -51,7 +51,8 @@ export class SDK {
    * Maps frame IDs to their corresponding SDKInstance objects.
    * Used to track and manage multiple SDK instances across different frames.
    */
-  frames: Record<string, SDKInstance> = {};  /**
+  frames: Record<string, SDKInstance> = {};
+  /**
    * Initializes an SDK instance with the provided configuration.
    *
    * This is the core initialization method that creates or reinitializes SDK instances.
@@ -220,7 +221,9 @@ export class SDK {
     this.frames[frameId] = instance;
 
     return instance;
-  };  /**
+  };
+  
+  /**
    * Initializes the frame with the given configuration.
    *
    * This is a convenience wrapper around the main `init` method that creates or reinitializes
@@ -327,7 +330,9 @@ export class SDK {
    * }
    * ```
    */
-  initFrame = (config: TFrameConfig) => this.init(config);  /**
+  initFrame = (config: TFrameConfig) => this.init(config);
+  
+  /**
    * Initializes the manager with the provided configuration.
    *
    * The manager mode provides a full-featured file management interface for DocSpace,
@@ -457,7 +462,9 @@ export class SDK {
    * ```
    */
   initManager = (config: TFrameConfig) =>
-    this.init({ ...config, mode: SDKMode.Manager });  /**
+    this.init({ ...config, mode: SDKMode.Manager });
+  
+  /**
    * Initializes the viewer with the provided configuration.
    *
    * The viewer mode provides a read-only interface for viewing documents, presentations,
@@ -586,7 +593,9 @@ export class SDK {
    * ```
    */
   initViewer = (config: TFrameConfig) =>
-    this.init({ ...config, mode: SDKMode.Viewer });  /**
+    this.init({ ...config, mode: SDKMode.Viewer });
+  
+  /**
    * Initializes the editor with the given configuration.
    *
    * The editor mode provides full document editing capabilities, allowing users to create,
@@ -753,7 +762,9 @@ export class SDK {
    * ```
    */
   initEditor = (config: TFrameConfig) =>
-    this.init({ ...config, mode: SDKMode.Editor });  /**
+    this.init({ ...config, mode: SDKMode.Editor });
+  
+  /**
    * Initializes the Room Selector with the provided configuration.
    *
    * The room selector mode provides a specialized interface for browsing and selecting
@@ -893,7 +904,9 @@ export class SDK {
    * ```
    */
   initRoomSelector = (config: TFrameConfig) =>
-    this.init({ ...config, mode: SDKMode.RoomSelector });  /**
+    this.init({ ...config, mode: SDKMode.RoomSelector });
+  
+  /**
    * Initializes the file selector with the given configuration.
    *
    * The file selector mode provides a specialized interface for browsing and selecting
@@ -1047,6 +1060,7 @@ export class SDK {
    */
   initFileSelector = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.FileSelector });
+  
   /**
    * Initializes the system with the provided configuration.
    *
