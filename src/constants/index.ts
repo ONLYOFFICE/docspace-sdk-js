@@ -33,137 +33,143 @@ import {
   HeaderBannerDisplaying,
 } from "../enums";
 
-/** The API endpoint for Content Security Policy (CSP) settings */
+/** The API endpoint for managing Content Security Policy (CSP) settings. */
 export const CSPApiUrl = "/api/2.0/security/csp" as const;
 
-/** The default name for the DocSpace iframe element */
+/** The default name for the DocSpace iframe element. */
 export const FRAME_NAME = "frameDocSpace" as const;
 
 /**
- * Default configuration for embedding a DocSpace frame
+ * Default configuration object for initializing and embedding a DocSpace frame.
  * 
  * @type {TFrameConfig}
  */
 export const defaultConfig: TFrameConfig = {
-  /** Source URL for the iframe */
+  /** Source URL for the iframe. */
   src: "",
-  /** Base path for DocSpace navigation */
+  /** Base path used for DocSpace navigation. */
   rootPath: "/rooms/shared/",
-  /** Authorization token */
+  /** Authorization token for API requests. */
   requestToken: null,
-  /** Frame width */
+  /** Width of the iframe element. */
   width: "100%",
-  /** Frame height */
+  /** Height of the iframe element. */
   height: "100%",
-  /** Frame name */
+  /** Name of the iframe element. */
   name: FRAME_NAME,
-  /** Editor type setting */
+  /** Type of editor to initialize. */
   type: EditorType.Desktop,
-  /** Unique identifier for the frame */
+  /** Unique frame identifier. */
   frameId: "ds-frame",
-  /** SDK operation mode */
+  /** SDK mode to use for initialization. */
   mode: SDKMode.Manager,
-  /** Unique identifier */
+  /** Unique identifier for the instance. */
   id: null,
-  /** Language/locale setting */
+  /** Language or locale (e.g., "en", "ru"). */
   locale: null,
-  /** UI theme setting */
+  /** Theme of the interface (light, dark, or system default). */
   theme: Theme.System,
-  /** Type of editor to use */
+  /** Type of editor interface. */
   editorType: EditorType.Desktop,
-  /** Enable/disable editor back navigation */
+  /** Whether to enable "Go back" navigation inside the editor. */
   editorGoBack: true,
-  /** Type of selector filter */
+  /** Filter type used in selector views. */
   selectorType: SelectorFilterType.All,
-  /** Show/hide selector cancel button */
+  /** Whether to show the cancel button in selector mode. */
   showSelectorCancel: false,
-  /** Show/hide selector header */
+  /** Whether to show the header in selector mode. */
   showSelectorHeader: false,
-  /** Show/hide main header */
+  /** Whether to show the main header. */
   showHeader: true,
-  /** Header banner display setting */
+  /** Controls display of the header banner. */
   showHeaderBanner: HeaderBannerDisplaying.None,
-  /** Show/hide title */
+  /** Whether to display the document or folder title. */
   showTitle: true,
-  /** Show/hide menu */
+  /** Whether to display the top menu. */
   showMenu: false,
-  /** Show/hide filter options */
+  /** Whether to display filtering options. */
   showFilter: false,
-  /** Show/hide sign out option */
+  /** Whether to display the sign-out button. */
   showSignOut: true,
-  /** Text to display when destroying */
+  /** Text to display when destroying the frame. */
   destroyText: "",
-  /** View mode setting */
+  /** Default view mode (table or row view). */
   viewAs: ManagerViewMode.Row,
-  /** Columns to display in table view */
+  /** Comma-separated string of table columns to display. */
   viewTableColumns: "Index, Name, Size, Type, Tags",
-  /** Enable/disable CSP checking */
+  /** Whether to check CSP settings before initializing. */
   checkCSP: true,
-  /** Enable/disable action button */
+  /** Whether to disable the main action button. */
   disableActionButton: false,
-  /** Show/hide settings */
+  /** Whether to show the settings button. */
   showSettings: false,
-  /** Loading state indicator */
+  /** Whether the frame is in a loading state. */
   waiting: false,
-  /** Init without loading spinner */
+  /** Whether to initialize the frame without showing a loading spinner. */
   noLoader: true,
-  /** Enable/disable search functionality */
+  /** Whether to enable the search bar. */
   withSearch: true,
-  /** Show/hide breadcrumb navigation */
+  /** Whether to show breadcrumb navigation. */
   withBreadCrumbs: true,
-  /** Show/hide subtitle */
+  /** Whether to display a subtitle. */
   withSubtitle: true,
-  /** Default filter parameter */
+  /** Default filter parameter to apply (e.g., "ALL", "FAVORITES"). */
   filterParam: "ALL",
-  /** Custom button color */
+  /** Hex code for customizing the button color. */
   buttonColor: "#5299E0",
-  /** Show/hide info panel */
+  /** Whether to make the info panel visible by default. */
   infoPanelVisible: true,
-  /** Enable/disable download event handling */
+  /** Whether to trigger an event instead of downloading directly. */
   downloadToEvent: false,
-  /** Filter configuration */
+  /** Filter configuration parameters. */
   filter: {
+    /** Number of items per page. */
     count: "100",
+    /** Page number to start from. */
     page: "1",
+    /** Sort direction for the list. */
     sortOrder: FilterSortOrder.Descending,
+    /** Property by which to sort the list. */
     sortBy: FilterSortBy.ModifiedDate,
+    /** Search string. */
     search: "",
+    /** Whether to include subfolders in results. */
     withSubfolders: false,
   },
-  /** Editor customization options */
+  /** Customization options specific to the embedded editor. */
   editorCustomization: {},
-  /** Set of event callback functions */
+  /** Callback functions for SDK events. */
   events: {
-    /** Triggered when a user selects an item */
+    /** Triggered when an item is selected by the user. */
     onSelectCallback: null,
-    /** Triggered when the frame is closed manually */
+    /** Triggered when the frame is closed manually. */
     onCloseCallback: null,
-    /** Triggered when the frame is fully initialized */
+    /** Triggered when the frame is fully initialized. */
     onAppReady: null,
-    /** Triggered when an error occurs inside the app */
+    /** Triggered when an error occurs inside the app. */
     onAppError: null,
-    /** Triggered when the editor is closed */
+    /** Triggered when the editor is closed. */
     onEditorCloseCallback: null,
-    /** Triggered when the authentication is successfull */
+    /** Triggered when the authentication is successfull. */
     onAuthSuccess: null,
-    /** Triggered when user clicks “Sign Out” */
+    /** Triggered when user clicks “Sign Out”. */
     onSignOut: null,
-    /** Triggered when user downloads a file */
+    /** Triggered when user downloads a file. */
     onDownload: null,
-    /** Triggered when there is no user access */
+    /** Triggered when there is no user access. */
     onNoAccess: null,
-    /** Triggered when frame is not found */
+    /** Triggered when frame is not found. */
     onNotFound: null,
-    /** Triggered when content is ready */
+    /** Triggered when content is ready. */
     onContentReady: null,
-    /** Triggered after the editor is opened */
+    /** Triggered after the editor is opened. */
     onEditorOpen: null,
   },
 } as const;
 
-/** Error shown when the current domain is missing in CSP configuration */
+/** Error message displayed when the current domain is not included in the CSP settings. */
 export const cspErrorText =
   "The current domain is not set in the Content Security Policy (CSP) settings." as const;
 
-/** Error message displayed when the message bus fails to connect with the frame */
+/** Error message displayed when the message bus fails to connect with the embedded frame. */
 export const connectErrorText = "Message bus is not connected with frame" as const;
