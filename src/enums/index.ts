@@ -22,39 +22,40 @@
  */
 
 /**
- * Available modes in the SDK
+ * Available modes in the SDK.
+ * Defines the context in which the SDK operates.
  */
 export enum SDKMode {
-  /** Manager mode */
+  /** File and room manager interface. */
   Manager = "manager",
-  /** Editor mode */
+  /** Document editor interface. */
   Editor = "editor",
-  /** Viewer mode */
+  /** Read-only document viewer. */
   Viewer = "viewer",
-  /** Room selector mode */
+  /** Modal or UI for selecting rooms. */
   RoomSelector = "room-selector",
-  /** File selector mode */
+  /** Modal or UI for selecting files. */
   FileSelector = "file-selector",
-  /** System mode */
+  /** SDK initialized for system-level integration. */
   System = "system",
-  /** Public room mode */
+  /** Access to a public/shared room. */
   PublicRoom = "public-room",
 }
 
 /**
- * Types of filters that can be applied to a selector
+ * Specifies filters applied to file/room selectors.
  */
 export const enum SelectorFilterType {
-  /** Show all items */
+  /** Show all available items. */
   All = "all",
-  /** Show only rooms */
+  /** Show only rooms. */
   RoomsOnly = "roomsOnly",
-  /** Show only user folder */
+  /** Show only user folder. */
   UserOnly = "userFolderOnly",
 }
 
 /**
- * Types of editors available
+ * Defines the editor interface being used.
  */
 export const enum EditorType {
   /** Desktop editor */
@@ -66,41 +67,41 @@ export const enum EditorType {
 }
 
 /**
- * View modes available in the manager
+ * View modes available in the manager.
  */
 export const enum ManagerViewMode {
-  /** Row view */
+  /** Items in a list row format. */
   Row = "row",
-  /** Table view */
+  /** Items in a table layout. */
   Table = "table",
-  /** Tile view */
+  /** Items in a tile/card view. */
   Tile = "tile",
 }
 
 /**
- * Available application themes
+ * Available application themes.
  */
 export const enum Theme {
-  /** Base theme */
+  /** Light/base theme. */
   Base = "Base",
-  /** Dark theme */
+  /** Dark mode theme. */
   Dark = "Dark",
-  /** System theme */
+  /** Follow the system UI theme. */
   System = "System",
 }
 
 /**
- * Sort order for filtering
+ * Determines item sorting order.
  */
 export const enum FilterSortOrder {
-  /** Ascending order */
+  /** From smallest to largest, A–Z, etc. */
   Ascending = "ascending",
-  /** Descending order */
+  /** From largest to smallest, Z–A, etc. */
   Descending = "descending",
 }
 
 /**
- * Criteria for filtering and sorting items
+ * Criteria for filtering and sorting items.
  */
 export const enum FilterSortBy {
   /** Sort by author */
@@ -128,19 +129,19 @@ export const enum FilterSortBy {
 }
 
 /**
- * Header banner display options
+ * Specifies how header banners should appear.
  */
 export const enum HeaderBannerDisplaying {
-  /** Display all header banners */
+  /** Display all header banners. */
   All = "all",
-  /** Display only informational header banners */
+  /** Display only informational header banners. */
   Info = "info",
-  /** Do not display any header banners */
+  /** Do not display any header banners. */
   None = "none",
 }
 
 /**
- * Available instance methods in the SDK for file management, user info, and settings
+ * Available instance methods in the SDK for file management, user info, and settings.
  */
 export const enum InstanceMethods {
   /** Add tags to a room */
@@ -188,7 +189,7 @@ export const enum InstanceMethods {
 }
 
 /**
- * Types of messages
+ * Types of messages exchanged between SDK components and the host application.
  */
 export const enum MessageTypes {
   /** Method return message */
