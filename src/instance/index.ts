@@ -266,7 +266,7 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @returns void - This method performs side effects by updating frame appearance
+   * @returns void - This method performs side effects by updating the frame appearance
    *               and triggering events without returning values, focusing on
    *               state transition and user experience optimization
    *
@@ -454,7 +454,7 @@ export class SDKInstance {
   }
 
   /**
-   * Processes event data received from DocSpace iframe and dispatches to registered event handlers.
+   * Processes event data received from the DocSpace iframe and dispatches to registered event handlers.
    *
    * @param eventData - The optional event data containing event name and payload
    */
@@ -474,9 +474,9 @@ export class SDKInstance {
   }
 
   /**
-   * Executes commands received from DocSpace iframe by invoking the corresponding SDK method.
+   * Executes commands received from the DocSpace iframe by invoking the corresponding SDK method.
    *
-   * @param data - The message data containing command name and parameters
+   * @param data - The message data containing the command name and parameters
    */
   #executeCommand(data: TMessageData): void {
     if (!data.commandName) return;
@@ -489,7 +489,7 @@ export class SDKInstance {
   }
 
   /**
-   * Handles errors by logging to console and notifying registered error handlers.
+   * Handles errors by logging to the console and notifying registered error handlers.
    *
    * @param error - The error object containing error information
    */
@@ -697,7 +697,7 @@ export class SDKInstance {
    *
    * This is the core method that sets up the DocSpace iframe within your application.
    * It handles container creation, iframe setup, event handlers, and frame registration.
-   * The method supports various DocSpace modes including viewer, editor, manager, and more.
+   * The method supports various DocSpace modes, including viewer, editor, manager, and more.
    *
    * @param config - The configuration object for the iframe containing all initialization settings
    * 
@@ -737,7 +737,7 @@ export class SDKInstance {
    * });
    * ```
    *
-   * @throws {Error} May throw if configuration contains invalid values or target element cannot be accessed
+   * @throws {Error} May throw if the configuration contains invalid values or the target element cannot be accessed
    * 
    * @see {@link setConfig} - For updating configuration after initialization
    * @see {@link getConfig} - For retrieving current configuration
@@ -963,8 +963,8 @@ export class SDKInstance {
   /**
    * Retrieves comprehensive information about the current or specified folder.
    *
-   * This method provides detailed metadata about a folder including its contents, permissions,
-   * sharing settings, and hierarchical position. It's essential for building detailed folder
+   * This method provides detailed metadata about a folder, including its contents, permissions,
+   * sharing settings, and hierarchical position. It's essential for building a detailed folder
    * views, property dialogs, and administrative interfaces. The returned information includes
    * both folder-specific data and aggregated statistics about contained items.
    *
@@ -993,7 +993,7 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @returns A promise that resolves to an object containing comprehensive folder information including id, title, path, parent information, file/folder counts, total size, permissions, sharing status, creation/modification dates, and access metadata.
+   * @returns A promise that resolves to an object containing comprehensive folder information, including id, title, path, parent information, file/folder counts, total size, permissions, sharing status, creation/modification dates, and access metadata.
    *
    * @see {@link getFolders} - For retrieving multiple folder information
    * @see {@link getFiles} - For getting folder contents
@@ -1056,7 +1056,7 @@ export class SDKInstance {
    * Retrieves a list of files from the current context with comprehensive metadata.
    *
    * This method fetches all files accessible in the current context, providing detailed
-   * information about each file including metadata, permissions, and modification history.
+   * information about each file, including metadata, permissions, and modification history.
    * It's essential for building file browsers, dashboards, and file management interfaces.
    * The returned data respects user permissions and access controls.
    *   * @example
@@ -1096,7 +1096,7 @@ export class SDKInstance {
    * This method fetches all folders accessible in the current context, providing comprehensive
    * information about folder structure, permissions, and contents. It's crucial for building
    * navigation interfaces, folder browsers, and organizational tools. The method respects
-   * user access permissions and returns only folders the user can view.
+   * user access permissions and returns only the folders the user can view.
    *   * @example
    * ```javascript
    * const folders = await docSpace.getFolders();
@@ -1344,7 +1344,7 @@ export class SDKInstance {
    * @param options - Configuration object containing modal-specific options and event handlers
    * @returns A promise that resolves to an object containing the result of the modal operation
    *
-   * @throws {Error} Throws an error if the modal type is not supported or configuration is invalid
+   * @throws {Error} Throws an error if the modal type is not supported or the configuration is invalid
    * @see {@link getSelection} - For getting currently selected items to open modals for
    * @see {@link setConfig} - For configuring global modal behavior and appearance
    */
@@ -1387,9 +1387,9 @@ export class SDKInstance {
    * ```
    *
    * @param folderId - The ID of the folder where the file will be created. Must be a valid folder ID that the user has write access to.
-   * @param title - The title of the new file. Will be used as the filename with appropriate extension based on template type.
+   * @param title - The title of the new file. Will be used as the filename with the appropriate extension based on the template type.
    * @param templateId - The ID of the template to be used for the new file. Determines file type and initial content structure.
-   * @param formId - The ID of the form associated with the new file. Use empty string if no form is needed.
+   * @param formId - The ID of the form associated with the new file. Use an empty string if no form is needed.
    * @returns A promise that resolves to an object representing the created file with properties like id, title, type, and creation date.
    *
    * @see {@link createFolder} - For creating folders to organize files
@@ -1442,7 +1442,7 @@ export class SDKInstance {
    *
    * @param parentFolderId - The ID of the parent folder where the new folder will be created. Must be a valid folder ID with write permissions.
    * @param title - The title of the new folder. Should be unique within the parent folder and follow naming conventions.
-   * @returns A promise that resolves to an object containing the details of the created folder including id, title, creation date, and access permissions.
+   * @returns A promise that resolves to an object containing the details of the created folder, including id, title, creation date, and access permissions.
    *
    * @see {@link createFile} - For creating files within folders
    * @see {@link getFolders} - For retrieving folder lists
@@ -1566,7 +1566,7 @@ export class SDKInstance {
    *
    * @throws {Error} Throws an error if the view type is not supported or the operation fails
    * @see {@link getList} - For retrieving content that will be displayed in the new view mode
-   * @see {@link getConfig} - For getting current view configuration and defaults
+   * @see {@link getConfig} - For getting the current view configuration and defaults
    * @see {@link setConfig} - For setting default view preferences globally
    */
   setListView(viewType: string): Promise<object> {
@@ -1593,7 +1593,7 @@ export class SDKInstance {
    * await sdkInstance.login('user@example.com', hashResult.hash);
    * ```
    *
-   * @throws {Error} Throws an error if the password is empty or hash settings are invalid
+   * @throws {Error} Throws an error if the password is empty or the hash settings are invalid
    * @see {@link getHashSettings} - For retrieving the current hash settings
    * @see {@link login} - For using the generated hash in authentication
    */
@@ -1614,7 +1614,7 @@ export class SDKInstance {
    * @param passwordHash - The hashed password (recommended) obtained from createHash() method
    * @param password - Optional plaintext password (not recommended for production)
    * @param session - Optional flag to create a persistent session (default: false)
-   * @returns A promise that resolves to an object containing authentication result and user data
+   * @returns A promise that resolves to an object containing the authentication result and user data
    *
    * @example
    * ```typescript
@@ -1667,7 +1667,7 @@ export class SDKInstance {
    * This method clears the user's authentication state and session data,
    * effectively signing them out of the DocSpace application.
    *
-   * @returns A promise that resolves to an object containing logout confirmation
+   * @returns A promise that resolves to an object containing the logout confirmation
    *
    * @example
    * ```typescript
@@ -1683,7 +1683,7 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @throws {Error} Throws an error if logout operation fails
+   * @throws {Error} Throws an error if the logout operation fails
    * @see {@link login} - For user authentication
    */
   logout(): Promise<object> {
@@ -1697,7 +1697,7 @@ export class SDKInstance {
    * They can be used for project management, content categorization, workflow organization,
    * and creating custom filtering systems for better content discovery.
    *
-   * @param name - The name of the tag to be created. Should be descriptive and unique.
+   * @param name - The name of the tag to be created. It should be descriptive and unique.
    * @returns A promise that resolves to an object representing the created tag with its ID and metadata.
    *
    * @example
@@ -1752,7 +1752,7 @@ export class SDKInstance {
    * console.log('Room organized with tags:', projectTags);
    * ```
    *
-   * @throws {Error} May throw if room ID is invalid, tags don't exist, or user lacks permission to modify room tags
+   * @throws {Error} May throw if room ID is invalid, tags don't exist, or the user lacks permission to modify the room tags
    * @see {@link createTag} - For creating new tags before applying them
    * @see {@link removeTagsFromRoom} - For removing tags from rooms
    * @see {@link getRooms} - For retrieving rooms with their current tags
@@ -1795,7 +1795,7 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @throws {Error} May throw if room ID is invalid, tags don't exist on the room, or user lacks permission to modify room tags
+   * @throws {Error} May throw if the room ID is invalid, tags don't exist on the room, or user lacks permission to modify room tags
    * @see {@link addTagsToRoom} - For adding tags to rooms
    * @see {@link createTag} - For creating new tags before applying them
    * @see {@link getRooms} - For retrieving rooms with their current tags
@@ -1811,7 +1811,7 @@ export class SDKInstance {
    * Executes custom functions within the editor context for advanced document manipulation.
    *
    * This method allows applications to run custom code directly within the document editor
-   * environment, enabling advanced programmatic operations, content manipulation, automation
+   * environment, enabling advanced programmatic operations, content manipulation, and automation
    * tasks, and integration with external systems. The callback function receives the editor
    * instance and optional data, providing full access to editor APIs and document content.
    *

@@ -91,7 +91,7 @@ export class SDK {
    *   viewAs: ManagerViewMode.Table,
    *   showFilter: true,
    *   showMenu: true,
-   *   viewTableColumns: 'Name,Size,Type,ModifiedDate,Author',
+   *   viewTableColumns: 'Name, Size, Type, Modified Date, Author',
    *   filter: {
    *     count: '50',
    *     sortBy: FilterSortBy.Name,
@@ -371,7 +371,7 @@ export class SDK {
    *   viewAs: ManagerViewMode.Table,
    *   showFilter: true,
    *   showMenu: true,
-   *   viewTableColumns: 'Name,Size,Type,ModifiedDate,Author,Tags',
+   *   viewTableColumns: 'Name, Size, Type, Modified Date, Author, Tags',
    *   filter: {
    *     count: '50',
    *     sortBy: FilterSortBy.Name,

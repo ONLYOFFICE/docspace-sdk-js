@@ -175,7 +175,7 @@ export type TFrameEvents = {
  * Frame configuration
  */
 export type TFrameConfig = {
-  /** Disable loader */
+  /** Whether to disable loader */
   noLoader?: boolean;
   /** Selector room type */
   roomType?: string;
@@ -185,17 +185,17 @@ export type TFrameConfig = {
   cancelButtonLabel?: string;
   /** Button color */
   buttonColor?: string;
-  /** Check Content Security Policy */
+  /** Whether to check Content Security Policy */
   checkCSP?: boolean;
   /** Destroy message text */
   destroyText?: string;
-  /** Disable action button */
+  /** Whether to disable action button */
   disableActionButton?: boolean;
-  /** Enable download to event */
+  /** Whether to enable download to event */
   downloadToEvent?: boolean;
   /** Editor customization options */
   editorCustomization?: TEditorCustomization | object;
-  /** Editor back navigation */
+  /** Whether to enable editor back navigation */
   editorGoBack?: boolean | string;
   /** Editor type */
   editorType?: TEditorType;
@@ -211,9 +211,9 @@ export type TFrameConfig = {
   height?: string;
   /** Optional identifier */
   id?: string | number | null;
-  /** Show info panel */
+  /** Whether to show info panel */
   infoPanelVisible?: boolean;
-  /** Initialize frame */
+  /** Whether to initialize frame */
   init?: boolean | null;
   /** Localization setting */
   locale?: string | null;
@@ -227,23 +227,23 @@ export type TFrameConfig = {
   rootPath?: string;
   /** Selector type */
   selectorType?: TSelectorType;
-  /** Show filter UI */
+  /** Whether to show filter UI */
   showFilter?: boolean;
-  /** Show header */
+  /** Whether to show header */
   showHeader?: boolean;
   /** Header banner display */
   showHeaderBanner?: TBannerDisplaying;
-  /** Show menu */
+  /** Whether to show menu */
   showMenu?: boolean;
-  /** Show selector cancel */
+  /** Whether to show selector cancel */
   showSelectorCancel?: boolean;
-  /** Show selector header */
+  /** Whether to show selector header */
   showSelectorHeader?: boolean;
-  /** Show settings */
+  /** Whether to show settings */
   showSettings?: boolean;
-  /** Show sign out option */
+  /** Whether to show sign out option */
   showSignOut?: boolean;
-  /** Show title */
+  /** Whether to show title */
   showTitle?: boolean;
   /** Content source URL */
   src: string;
@@ -255,15 +255,15 @@ export type TFrameConfig = {
   viewAs?: TManagerViewMode;
   /** Table columns to display */
   viewTableColumns?: string;
-  /** Loading state */
+  /** Whether to enable loading state */
   waiting?: boolean;
   /** Frame width */
   width?: string;
-  /** Show breadcrumbs */
+  /** Whether to show breadcrumbs */
   withBreadCrumbs?: boolean;
-  /** Enable search */
+  /** Whether to enable search */
   withSearch?: boolean;
-  /** Show subtitle */
+  /** Whether to show subtitle */
   withSubtitle?: boolean;
 };
 

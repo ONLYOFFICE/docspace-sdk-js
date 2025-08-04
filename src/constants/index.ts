@@ -40,16 +40,16 @@ export const CSPApiUrl = "/api/2.0/security/csp" as const;
 export const FRAME_NAME = "frameDocSpace" as const;
 
 /**
- * Default configuration for the DocSpace frame
+ * Default configuration for embedding a DocSpace frame
  * 
  * @type {TFrameConfig}
  */
 export const defaultConfig: TFrameConfig = {
-  /** Source URL for the frame */
+  /** Source URL for the iframe */
   src: "",
-  /** Root path for navigation */
+  /** Base path for DocSpace navigation */
   rootPath: "/rooms/shared/",
-  /** Authentication token */
+  /** Authorization token */
   requestToken: null,
   /** Frame width */
   width: "100%",
@@ -96,7 +96,7 @@ export const defaultConfig: TFrameConfig = {
   /** View mode setting */
   viewAs: ManagerViewMode.Row,
   /** Columns to display in table view */
-  viewTableColumns: "Index,Name,Size,Type,Tags",
+  viewTableColumns: "Index, Name, Size, Type, Tags",
   /** Enable/disable CSP checking */
   checkCSP: true,
   /** Enable/disable action button */
@@ -132,24 +132,36 @@ export const defaultConfig: TFrameConfig = {
   },
   /** Editor customization options */
   editorCustomization: {},
-  /** Event callback configuration */
+  /** Set of event callback functions */
   events: {
+    /** Triggered when a user selects an item */
     onSelectCallback: null,
+    /** Triggered when the frame is closed manually */
     onCloseCallback: null,
+    /** Triggered when the frame is fully initialized */
     onAppReady: null,
+    /** Triggered when an error occurs inside the app */
     onAppError: null,
+    /** Triggered when the editor is closed */
     onEditorCloseCallback: null,
+    /** Triggered when the authentication is successfull */
     onAuthSuccess: null,
+    /** Triggered when user clicks “Sign Out” */
     onSignOut: null,
+    /** Triggered when user downloads a file */
     onDownload: null,
+    /** Triggered when there is no user access */
     onNoAccess: null,
+    /** Triggered when frame is not found */
     onNotFound: null,
+    /** Triggered when content is ready */
     onContentReady: null,
+    /** Triggered after the editor is opened */
     onEditorOpen: null,
   },
 } as const;
 
-/** Error message displayed when the current domain is not included in CSP settings */
+/** Error shown when the current domain is missing in CSP configuration */
 export const cspErrorText =
   "The current domain is not set in the Content Security Policy (CSP) settings." as const;
 
