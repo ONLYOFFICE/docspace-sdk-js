@@ -44,28 +44,28 @@ declare global {
     };
   }
 }
-/** Template literal type representing frame mode based on `SDKMode` */
+/** Template literal type representing frame mode based on `SDKMode`. */
 export type TFrameMode = `${SDKMode}`;
 
-/** Template literal type for selector filters */
+/** Template literal type for selector filters .*/
 export type TSelectorType = `${SelectorFilterType}`;
 
-/** Template literal type based on `EditorType` enum */
+/** Template literal type based on `EditorType` enum. */
 export type TEditorType = `${EditorType}`;
 
-/** Template literal type representing manager view mode */
+/** Template literal type representing manager view mode. */
 export type TManagerViewMode = `${ManagerViewMode}`;
 
-/** Template literal type representing theme options */
+/** Template literal type representing theme options. */
 export type TTheme = `${Theme}`;
 
-/** Template literal type representing filter sort order */
+/** Template literal type representing filter sort order. */
 export type TFilterSortOrder = `${FilterSortOrder}`;
 
-/** Template literal type for header banner display options */
+/** Template literal type for header banner display options. */
 export type TBannerDisplaying = `${HeaderBannerDisplaying}`;
 
-/** Template literal type representing filter sort options */
+/** Template literal type representing filter sort options. */
 export type TFilterSortBy = `${FilterSortBy}`;
 
 /**

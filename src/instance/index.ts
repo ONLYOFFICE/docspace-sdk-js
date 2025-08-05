@@ -89,8 +89,8 @@ export class SDKInstance {
   /**
    * Creates a loading indicator for the DocSpace frame.
    *
-   * @param config - Frame configuration containing frameId, width, and height
-   * @returns A container div element with the loader ready for DOM insertion
+   * @param config - Frame configuration containing frameId, width, and height.
+   * @returns A container div element with the loader ready for DOM insertion.
    */
   #createLoader = (config: TFrameConfig): HTMLElement => {
     const { frameId, width, height } = config;
@@ -147,8 +147,8 @@ export class SDKInstance {
   /**
    * Creates and configures an iframe element for the DocSpace interface.
    *
-   * @param config - Frame configuration containing frameId, src, dimensions, and mode
-   * @returns A configured HTMLIFrameElement ready for DOM insertion
+   * @param config - Frame configuration containing frameId, src, dimensions, and mode.
+   * @returns A configured HTMLIFrameElement ready for DOM insertion.
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
     if (!SDKInstance._iframeCache) {
@@ -224,9 +224,9 @@ export class SDKInstance {
   /**
    * Sets up Content Security Policy validation for the iframe.
    *
-   * @param iframe - The iframe element to validate
-   * @param src - The source URL to validate
-   * @param events - Optional event handlers for validation errors
+   * @param iframe - The iframe element to validate.
+   * @param src - The source URL to validate.
+   * @param events - Optional event handlers for validation errors.
    */
   #setupCSPValidation(
     iframe: HTMLIFrameElement,
@@ -268,15 +268,15 @@ export class SDKInstance {
    *
    * @returns void - This method performs side effects by updating the frame appearance
    *               and triggering events without returning values, focusing on
-   *               state transition and user experience optimization
+   *               state transition and user experience optimization.
    *
    * @throws {Error} May throw if frame elements cannot be accessed or if style
-   *                 modifications fail due to browser security restrictions
+   *                 modifications fail due to browser security restrictions.
    *
-   * @see {@link initFrame} For the initial frame setup process before loading completion
-   * @see {@link destroyFrame} For cleanup operations when frames are no longer needed
-   * @see {@link setConfig} For configuration updates that affect loading behavior
-   * @see {@link TFrameConfig.events.onContentReady} For the callback triggered by this method
+   * @see {@link initFrame} For the initial frame setup process before loading completion.
+   * @see {@link destroyFrame} For cleanup operations when frames are no longer needed.
+   * @see {@link setConfig} For configuration updates that affect loading behavior.
+   * @see {@link TFrameConfig.events.onContentReady} For the callback triggered by this method.
    */
   setIsLoaded(): void {
     const { frameId, width, height, events } = this.config;
@@ -330,7 +330,7 @@ export class SDKInstance {
   /**
    * Sends a message to the DocSpace iframe.
    *
-   * @param message - The message object to send to the iframe
+   * @param message - The message object to send to the iframe.
    */
   #sendMessage = (message: TTask) => {
     try {
@@ -362,7 +362,7 @@ export class SDKInstance {
   /**
    * Handles incoming messages from the DocSpace iframe.
    *
-   * @param e - The MessageEvent containing the message data
+   * @param e - The MessageEvent containing the message data.
    */
   #onMessage = (e: MessageEvent) => {
     try {
@@ -400,8 +400,8 @@ export class SDKInstance {
   /**
    * Parses JSON message data from the DocSpace iframe.
    *
-   * @param data - The JSON string to parse
-   * @returns Parsed message data or error object if parsing fails
+   * @param data - The JSON string to parse.
+   * @returns Parsed message data or error object if parsing fails.
    */
   #parseMessageData(data: string): TMessageData {
     try {
@@ -435,7 +435,7 @@ export class SDKInstance {
   /**
    * Processes method response messages and executes callbacks.
    *
-   * @param data - The message data containing the method response
+   * @param data - The message data containing the method response.
    */
   #handleMethodResponse(data: TMessageData) {
     const callback = this.#callbacks.shift();
@@ -456,7 +456,7 @@ export class SDKInstance {
   /**
    * Processes event data received from the DocSpace iframe and dispatches to registered event handlers.
    *
-   * @param eventData - The optional event data containing event name and payload
+   * @param eventData - The optional event data containing event name and payload.
    */
   #processEvent(eventData?: TMessageData["eventReturnData"]): void {
     if (!eventData?.event) return;
@@ -476,7 +476,7 @@ export class SDKInstance {
   /**
    * Executes commands received from the DocSpace iframe by invoking the corresponding SDK method.
    *
-   * @param data - The message data containing the command name and parameters
+   * @param data - The message data containing the command name and parameters.
    */
   #executeCommand(data: TMessageData): void {
     if (!data.commandName) return;
@@ -491,7 +491,7 @@ export class SDKInstance {
   /**
    * Handles errors by logging to the console and notifying registered error handlers.
    *
-   * @param error - The error object containing error information
+   * @param error - The error object containing error information.
    */
   #handleError(error: { message: string }) {
     console.error("SDK Error:", error);
@@ -503,9 +503,9 @@ export class SDKInstance {
   /**
    * Executes methods on the DocSpace iframe using message-based communication.
    *
-   * @param methodName - The DocSpace method name to execute
-   * @param params - Parameters for the method or null if none required
-   * @param callback - Function called with response data when execution completes
+   * @param methodName - The DocSpace method name to execute.
+   * @param params - Parameters for the method or null if none required.
+   * @param callback - Function called with response data when execution completes.
    */
   #executeMethod(
     methodName: string,
@@ -530,8 +530,8 @@ export class SDKInstance {
   /**
    * Merges user configuration with instance and system defaults.
    *
-   * @param config - User-provided configuration object
-   * @returns Merged configuration ready for frame initialization
+   * @param config - User-provided configuration object.
+   * @returns Merged configuration ready for frame initialization.
    */
   #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
     const mergedConfig = { ...this.config, ...defaultConfig, ...config };
@@ -546,8 +546,8 @@ export class SDKInstance {
   /**
    * Creates a container element for frame initialization and handles existing container cleanup.
    *
-   * @param targetId - The DOM element ID to be replaced by the container
-   * @returns Container setup object with container and target elements, or null if target not found
+   * @param targetId - The DOM element ID to be replaced by the container.
+   * @returns Container setup object with container and target elements, or null if target not found.
    */
   #createContainer(
     targetId: string
@@ -583,8 +583,8 @@ export class SDKInstance {
   /**
    * Configures and styles the container element for frame presentation.
    *
-   * @param target - The target element to be replaced by the container
-   * @returns Container setup object with the configured container and target elements
+   * @param target - The target element to be replaced by the container.
+   * @returns Container setup object with the configured container and target elements.
    */
   #setupContainer(target: HTMLElement): {
     container: HTMLElement;
@@ -607,7 +607,7 @@ export class SDKInstance {
   /**
    * Creates and applies styling to the iframe element for DocSpace integration.
    *
-   * @returns The configured HTMLIFrameElement ready for DOM insertion
+   * @returns The configured HTMLIFrameElement ready for DOM insertion.
    */
   #setupIframe(): HTMLIFrameElement {
     const iframe = this.#createIframe(this.config);
@@ -628,7 +628,7 @@ export class SDKInstance {
   /**
    * Sets up event handlers for iframe loading and message communication.
    *
-   * @param iframe - The iframe element to attach event handlers to
+   * @param iframe - The iframe element to attach event handlers.
    */
   #setupFrameEventHandlers(iframe: HTMLIFrameElement): void {
     const handleFrameLoad = () => {
@@ -648,10 +648,10 @@ export class SDKInstance {
   /**
    * Assembles and integrates frame components into the DOM.
    *
-   * @param container - The container element for frame components
-   * @param target - The target element to be replaced, or null if not required
-   * @param iframe - The configured iframe element for DocSpace integration
-   * @returns The integrated iframe element ready for communication
+   * @param container - The container element for frame components.
+   * @param target - The target element to be replaced, or null if not required.
+   * @param iframe - The configured iframe element for DocSpace integration.
+   * @returns The integrated iframe element ready for communication.
    */
   #assembleFrame(
     container: HTMLElement,
@@ -699,9 +699,9 @@ export class SDKInstance {
    * It handles container creation, iframe setup, event handlers, and frame registration.
    * The method supports various DocSpace modes, including viewer, editor, manager, and more.
    *
-   * @param config - The configuration object for the iframe containing all initialization settings
+   * @param config - The configuration object for the iframe containing all initialization settings.
    * 
-   * @returns The created iframe element or null if initialization fails (e.g., target element not found)
+   * @returns The created iframe element or null if initialization fails (e.g., target element not found).
    * @example
    * ```typescript
    * const iframe = sdkInstance.initFrame({
@@ -737,11 +737,11 @@ export class SDKInstance {
    * });
    * ```
    *
-   * @throws {Error} May throw if the configuration contains invalid values or the target element cannot be accessed
+   * @throws {Error} May throw if the configuration contains invalid values or the target element cannot be accessed.
    * 
-   * @see {@link setConfig} - For updating configuration after initialization
-   * @see {@link getConfig} - For retrieving current configuration
-   * @see {@link destroyFrame} - For properly cleaning up the frame
+   * @see {@link setConfig} - For updating configuration after initialization.
+   * @see {@link getConfig} - For retrieving current configuration.
+   * @see {@link destroyFrame} - For properly cleaning up the frame.
    */
   initFrame(config: TFrameConfig): HTMLIFrameElement | null {
     this.config = this.#prepareFrameConfig(config);
@@ -863,7 +863,7 @@ export class SDKInstance {
    *
    * @param config - The configuration object with properties to update. Only provided properties will be changed.
    *                 Defaults to `defaultConfig` if no parameter is provided.
-   * @returns A promise that resolves to an object containing the update result
+   * @returns A promise that resolves to an object containing the update result.
    * @example
    * ```typescript
    * const result = await sdkInstance.setConfig({
@@ -887,10 +887,10 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @throws {Error} May throw if the new configuration contains invalid values or if frame update fails
+   * @throws {Error} May throw if the new configuration contains invalid values or if frame update fails.
    * 
-   * @see {@link getConfig} - For retrieving current configuration
-   * @see {@link initFrame} - For initial frame setup
+   * @see {@link getConfig} - For retrieving current configuration.
+   * @see {@link initFrame} - For initial frame setup.
    */
   setConfig(config: TFrameConfig = defaultConfig): Promise<object> {
     this.config = { ...this.config, ...config };
@@ -907,7 +907,7 @@ export class SDKInstance {
    * This is useful for debugging, state management, or creating new instances with
    * similar settings.
    *
-   * @returns The current configuration object containing all active settings
+   * @returns The current configuration object containing all active settings.
    *   * @example
    * ```typescript
    * const config = sdkInstance.getConfig();
@@ -995,9 +995,9 @@ export class SDKInstance {
    *
    * @returns A promise that resolves to an object containing comprehensive folder information, including id, title, path, parent information, file/folder counts, total size, permissions, sharing status, creation/modification dates, and access metadata.
    *
-   * @see {@link getFolders} - For retrieving multiple folder information
-   * @see {@link getFiles} - For getting folder contents
-   * @see {@link createFolder} - For creating subfolders
+   * @see {@link getFolders} - For retrieving multiple folder information.
+   * @see {@link getFiles} - For getting folder contents.
+   * @see {@link createFolder} - For creating subfolders.
    */
   getFolderInfo(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetFolderInfo);
@@ -1040,13 +1040,13 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @returns A promise that resolves to the current selection object containing selected items and metadata
+   * @returns A promise that resolves to the current selection object containing selected items and metadata.
    *
-   * @throws {Error} Throws an error if unable to retrieve the current selection state
+   * @throws {Error} Throws an error if unable to retrieve the current selection state.
    * 
-   * @see {@link getList} - For retrieving all available items in the current context
-   * @see {@link openModal} - For opening modals with selected items as context
-   * @see {@link setListView} - For optimizing view mode based on selection patterns
+   * @see {@link getList} - For retrieving all available items in the current context.
+   * @see {@link openModal} - For opening modals with selected items as context.
+   * @see {@link setListView} - For optimizing view mode based on selection patterns.
    */
   getSelection(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetSelection);
@@ -1082,9 +1082,9 @@ export class SDKInstance {
    *
    * @returns A promise that resolves to an object containing an array of file objects. Each file includes properties like id, title, type, extension, size, modified date, permissions, and access metadata.
    *
-   * @see {@link getFolders} - For retrieving folder information
-   * @see {@link getList} - For combined file and folder listing
-   * @see {@link createFile} - For creating new files
+   * @see {@link getFolders} - For retrieving folder information.
+   * @see {@link getList} - For combined file and folder listing.
+   * @see {@link createFile} - For creating new files.
    */
   getFiles(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetFiles);
@@ -1120,9 +1120,9 @@ export class SDKInstance {
    *
    * @returns A promise that resolves to an object containing an array of folder objects. Each folder includes properties like id, title, parentId, fileCount, folderCount, size, permissions, creation date, and sharing status.
    *
-   * @see {@link getFiles} - For retrieving file information
-   * @see {@link getFolderInfo} - For detailed single folder information
-   * @see {@link createFolder} - For creating new folders
+   * @see {@link getFiles} - For retrieving file information.
+   * @see {@link getFolderInfo} - For detailed single folder information.
+   * @see {@link createFolder} - For creating new folders.
    */
   getFolders(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetFolders);
@@ -1159,9 +1159,9 @@ export class SDKInstance {
    *
    * @returns A promise that resolves to an object containing an array of mixed file and folder objects. Each item includes common properties like id, title, type ('file' or 'folder'), modified date, and type-specific metadata such as file size/extension or folder contents.
    *
-   * @see {@link getFiles} - For files-only listing
-   * @see {@link getFolders} - For folders-only listing
-   * @see {@link getFolderInfo} - For current folder information
+   * @see {@link getFiles} - For files-only listing.
+   * @see {@link getFolders} - For folders-only listing.
+   * @see {@link getFolderInfo} - For current folder information.
    */
   getList(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetList);
@@ -1174,8 +1174,8 @@ export class SDKInstance {
    * including search terms, sorting, pagination, and room type filtering. It's essential
    * for building room browsers, dashboards, and selection interfaces.
    *
-   * @param filter - The criteria used to filter and sort the rooms
-   * @returns A promise that resolves to an object containing the filtered rooms and metadata
+   * @param filter - The criteria used to filter and sort the rooms.
+   * @returns A promise that resolves to an object containing the filtered rooms and metadata.
    *
    * @example
    * ```typescript
@@ -1203,10 +1203,10 @@ export class SDKInstance {
    * console.log('Matching rooms:', searchResults.rooms.length);
    * ```
    *
-   * @throws {Error} May throw if the filter parameters are invalid or if the user lacks permission to access rooms
-   * @see {@link createRoom} - For creating new rooms
-   * @see {@link addTagsToRoom} - For adding tags to existing rooms
-   * @see {@link removeTagsFromRoom} - For removing tags from rooms
+   * @throws {Error} May throw if the filter parameters are invalid or if the user lacks permission to access rooms.
+   * @see {@link createRoom} - For creating new rooms.
+   * @see {@link addTagsToRoom} - For adding tags to existing rooms.
+   * @see {@link removeTagsFromRoom} - For removing tags from rooms.
    */
   getRooms(filter: TFrameFilter): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetRooms, filter);
@@ -1246,12 +1246,12 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @returns A promise that resolves to an object containing comprehensive user information and session data
+   * @returns A promise that resolves to an object containing comprehensive user information and session data.
    *
-   * @throws {Error} Throws an error if the user is not authenticated or user information cannot be retrieved
-   * @see {@link login} - For authenticating users before retrieving their information
-   * @see {@link logout} - For terminating user sessions and clearing user data
-   * @see {@link setConfig} - For updating user preferences and configuration settings
+   * @throws {Error} Throws an error if the user is not authenticated or user information cannot be retrieved.
+   * @see {@link login} - For authenticating users before retrieving their information.
+   * @see {@link logout} - For terminating user sessions and clearing user data.
+   * @see {@link setConfig} - For updating user preferences and configuration settings.
    */
   getUserInfo(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetUserInfo);
@@ -1264,7 +1264,7 @@ export class SDKInstance {
    * These settings should be used with the createHash() method to ensure compatibility
    * with the server's security requirements.
    *
-   * @returns A promise that resolves to an object containing hash algorithm settings
+   * @returns A promise that resolves to an object containing hash algorithm settings.
    *   * @example
    * ```typescript
    * const hashSettings = await sdkInstance.getHashSettings();
@@ -1295,9 +1295,9 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @throws {Error} Throws an error if hash settings cannot be retrieved from the server
-   * @see {@link createHash} - For creating password hashes using these settings
-   * @see {@link login} - For authenticating with hashed passwords
+   * @throws {Error} Throws an error if hash settings cannot be retrieved from the server.
+   * @see {@link createHash} - For creating password hashes using these settings.
+   * @see {@link login} - For authenticating with hashed passwords.
    */
   getHashSettings(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.GetHashSettings);
@@ -1340,13 +1340,13 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @param type - The type of modal to open (e.g., 'upload', 'share', 'properties', 'settings')
-   * @param options - Configuration object containing modal-specific options and event handlers
-   * @returns A promise that resolves to an object containing the result of the modal operation
+   * @param type - The type of modal to open (e.g., 'upload', 'share', 'properties', 'settings').
+   * @param options - Configuration object containing modal-specific options and event handlers.
+   * @returns A promise that resolves to an object containing the result of the modal operation.
    *
-   * @throws {Error} Throws an error if the modal type is not supported or the configuration is invalid
-   * @see {@link getSelection} - For getting currently selected items to open modals for
-   * @see {@link setConfig} - For configuring global modal behavior and appearance
+   * @throws {Error} Throws an error if the modal type is not supported or the configuration is invalid.
+   * @see {@link getSelection} - For getting currently selected items to open modals.
+   * @see {@link setConfig} - For configuring global modal behavior and appearance.
    */
   openModal(type: string, options: object): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.OpenModal, { type, options });
@@ -1355,7 +1355,7 @@ export class SDKInstance {
   /**
    * Creates a new file in the specified folder using templates and forms.
    *
-   * This method allows you to programmatically create different types of files in DocSpace
+   * This method allows you to programmatically create different types of files in DocSpace.
    * including documents, spreadsheets, presentations, and custom forms. You can specify
    * templates for consistent formatting and associate forms for structured data collection.
    * The created file will inherit permissions from the parent folder.
@@ -1392,9 +1392,9 @@ export class SDKInstance {
    * @param formId - The ID of the form associated with the new file. Use an empty string if no form is needed.
    * @returns A promise that resolves to an object representing the created file with properties like id, title, type, and creation date.
    *
-   * @see {@link createFolder} - For creating folders to organize files
-   * @see {@link getFiles} - For retrieving created files
-   * @see {@link initFrame} - For opening files in editor mode
+   * @see {@link createFolder} - For creating folders to organize files.
+   * @see {@link getFiles} - For retrieving created files.
+   * @see {@link initFrame} - For opening files in editor mode.
    */
   createFile(
     folderId: string,
@@ -1444,9 +1444,9 @@ export class SDKInstance {
    * @param title - The title of the new folder. Should be unique within the parent folder and follow naming conventions.
    * @returns A promise that resolves to an object containing the details of the created folder, including id, title, creation date, and access permissions.
    *
-   * @see {@link createFile} - For creating files within folders
-   * @see {@link getFolders} - For retrieving folder lists
-   * @see {@link getFolderInfo} - For getting detailed folder information
+   * @see {@link createFile} - For creating files within folders.
+   * @see {@link getFolders} - For retrieving folder lists.
+   * @see {@link getFolderInfo} - For getting detailed folder information.
    */
   createFolder(parentFolderId: string, title: string): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateFolder, {
@@ -1462,16 +1462,16 @@ export class SDKInstance {
    * including collaboration rooms, public rooms, and custom rooms. You can configure
    * room properties like quotas, tags, branding, and access permissions during creation.
    *
-   * @param title - The display name/title for the new room
-   * @param roomType - The type of room to create (collaboration, public, custom, etc.)
-   * @param quota - Optional storage quota limit for the room in bytes
-   * @param tags - Optional array of tags to categorize and organize the room
-   * @param color - Optional hex color code for the room's branding theme
-   * @param cover - Optional cover image URL or file path for the room
-   * @param indexing - Optional flag to enable/disable search indexing (VDR rooms only)
-   * @param denyDownload - Optional flag to prevent file downloads (VDR rooms only)
+   * @param title - The display name/title for the new room.
+   * @param roomType - The type of room to create (collaboration, public, custom, etc.).
+   * @param quota - Optional storage quota limit for the room in bytes.
+   * @param tags - Optional array of tags to categorize and organize the room.
+   * @param color - Optional hex color code for the room's branding theme.
+   * @param cover - Optional cover image URL or file path for the room.
+   * @param indexing - Optional flag to enable/disable search indexing (VDR rooms only).
+   * @param denyDownload - Optional flag to prevent file downloads (VDR rooms only).
    * 
-   * @returns A promise that resolves to an object containing the created room details
+   * @returns A promise that resolves to an object containing the created room details.
    * 
    * @example
    * ```typescript
@@ -1499,10 +1499,10 @@ export class SDKInstance {
    * console.log('Room tags:', projectRoom.tags);
    * ```
    *
-   * @throws {Error} Throws if room creation fails due to permissions, quota limits, or invalid parameters
-   * @see {@link getRooms} - For retrieving existing rooms
-   * @see {@link addTagsToRoom} - For adding tags to the created room
-   * @see {@link createFolder} - For creating folders within the room
+   * @throws {Error} Throws if room creation fails due to permissions, quota limits, or invalid parameters.
+   * @see {@link getRooms} - For retrieving existing rooms.
+   * @see {@link addTagsToRoom} - For adding tags to the created room.
+   * @see {@link createFolder} - For creating folders within the room.
    */
   createRoom(
     title: string,
@@ -1561,13 +1561,13 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @param viewType - The view mode to set: 'row' (compact list), 'table' (detailed grid), or 'tile' (preview cards)
-   * @returns A promise that resolves to an object indicating the result of the view change operation
+   * @param viewType - The view mode to set: 'row' (compact list), 'table' (detailed grid), or 'tile' (preview cards).
+   * @returns A promise that resolves to an object indicating the result of the view change operation.
    *
-   * @throws {Error} Throws an error if the view type is not supported or the operation fails
-   * @see {@link getList} - For retrieving content that will be displayed in the new view mode
-   * @see {@link getConfig} - For getting the current view configuration and defaults
-   * @see {@link setConfig} - For setting default view preferences globally
+   * @throws {Error} Throws an error if the view type is not supported or the operation fails.
+   * @see {@link getList} - For retrieving content that will be displayed in the new view mode.
+   * @see {@link getConfig} - For getting the current view configuration and defaults.
+   * @see {@link setConfig} - For setting default view preferences globally.
    */
   setListView(viewType: string): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.SetListView, { viewType });
@@ -1579,9 +1579,9 @@ export class SDKInstance {
    * This method is typically used before authentication to create a secure hash
    * of the user's password that can be safely transmitted and stored.
    *
-   * @param password - The plaintext password to be hashed
-   * @param hashSettings - Configuration object for the hash function containing algorithm settings
-   * @returns A promise that resolves to an object containing the generated password hash
+   * @param password - The plaintext password to be hashed.
+   * @param hashSettings - Configuration object for the hash function containing algorithm settings.
+   * @returns A promise that resolves to an object containing the generated password hash.
    *
    * @example
    * ```typescript
@@ -1593,9 +1593,9 @@ export class SDKInstance {
    * await sdkInstance.login('user@example.com', hashResult.hash);
    * ```
    *
-   * @throws {Error} Throws an error if the password is empty or the hash settings are invalid
-   * @see {@link getHashSettings} - For retrieving the current hash settings
-   * @see {@link login} - For using the generated hash in authentication
+   * @throws {Error} Throws an error if the password is empty or the hash settings are invalid.
+   * @see {@link getHashSettings} - For retrieving the current hash settings.
+   * @see {@link login} - For using the generated hash in authentication.
    */
   createHash(password: string, hashSettings: object): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateHash, {
@@ -1610,11 +1610,11 @@ export class SDKInstance {
    * This method supports both password hash and plaintext password authentication.
    * For security reasons, it's recommended to use password hashing via createHash() method.
    *
-   * @param email - The user's email address used for authentication
-   * @param passwordHash - The hashed password (recommended) obtained from createHash() method
-   * @param password - Optional plaintext password (not recommended for production)
-   * @param session - Optional flag to create a persistent session (default: false)
-   * @returns A promise that resolves to an object containing the authentication result and user data
+   * @param email - The user's email address used for authentication.
+   * @param passwordHash - The hashed password (recommended) obtained from createHash() method.
+   * @param password - Optional plaintext password (not recommended for production).
+   * @param session - Optional flag to create a persistent session (default: false).
+   * @returns A promise that resolves to an object containing the authentication result and user data.
    *
    * @example
    * ```typescript
@@ -1642,10 +1642,10 @@ export class SDKInstance {
    * );
    * ```
    *
-   * @throws {Error} Throws an error if authentication fails or credentials are invalid
-   * @see {@link createHash} - For creating secure password hashes
-   * @see {@link getHashSettings} - For retrieving hash configuration
-   * @see {@link logout} - For ending the user session
+   * @throws {Error} Throws an error if authentication fails or credentials are invalid.
+   * @see {@link createHash} - For creating secure password hashes.
+   * @see {@link getHashSettings} - For retrieving hash configuration.
+   * @see {@link logout} - For ending the user session.
    */
   login(
     email: string,
@@ -1667,7 +1667,7 @@ export class SDKInstance {
    * This method clears the user's authentication state and session data,
    * effectively signing them out of the DocSpace application.
    *
-   * @returns A promise that resolves to an object containing the logout confirmation
+   * @returns A promise that resolves to an object containing the logout confirmation.
    *
    * @example
    * ```typescript
@@ -1683,8 +1683,8 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @throws {Error} Throws an error if the logout operation fails
-   * @see {@link login} - For user authentication
+   * @throws {Error} Throws an error if the logout operation fails.
+   * @see {@link login} - For user authentication.
    */
   logout(): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.Logout);
@@ -1720,9 +1720,9 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @throws {Error} May throw if tag name is invalid, already exists, or user lacks permission to create tags
-   * @see {@link addTagsToRoom} - For applying created tags to rooms
-   * @see {@link removeTagsFromRoom} - For removing tags from rooms
+   * @throws {Error} May throw if tag name is invalid, already exists, or user lacks permission to create tags.
+   * @see {@link addTagsToRoom} - For applying created tags to rooms.
+   * @see {@link removeTagsFromRoom} - For removing tags from rooms.
    */
   createTag(name: string): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateTag, { name });
@@ -1752,10 +1752,10 @@ export class SDKInstance {
    * console.log('Room organized with tags:', projectTags);
    * ```
    *
-   * @throws {Error} May throw if room ID is invalid, tags don't exist, or the user lacks permission to modify the room tags
-   * @see {@link createTag} - For creating new tags before applying them
-   * @see {@link removeTagsFromRoom} - For removing tags from rooms
-   * @see {@link getRooms} - For retrieving rooms with their current tags
+   * @throws {Error} May throw if room ID is invalid, tags don't exist, or the user lacks permission to modify the room tags.
+   * @see {@link createTag} - For creating new tags before applying them.
+   * @see {@link removeTagsFromRoom} - For removing tags from rooms.
+   * @see {@link getRooms} - For retrieving rooms with their current tags.
    */
   addTagsToRoom(roomId: string, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.AddTagsToRoom, {
@@ -1795,10 +1795,10 @@ export class SDKInstance {
    * }
    * ```
    *
-   * @throws {Error} May throw if the room ID is invalid, tags don't exist on the room, or user lacks permission to modify room tags
-   * @see {@link addTagsToRoom} - For adding tags to rooms
-   * @see {@link createTag} - For creating new tags before applying them
-   * @see {@link getRooms} - For retrieving rooms with their current tags
+   * @throws {Error} May throw if the room ID is invalid, tags don't exist on the room, or user lacks permission to modify room tags.
+   * @see {@link addTagsToRoom} - For adding tags to rooms.
+   * @see {@link createTag} - For creating new tags before applying them.
+   * @see {@link getRooms} - For retrieving rooms with their current tags.
    */
   removeTagsFromRoom(roomId: string, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.RemoveTagsFromRoom, {
@@ -1851,12 +1851,12 @@ export class SDKInstance {
    * }, { checkSpelling: true });
    * ```
    *
-   * @param callback - Function to be executed in the editor that receives the editor instance and optional data
-   * @param data - Optional data object to be passed to the callback function for context and configuration
+   * @param callback - Function to be executed in the editor that receives the editor instance and optional data.
+   * @param data - Optional data object to be passed to the callback function for context and configuration.
    *
-   * @throws {Error} Throws an error if the editor context is not available or callback execution fails
-   * @see {@link initEditor} - For initializing the editor before executing custom functions
-   * @see {@link getSelection} - For getting selected content to operate on within the editor
+   * @throws {Error} Throws an error if the editor context is not available or callback execution fails.
+   * @see {@link initEditor} - For initializing the editor before executing custom functions.
+   * @see {@link getSelection} - For getting selected content to operate on within the editor.
    */
   executeInEditor(
     callback: (instance: object, data?: object) => void,
