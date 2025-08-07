@@ -47,7 +47,7 @@ declare global {
 /** Template literal type representing frame mode based on `SDKMode`. */
 export type TFrameMode = `${SDKMode}`;
 
-/** Template literal type for selector filters .*/
+/** Template literal type for selector filters. */
 export type TSelectorType = `${SelectorFilterType}`;
 
 /** Template literal type based on `EditorType` enum. */
@@ -69,55 +69,55 @@ export type TBannerDisplaying = `${HeaderBannerDisplaying}`;
 export type TFilterSortBy = `${FilterSortBy}`;
 
 /**
- * Editor customization configuration
+ * Editor customization configuration.
  */
 export type TEditorCustomization = {
-  /** Anonymous access configuration */
+  /** Anonymous access configuration. */
   anonymous?: {
-    /** Whether to request anonymous access */
+    /** Whether to request anonymous access. */
     request?: boolean;
-    /** Label for anonymous access */
+    /** Label for anonymous access. */
     label?: string;
   };
-  /** Enable/disable automatic saving */
+  /** Whether to enable/disable automatic saving. */
   autosave?: boolean;
-  /** Enable/disable comments */
+  /** Whether to enable/disable comments. */
   comments?: boolean;
-  /** Enable/disable compact header */
+  /** Whether to enable/disable compact header. */
   compactHeader?: boolean;
-  /** Enable/disable compact toolbar */
+  /** Whether to enable/disable compact toolbar. */
   compactToolbar?: boolean;
-  /** Enable/disable compatibility features */
+  /** Whether to enable/disable compatibility features. */
   compatibleFeatures?: boolean;
-  /** Enable/disable force save */
+  /** Whether to enable/disable force save. */
   forcesave?: boolean;
-  /** Show/hide help */
+  /** Whether to show/hide help. */
   help?: boolean;
-  /** Show/hide right menu */
+  /** Whether to show/hide right menu. */
   hideRightMenu?: boolean;
-  /** Show/hide rulers */
+  /** Whether to show/hide rulers. */
   hideRulers?: boolean;
-  /** Integration mode setting */
+  /** Integration mode setting. */
   integrationMode?: string;
-  /** Enable/disable macros */
+  /** Whether to enable/disable macros. */
   macros?: boolean;
-  /** Macros mode setting */
+  /** Whether to macros mode setting. */
   macrosMode?: string;
-  /** Enable/disable mention and share */
+  /** Whether to enable/disable mention and share. */
   mentionShare?: boolean;
-  /** Force mobile view */
+  /** Whether to force mobile view. */
   mobileForceView?: boolean;
-  /** Enable/disable plugins */
+  /** Whether to enable/disable plugins. */
   plugins?: boolean;
-  /** Hide/show filename in toolbar */
+  /** Whether to hide/show filename in toolbar. */
   toolbarHideFileName?: boolean;
-  /** Hide/show tabs in toolbar */
+  /** Whether to hide/show tabs in toolbar. */
   toolbarNoTabs?: boolean;
-  /** UI theme setting */
+  /** UI theme setting. */
   uiTheme?: string;
-  /** Measurement unit */
+  /** Measurement unit. */
   unit?: string;
-  /** Zoom level */
+  /** Zoom level. */
   zoom?: number;
 };
 
@@ -137,7 +137,7 @@ export type TFrameFilter = {
   sortBy?: TFilterSortBy;
   /** Sort direction */
   sortOrder?: TFilterSortOrder;
-  /** Include subfolders */
+  /** Whether to include subfolders */
   withSubfolders?: boolean;
 };
 

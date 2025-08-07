@@ -199,6 +199,7 @@ export class SDKInstance {
           webkitOverflowScrolling: "touch",
         }),
       };
+      
       SDKInstance._iframeCache.styleCache.set(styleCacheKey, styleObj);
     }
 
@@ -495,6 +496,7 @@ export class SDKInstance {
    */
   #handleError(error: { message: string }) {
     console.error("SDK Error:", error);
+
     this.config.events?.onAppError?.(
       error instanceof Error ? error.message : "Unknown error occurred"
     );
