@@ -31,7 +31,6 @@ import {
   FilterSortBy,
   SelectorFilterType,
   HeaderBannerDisplaying,
-  EditorOpenEvent
 } from "../enums";
 
 /** The API endpoint for Content Security Policy (CSP) settings */
@@ -122,8 +121,6 @@ export const defaultConfig: TFrameConfig = {
   infoPanelVisible: true,
   /** Enable/disable download event handling */
   downloadToEvent: false,
-  /** Open editor from file manager */
-  editorOpenEvent: EditorOpenEvent.Default,
   /** Filter configuration */
   filter: {
     count: "100",
@@ -149,6 +146,7 @@ export const defaultConfig: TFrameConfig = {
     onNotFound: null,
     onContentReady: null,
     onEditorOpen: null,
+    onFileManagerClick: null
   },
 } as const;
 
