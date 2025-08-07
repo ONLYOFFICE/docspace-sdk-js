@@ -31,6 +31,7 @@ import {
   HeaderBannerDisplaying,
   FilterSortBy,
   MessageTypes,
+  EditorOpenEvent
 } from "../enums";
 import { SDKInstance } from "../instance";
 
@@ -67,6 +68,8 @@ export type TBannerDisplaying = `${HeaderBannerDisplaying}`;
 
 /** Template literal type representing filter sort options */
 export type TFilterSortBy = `${FilterSortBy}`;
+
+export type TEditorOpenEvent = `${EditorOpenEvent}`;
 
 /**
  * Editor customization configuration
@@ -197,6 +200,8 @@ export type TFrameConfig = {
   editorCustomization?: TEditorCustomization | object;
   /** Editor back navigation */
   editorGoBack?: boolean | string;
+  /** Open editor from file manager */
+  editorOpenEvent?: TEditorOpenEvent;
   /** Editor type */
   editorType?: TEditorType;
   /** Event handlers */

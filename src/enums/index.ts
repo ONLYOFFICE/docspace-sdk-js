@@ -140,6 +140,20 @@ export const enum HeaderBannerDisplaying {
 }
 
 /**
+ * Open editor from file manager options
+ */
+export const enum EditorOpenEvent {
+  /** Open editor in default for portal mode */
+  Default = "default",
+  /** Open editor in new tab */
+  NewTab = "newTab",
+  /** Open editor in same frame */
+  SameFrame = "sameFrame",
+  /** Call onEditorOpen event  */
+  Event = "event",
+}
+
+/**
  * Available instance methods in the SDK for file management, user info, and settings
  */
 export const enum InstanceMethods {
