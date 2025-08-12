@@ -276,7 +276,7 @@ export class SDKInstance {
    * @see {@link initFrame} For the initial frame setup process before loading completion
    * @see {@link destroyFrame} For cleanup operations when frames are no longer needed
    * @see {@link setConfig} For configuration updates that affect loading behavior
-   * @see {@link TFrameConfig.events.onContentReady} For the callback triggered by this method
+   * @see {@link TFrameEvents.onContentReady | onContentReady} For the callback triggered by this method
    */
   setIsLoaded(): void {
     const { frameId, width, height, events } = this.config;
@@ -1855,7 +1855,7 @@ export class SDKInstance {
    * @param data - Optional data object to be passed to the callback function for context and configuration
    *
    * @throws {Error} Throws an error if the editor context is not available or callback execution fails
-   * @see {@link initEditor} - For initializing the editor before executing custom functions
+   * @see {@link SDK.initEditor} - For initializing the editor before executing custom functions
    * @see {@link getSelection} - For getting selected content to operate on within the editor
    */
   executeInEditor(
