@@ -11,9 +11,54 @@
   "includeVersion": true,
   "outputs": [
     {
-      "name": "json",
-      "path": "docs/docspace-sdk-js.json"
-    },
+      "name": "markdown",
+      "path": "docs"
+    }
   ],
-  "validation": true
+  "validation": true,
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "Classes",
+    "Interfaces",
+    "Types", 
+    "Enumerations",
+    "Functions",
+    "Variables"
+  ],
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "readme": "none",
+  "sort": ["source-order"],
+  "kindSortOrder": [
+    "Document",
+    "Project", 
+    "Module",
+    "Namespace",
+    "Enum",
+    "EnumMember",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Constructor",
+    "Property",
+    "Variable",
+    "Function",
+    "Accessor",
+    "Method",
+    "Parameter",
+    "TypeParameter",
+    "TypeLiteral",
+    "CallSignature",
+    "ConstructorSignature",
+    "IndexSignature",
+    "GetSignature",
+    "SetSignature"
+  ],
+  "plugin": ["typedoc-plugin-markdown"],
+  "gitRevision": "main",
+  "githubPages": false,
+  "hideGenerator": true,
+  "disableSources": false,
+  "sourceLinkTemplate": "https://github.com/ONLYOFFICE/docspace-sdk-js/blob/{gitRevision}/{path}#L{line}"
 }
