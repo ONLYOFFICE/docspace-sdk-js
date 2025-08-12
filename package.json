@@ -31,7 +31,6 @@
     "lint": "eslint src/",
     "test": "jest",
     "docs": "typedoc",
-    "docs:md": "python tools/generate_docs_md.py",
     "build": "ts-node tools/build.mjs"
   },
   "engines": {
@@ -39,21 +38,21 @@
     "pnpm": ">=10"
   },
   "devDependencies": {
-    "@eslint/js": "9.31.0",
-    "@types/jest": "29.5.14",
+    "@eslint/js": "9.33.0",
+    "@types/jest": "30.0.0",
     "@types/node": "22.10.1",
-    "esbuild": "0.25.2",
-    "eslint": "9.31.0",
-    "jest-environment-jsdom": "29.7.0",
-    "jest": "29.7.0",
-    "jest-environment-jsdom": "29.7.0",
-    "pnpm": "10.11.0",
-    "ts-jest": "29.4.0",
+    "esbuild": "0.25.8",
+    "eslint": "9.33.0",
+    "jest": "30.0.5",
+    "jest-environment-jsdom": "30.0.5",
+    "pnpm": "10.14.0",
+    "ts-jest": "29.4.1",
     "ts-node": "10.9.2",
     "tslib": "2.8.1",
-    "typedoc": "0.28.7",
-    "typescript-eslint": "8.37.0",
-    "typescript": "5.7.2"
+    "typedoc": "0.28.10",
+    "typedoc-plugin-markdown": "4.8.1",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.37.0"
   },
   "pnpm": {
     "overrides": {
