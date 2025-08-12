@@ -169,6 +169,8 @@ export type TFrameEvents = {
   onSignOut?: null | ((e?: Event | object | string) => void);
   /** Editor open handler */
   onEditorOpen?: null | ((e?: Event | object | string) => void);
+  /** File manager click handler */
+  onFileManagerClick?: null | ((e?: Event | object | string) => void);
 };
 
 /**

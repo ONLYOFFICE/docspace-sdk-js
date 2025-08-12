@@ -80,7 +80,7 @@ export const defaultConfig: TFrameConfig = {
   /** Whether to show the header in selector mode. */
   showSelectorHeader: false,
   /** Whether to show the main header. */
-  showHeader: true,
+  showHeader: false,
   /** Controls display of the header banner. */
   showHeaderBanner: HeaderBannerDisplaying.None,
   /** Whether to display the document or folder title. */
@@ -164,6 +164,7 @@ export const defaultConfig: TFrameConfig = {
     onContentReady: null,
     /** Triggered after the editor is opened. */
     onEditorOpen: null,
+    onFileManagerClick: null
   },
 } as const;
 
