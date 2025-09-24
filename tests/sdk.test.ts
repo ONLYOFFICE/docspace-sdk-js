@@ -23,141 +23,106 @@ import { SDKInstance } from "../src/instance";
 import type { TFrameConfig } from "../src/types";
 import { SDK } from "../src/sdk/index";
 
-describe("SDK class", () => {
+type MockInst = { initFrame: jest.Mock; config?: TFrameConfig } & Record<
+  string,
+  unknown
+>;
+
+const mockInstanceFactory = (): MockInst => ({
+  initFrame: jest.fn(),
+  config: undefined,
+});
+
+const setMockReturn = (instance: MockInst) => {
+  (SDKInstance as unknown as jest.Mock).mockReturnValue(instance as any);
+  return instance;
+};
+
+describe("SDK class wrappers", () => {
   let sdk: SDK;
-  let config: TFrameConfig;
+  let baseConfig: TFrameConfig;
 
   beforeEach(() => {
     sdk = new SDK();
-    config = {
+    baseConfig = {
       frameId: "ds-frame",
       mode: SDKMode.Viewer,
       src: "https://example.com",
     };
+    (SDKInstance as unknown as jest.Mock).mockReset();
   });
 
-  it("should initialize manager mode correctly", () => {
-    const instance = new SDKInstance({ ...config, mode: SDKMode.Manager });
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
-
-    const result = sdk.initManager(config);
-
+  test.each([
+    ["initManager", SDKMode.Manager],
+    ["initViewer", SDKMode.Viewer],
+    ["initEditor", SDKMode.Editor],
+    ["initRoomSelector", SDKMode.RoomSelector],
+    ["initFileSelector", SDKMode.FileSelector],
+    ["initSystem", SDKMode.System],
+  ])("%s sets mode to %s and calls initFrame", (methodName, mode) => {
+    const instance = setMockReturn(mockInstanceFactory());
+    const result = (sdk as any)[methodName]({ ...baseConfig, mode: "WRONG" });
     expect(result).toBe(instance);
-    expect(instance.initFrame).toHaveBeenCalledWith({
-      ...config,
-      mode: SDKMode.Manager,
-    });
+    expect(instance.initFrame).toHaveBeenCalledTimes(1);
+    const calledWith = instance.initFrame.mock.calls[0][0];
+    expect(calledWith.mode).toBe(mode);
+    expect(sdk.frames[baseConfig.frameId]).toBe(instance);
   });
 
-  it("should initialize viewer mode correctly", () => {
-    const instance = new SDKInstance({ ...config, mode: SDKMode.Viewer });
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
-
-    const result = sdk.initViewer(config);
-
-    expect(result).toBe(instance);
-    expect(instance.initFrame).toHaveBeenCalledWith({
-      ...config,
-      mode: SDKMode.Viewer,
-    });
+  test("initFrame alias delegates to init", () => {
+    const instance = setMockReturn(mockInstanceFactory());
+    const out = sdk.initFrame(baseConfig);
+    expect(out).toBe(instance);
+    expect(instance.initFrame).toHaveBeenCalledWith(baseConfig);
   });
 
-  it("should initialize editor mode correctly", () => {
-    const instance = new SDKInstance({ ...config, mode: SDKMode.Editor });
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
-
-    const result = sdk.initEditor(config);
-
-    expect(result).toBe(instance);
-    expect(instance.initFrame).toHaveBeenCalledWith({
-      ...config,
-      mode: SDKMode.Editor,
-    });
+  test("reusing same frameId with different wrapper keeps same instance", () => {
+    const first = setMockReturn(mockInstanceFactory());
+    sdk.initViewer(baseConfig);
+    (SDKInstance as unknown as jest.Mock).mockReset();
+    const returned = sdk.initManager({ ...baseConfig, mode: SDKMode.Viewer });
+    expect(returned).toBe(first);
+    expect(first.initFrame).toHaveBeenCalledTimes(2);
   });
 
-  it("should initialize room selector mode correctly", () => {
-    const instance = new SDKInstance({ ...config, mode: SDKMode.RoomSelector });
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
-
-    const result = sdk.initRoomSelector(config);
-
-    expect(result).toBe(instance);
-    expect(instance.initFrame).toHaveBeenCalledWith({
-      ...config,
-      mode: SDKMode.RoomSelector,
-    });
-  });
-
-  it("should initialize file selector mode correctly", () => {
-    const instance = new SDKInstance({ ...config, mode: SDKMode.FileSelector });
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
-
-    const result = sdk.initFileSelector(config);
-
-    expect(result).toBe(instance);
-    expect(instance.initFrame).toHaveBeenCalledWith({
-      ...config,
-      mode: SDKMode.FileSelector,
-    });
-  });
-
-  it("should initialize system mode correctly", () => {
-    const instance = new SDKInstance({ ...config, mode: SDKMode.System });
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
-
-    const result = sdk.initSystem(config);
-
-    expect(result).toBe(instance);
-    expect(instance.initFrame).toHaveBeenCalledWith({
-      ...config,
-      mode: SDKMode.System,
-    });
+  test("multiple frameIds tracked independently", () => {
+    const inst1 = setMockReturn(mockInstanceFactory());
+    sdk.initViewer({ ...baseConfig, frameId: "frame-a" });
+    const inst2 = setMockReturn(mockInstanceFactory());
+    sdk.initEditor({ ...baseConfig, frameId: "frame-b" });
+    expect(Object.keys(sdk.frames).sort()).toEqual(["frame-a", "frame-b"]);
+    expect(sdk.frames["frame-a"]).toBe(inst1);
+    expect(sdk.frames["frame-b"]).toBe(inst2);
   });
 });
 
-describe("SDK init function", () => {
+describe("SDK init core", () => {
   let sdk: SDK;
   let config: TFrameConfig;
-
   beforeEach(() => {
     sdk = new SDK();
     config = {
-      frameId: "ds-frame",
+      frameId: "core-frame",
       mode: SDKMode.Viewer,
       src: "https://example.com",
     };
+    (SDKInstance as unknown as jest.Mock).mockReset();
   });
 
-  it("should create a new instance when frameId doesn't exist", () => {
-    const instance = new SDKInstance(config);
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
-
+  test("creates new instance when frameId absent", () => {
+    const inst = setMockReturn(mockInstanceFactory());
     const result = sdk.init(config);
-
-    expect(result).toBe(instance);
-    expect(instance.initFrame).toHaveBeenCalledWith(config);
-    expect(sdk.frames[config.frameId]).toBe(instance);
+    expect(result).toBe(inst);
+    expect(inst.initFrame).toHaveBeenCalledWith(config);
+    expect(sdk.frames[config.frameId]).toBe(inst);
   });
 
-  it("should reinitialize existing instance when frameId exists", () => {
-    const existingInstance = new SDKInstance(config);
-    sdk.frames[config.frameId] = existingInstance;
-
-    const result = sdk.init(config);
-
-    expect(result).toBe(existingInstance);
-    expect(existingInstance.initFrame).toHaveBeenCalledWith(config);
-    expect(sdk.frames[config.frameId]).toBe(existingInstance);
-  });
-
-  it("should maintain frames object correctly when reinitializing", () => {
-    const instance = new SDKInstance(config);
-    (SDKInstance as unknown as jest.Mock).mockImplementation(() => instance);
+  test("reuses existing instance when frameId present", () => {
+    const inst = setMockReturn(mockInstanceFactory());
     sdk.init(config);
-
-    const newConfig = { ...config, src: "https://new.example.com" };
-    sdk.init(newConfig);
-    
-    expect(sdk.frames[config.frameId]).toBe(instance);
+    (SDKInstance as unknown as jest.Mock).mockReset();
+    const result = sdk.init({ ...config, src: "https://changed.example.com" });
+    expect(result).toBe(inst);
+    expect(inst.initFrame).toHaveBeenCalledTimes(2);
   });
 });

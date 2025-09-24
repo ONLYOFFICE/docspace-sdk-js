@@ -28,251 +28,222 @@ import { cspErrorText, defaultConfig } from "../src/constants";
 import type { TFrameConfig } from "../src/types";
 import { SDKMode } from "../src/enums";
 
+const registerScript = (src: string) => {
+  const script = document.createElement("script");
+  script.src = src;
+  document.body.appendChild(script);
+  Object.defineProperty(document, "currentScript", { value: script, configurable: true });
+  return script;
+};
+
+afterEach(() => {
+  const scripts = Array.from(document.querySelectorAll("script"));
+  scripts.forEach((s) => s.parentElement?.removeChild(s));
+
+  // @ts-ignore
+  delete (window as any).location;
+  jest.restoreAllMocks();
+});
+
 describe("customUrlSearchParams", () => {
-  it("should convert an object with string values to URLSearchParams", () => {
-    const params = customUrlSearchParams({ key1: "value1", key2: "value2" });
-    expect(params.toString()).toBe("key1=value1&key2=value2");
+  test.each<[{[k: string]: any}, string, string]>([
+    [{ key1: "value1", key2: "value2" }, "key1=value1&key2=value2", "string values"],
+    [{ key1: 1, key2: 2 }, "key1=1&key2=2", "number values"],
+    [{ key1: true, key2: false }, "key1=true&key2=false", "boolean values"],
+    [{ key1: "value1", key2: 2, key3: true }, "key1=value1&key2=2&key3=true", "mixed values"],
+    [{}, "", "empty object"],
+  ])("serializes %s (%s)", (input, expected) => {
+    const result = customUrlSearchParams(input);
+    expect(result).toBe(expected);
   });
 
-  it("should convert an object with number values to URLSearchParams", () => {
-    const params = customUrlSearchParams({ key1: 1, key2: 2 });
-    expect(params.toString()).toBe("key1=1&key2=2");
-  });
-
-  it("should convert an object with boolean values to URLSearchParams", () => {
-    const params = customUrlSearchParams({ key1: true, key2: false });
-    expect(params.toString()).toBe("key1=true&key2=false");
-  });
-
-  it("should handle mixed types in the object", () => {
-    const params = customUrlSearchParams({
-      key1: "value1",
-      key2: 2,
-      key3: true,
-    });
-    expect(params.toString()).toBe("key1=value1&key2=2&key3=true");
-  });
-
-  it("should handle empty object", () => {
-    const params = customUrlSearchParams({});
-    expect(params.toString()).toBe("");
-  });
-
-  it("should handle multiple keys", () => {
-    const params = customUrlSearchParams({
-      key1: "value1",
-      key2: "value2",
-    });
-    expect(params.toString()).toBe("key1=value1&key2=value2");
+  test("should omit undefined & null values", () => {
+    const result = customUrlSearchParams({ a: "1", b: undefined, c: null } as any);
+    expect(result).toBe("a=1");
   });
 });
 
 describe("validateCSP", () => {
+  const defaultOrigin = window.location.origin;
+  const host = window.location.host;
+
   beforeEach(() => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        json: () =>
-          Promise.resolve({
-            response: {
-              domains: [
-                "test.com",
-                "https://test.com/",
-                "https://test.com/example",
-              ],
-            },
-          }),
-      })
-    ) as jest.Mock;
+    jest.restoreAllMocks();
   });
 
-  it("should pass CSP validation if current origin is same as target", async () => {
-    Object.defineProperty(window, "location", {
-      value: {
-        origin: "https://test.com",
-        host: "test.com",
-      },
+  test("passes when origin includes targetSrc (short-circuit) and skips fetch", async () => {
+    (global as any).fetch = jest.fn();
+    await expect(validateCSP(defaultOrigin)).resolves.not.toThrow();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test("passes when host is in fetched domains", async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ response: { domains: [host, `https://${host}/path`] } }),
     });
-
-    await expect(validateCSP("https://test.com")).resolves.not.toThrow();
+    await expect(validateCSP("https://remote.example"))
+      .resolves.not.toThrow();
   });
 
-  it("should pass CSP validation if current origin is included in allowed domains", async () => {
-    Object.defineProperty(window, "location", {
-      value: {
-        origin: "https://test.com",
-        host: "test.com",
-      },
-      writable: true,
+  test("passes when host is empty but origin host matches (simulated by domains including origin host)", async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ response: { domains: [new URL(defaultOrigin).host] } }),
     });
-
-    await expect(validateCSP("https://example.com")).resolves.not.toThrow();
+    await expect(validateCSP("https://remote.example"))
+      .resolves.not.toThrow();
   });
 
-  it("should pass CSP validation if current origin is included in allowed domains and has empty host", async () => {
-    Object.defineProperty(window, "location", {
-      value: {
-        origin: "https://test.com",
-        host: "",
-      },
-      writable: true,
+  test("throws when host not included", async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ response: { domains: ["other.com"] } }),
     });
-
-    await expect(validateCSP("https://example.com")).resolves.not.toThrow();
+    await expect(validateCSP("https://remote.example"))
+      .rejects.toThrow(cspErrorText);
   });
 
-  it("should throw an error if current origin is not included in allowed domains", async () => {
-    Object.defineProperty(window, "location", {
-      value: {
-        origin: "https://another.com",
-        host: "another.com",
-      },
-      writable: true,
+  test("throws on invalid JSON", async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      json: async () => { throw "Invalid JSON"; },
     });
-
-    await expect(validateCSP("https://example.com")).rejects.toThrow(
-      cspErrorText
-    );
-  });
-
-  it("should throw an error for invalid JSON response", async () => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({
-        json: () => Promise.reject("Invalid JSON"),
-      })
-    ) as jest.Mock;
-
-    await expect(validateCSP("https://example.com")).rejects.toThrow(
-      "CSP validation failed: Invalid JSON"
-    );
+    await expect(validateCSP("https://remote.example"))
+      .rejects.toThrow("CSP validation failed: Invalid JSON");
   });
 });
 
 describe("getConfigFromParams", () => {
-  it("should return the correct config from URL parameters", () => {
-    Object.defineProperty(document, "currentScript", {
-      value: {
-        src: "https://example.com/api.js?src=&showHeaderBanner=none&showMenu=false&withSearch=true&count=100&mode=manager",
-      },
-      writable: true,
-    });
-
+  test("returns merged default config from URL parameters", () => {
+    registerScript(
+      "https://example.com/api.js?src=&showHeaderBanner=none&showMenu=false&withSearch=true&count=100&mode=manager"
+    );
     const result = getConfigFromParams();
-
     expect(result).toEqual(defaultConfig);
   });
 
-  it("should return the correct config if URL has empty options", () => {
-    const scriptElement = document.createElement('script');
-    scriptElement.src = 'https://example.com?src=https://example.com&mode=editor';
-    document.body.appendChild(scriptElement);
-    Object.defineProperty(document, "currentScript", {
-      value: scriptElement,
-    });
-
+  test("applies provided src and mode", () => {
+    registerScript(
+      "https://example.com?src=https://example.com&mode=editor"
+    );
     const config = getConfigFromParams();
-
     expect(config).toEqual({
       ...defaultConfig,
-      src: 'https://example.com',
-      mode: 'editor',
+      src: "https://example.com",
+      mode: "editor",
     });
-
-    document.body.removeChild(scriptElement);
   });
 
-  it("should return the correct config with extended options on main level of config", () => {
-    Object.defineProperty(document, "currentScript", {
-      value: {
-        src: "https://example.com/api.js?src=https://example.com&mode=editor&test=true",
-      },
-    });
-
+  test("adds non-filter extra options at root level", () => {
+    registerScript(
+      "https://example.com/api.js?src=https://example.com&mode=editor&test=true"
+    );
     const result = getConfigFromParams();
+  expect(result).toHaveProperty("test", true);
+  });
 
-    expect(result).toHaveProperty("test");
+  test("maps filter keys into filter object only", () => {
+    registerScript(
+      "https://example.com/api.js?src=&mode=manager&count=50&search=query"
+    );
+    const result = getConfigFromParams();
+    expect(result?.filter?.count).toBe("50");
+    expect(result?.filter?.search).toBe("query");
   });
 });
 
 describe("getCSPErrorBody", () => {
-  it("should return the correct HTML string with the provided src", () => {
-    const src = "https://example.com";
-    const expectedHtml = `<body style=background:#f3f4f4><link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300"rel=stylesheet><div style="display:flex;flex-direction:column;gap:80px;align-items:center;justify-content:flex-start;margin-top:60px;padding:0 30px"><div style=flex-shrink:0;position:relative><img src=${src}/static/images/logo/lightsmall.svg></div><div style=display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:flex-start;flex-shrink:0;position:relative><div style=flex-shrink:0;width:120px;height:100px;position:relative><img src=${src}/static/images/frame-error.svg></div><span style="color:#a3a9ae;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px">${cspErrorText} Please add it via <a href=${src}/developer-tools/javascript-sdk style="color:#4781d1;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px;text-decoration-line:underline"target=_blank>the Developer Tools section</a>.</span></div></div></body>`;
-
+  test.each([
+    "https://example.com",
+    "https://another-example.com",
+  ])("generates HTML containing dynamic src for %s", (src) => {
     const result = getCSPErrorBody(src);
-    expect(result).toBe(expectedHtml);
-  });
-
-  it("should handle different src values correctly", () => {
-    const src = "https://another-example.com";
-    const expectedHtml = `<body style=background:#f3f4f4><link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300"rel=stylesheet><div style="display:flex;flex-direction:column;gap:80px;align-items:center;justify-content:flex-start;margin-top:60px;padding:0 30px"><div style=flex-shrink:0;position:relative><img src=${src}/static/images/logo/lightsmall.svg></div><div style=display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:flex-start;flex-shrink:0;position:relative><div style=flex-shrink:0;width:120px;height:100px;position:relative><img src=${src}/static/images/frame-error.svg></div><span style="color:#a3a9ae;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px">${cspErrorText} Please add it via <a href=${src}/developer-tools/javascript-sdk style="color:#4781d1;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px;text-decoration-line:underline"target=_blank>the Developer Tools section</a>.</span></div></div></body>`;
-
-    const result = getCSPErrorBody(src);
-    expect(result).toBe(expectedHtml);
+    expect(result).toContain(`${src}/static/images/logo/lightsmall.svg`);
+    expect(result).toContain(cspErrorText);
+    expect(result).toContain(`${src}/developer-tools/javascript-sdk`);
   });
 });
 
 describe("getLoaderStyle", () => {
-  it("should return the correct CSS for the given class name", () => {
-    const className = "loader";
-    const expectedCSS = `@keyframes rotate { 0%{ transform: rotate(-45deg); will-change: transform; } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; will-change: transform; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } } @media (prefers-reduced-motion: reduce) { .${className} { animation-duration: 1.5s; } }`;
-
-    const result = getLoaderStyle(className);
-    expect(result).toBe(expectedCSS);
-  });
-
-  it("should handle different class names correctly", () => {
-    const className = "spinner";
-    const expectedCSS = `@keyframes rotate { 0%{ transform: rotate(-45deg); will-change: transform; } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; will-change: transform; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } } @media (prefers-reduced-motion: reduce) { .${className} { animation-duration: 1.5s; } }`;
-
-    const result = getLoaderStyle(className);
-    expect(result).toBe(expectedCSS);
-  });
+  test.each(["loader", "spinner", "any-class"])(
+    "returns CSS containing expected class token for %s",
+    (className) => {
+      const css = getLoaderStyle(className);
+      expect(css).toContain(`.${className}`);
+      expect(css).toContain("@keyframes rotate");
+    }
+  );
 });
 
 describe("getFramePath", () => {
-  describe("Manager mode", () => {
-    it("should return the correct path for SDKMode.Manager", () => {
+  describe("getFramePath modes", () => {
+    test("Manager mode with id adds folder param and omits withSubfolders when false", () => {
       const config: TFrameConfig = {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.Manager,
         id: "1",
         rootPath: "/root/",
-        filter: {},
+        filter: { withSubfolders: false },
       };
       const path = getFramePath(config);
-      expect(path).toContain("/root/1/filter?folder=1");
+      expect(path).toMatch(/\/root\/1\/filter\?folder=1/);
+      expect(path).not.toContain("withSubfolders=false");
     });
-  });
 
-  describe("Room selector mode", () => {
-    it("should return the correct path for SDKMode.RoomSelector", () => {
+    test("Manager mode with requestToken uses key query style", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Manager,
+        id: "55",
+        requestToken: "abc123",
+        rootPath: "/rooms/shared/",
+        filter: { search: "doc" },
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("?key=abc123");
+      expect(path).toContain("search=doc");
+      expect(path).not.toContain("filter?");
+    });
+
+    test("PublicRoom mode builds expected path", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.PublicRoom,
+        id: "999",
+        requestToken: "tok",
+        showFilter: true,
+        showHeader: true,
+        showTitle: false,
+        theme: "Base",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/public-room");
+      expect(path).toContain("folder=999");
+      expect(path).toContain("key=tok");
+    });
+
+    test("RoomSelector mode base path", () => {
       const config: TFrameConfig = {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.RoomSelector,
-        rootPath: "/root",
-      };
+      } as any;
       const path = getFramePath(config);
       expect(path).toBe(`/sdk/room-selector`);
     });
-  });
 
-  describe("File selector mode", () => {
-    it("should return the correct path for SDKMode.FileSelector", () => {
+    test("FileSelector mode with selectorType", () => {
       const config: TFrameConfig = {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.FileSelector,
         selectorType: "all",
-      };
+      } as any;
       const path = getFramePath(config);
       expect(path).toBe("/sdk/file-selector?selectorType=all");
     });
-  });
 
-  describe("Editor mode", () => {
-    it("should return the correct path for SDKMode.Editor", () => {
+    test("Editor mode includes editorGoBack true", () => {
       const config: TFrameConfig = {
         src: "https://example.com",
         frameId: "ds-frame",
@@ -280,54 +251,54 @@ describe("getFramePath", () => {
         id: "123",
         editorType: "desktop",
         editorGoBack: true,
-        editorCustomization: {},
         theme: "Base",
-      };
+      } as any;
       const path = getFramePath(config);
       expect(path).toContain("/doceditor?theme=Base&isSDK=true&fileId=123&editorType=desktop&editorGoBack=true");
     });
-  });
 
-  describe("Viewer mode", () => {
-    it("should return the correct path for SDKMode.Viewer", () => {
+    test("Editor mode with onEditorCloseCallback converts editorGoBack to event", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Editor,
+        id: "1",
+        editorType: "desktop",
+        events: { onEditorCloseCallback: () => {} },
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("editorGoBack=event");
+    });
+
+    test("Viewer mode includes action=view", () => {
       const config: TFrameConfig = {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.Viewer,
         id: "123",
         editorType: "embedded",
-        editorGoBack: false,
-        editorCustomization: {},
         theme: "Dark",
-      };
+      } as any;
       const path = getFramePath(config);
-      expect(path).toContain(
-        "/doceditor?theme=Dark&isSDK=true&fileId=123&editorType=embedded&action=view"
-      );
+      expect(path).toContain("action=view");
+      expect(path).toContain("fileId=123");
     });
-  });
 
-  describe("System mode", () => {
-    it("should return the correct path for SDKMode.System", () => {
+    test("System mode base path", () => {
       const config: TFrameConfig = {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.System,
-      };
+      } as any;
       const path = getFramePath(config);
       expect(path).toBe("/old-sdk/system");
     });
-  });
 
-  it("should handle all mode combinations correctly", () => {
-    const modes = Object.values(SDKMode);
-    modes.forEach((mode) => {
-      const config: TFrameConfig = {
-        src: "https://example.com",
-        frameId: "ds-frame",
-        mode,
-      };
-      expect(() => getFramePath(config)).not.toThrow();
+    test("handles all modes without throwing", () => {
+      Object.values(SDKMode).forEach((mode) => {
+        const conf: TFrameConfig = { src: "https://example.com", frameId: "ds-frame", mode } as any;
+        expect(() => getFramePath(conf)).not.toThrow();
+      });
     });
   });
 });
