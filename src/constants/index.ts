@@ -40,137 +40,138 @@ export const CSPApiUrl = "/api/2.0/security/csp" as const;
 export const FRAME_NAME = "frameDocSpace" as const;
 
 /**
- * Default configuration object for initializing and embedding a DocSpace frame.
+ * The default configuration object for initializing and embedding a DocSpace frame.
  * 
  * @type {TFrameConfig}
  */
 export const defaultConfig: TFrameConfig = {
-  /** Source URL for the iframe. */
+  /** The source URL to the iframe used to generate links. */
   src: "",
-  /** Base path used for DocSpace navigation. */
+  /** The base path used for DocSpace navigation. By default, opens a list of rooms. */
   rootPath: "/rooms/shared/",
-  /** Authorization token for API requests. */
+  /** The authorization token for API requests. Used to open public rooms and files in public rooms. */
   requestToken: null,
-  /** Width of the iframe element. */
+  /** The iframe width measured in percentages or pixels. */
   width: "100%",
-  /** Height of the iframe element. */
+  /** The iframe height measured in percentages or pixels. */
   height: "100%",
-  /** Name of the iframe element. */
+  /** The iframe name used for messaging at the SDK level. */
   name: FRAME_NAME,
-  /** Type of editor to initialize. */
+  /** The platform type used by the browser and affects the parameters of the inserted object. */
   type: EditorType.Desktop,
-  /** Unique frame identifier. */
+  /** The unique frame identifier used to refer to the SDK instance. */
   frameId: "ds-frame",
-  /** SDK mode to use for initialization. */
+  /** The SDK initialization mode. */
   mode: SDKMode.Manager,
-  /** Unique identifier for the instance. */
+  /** The unique instance identifier used in the SDK initialization modes. */
   id: null,
-  /** Language or locale (e.g., "en", "ru"). */
+  /** The language of the DocSpace user interface specified with the four letter language code. */
   locale: null,
-  /** Theme of the interface (light, dark, or system default). */
+  /** The UI theme settings. */
   theme: Theme.System,
-  /** Type of editor interface. */
+  /** The editor mode display type. */
   editorType: EditorType.Desktop,
-  /** Whether to enable "Go back" navigation inside the editor. */
+  /** Specifies whether the "Open file location" button is displayed in the editor. */
   editorGoBack: true,
-  /** Filter type used in selector views. */
+  /** The filter type used in the selector views. */
   selectorType: SelectorFilterType.All,
-  /** Whether to show the cancel button in selector mode. */
+  /** Specifies whether the "Cancel" button is displayed in the selector mode. */
   showSelectorCancel: false,
-  /** Whether to show the header in selector mode. */
+  /** Specifies whether the interface header is displayed in the selector mode. */
   showSelectorHeader: false,
-  /** Whether to show the main header. */
+  /** Specifies whether the interface header is displayed in the mobile view manager. */
   showHeader: false,
-  /** Controls display of the header banner. */
+  /** The display settings of the header banner. */
   showHeaderBanner: HeaderBannerDisplaying.None,
-  /** Whether to display the document or folder title. */
+  /** Specifies whether the title of the current section/room/folder is displayed in the DocSpace manager. */
   showTitle: true,
-  /** Whether to display the top menu. */
+  /** Specifies whether the left menu is displayed in the DocSpace manager. */
   showMenu: false,
-  /** Whether to display filtering options. */
+  /** Specifies whether the filter options are displayed in the DocSpace manager. */
   showFilter: false,
-  /** Whether to display the sign-out button. */
+  /** Specifies whether the "Sign out" button is displayed. */
   showSignOut: true,
-  /** Text to display when destroying the frame. */
+  /** The text to display when destroying the frame. It will be inserted into the `div` tag when the "destroyFrame" method is called. */
   destroyText: "",
-  /** Default view mode (table or row view). */
+  /** The default view mode - the way items are arranged in the DocSpace manager.  */
   viewAs: ManagerViewMode.Row,
-  /** Comma-separated string of table columns to display. */
-  viewTableColumns: "Index, Name, Size, Type, Tags",
-  /** Whether to check CSP settings before initializing. */
+  /** The comma-separated string of table column names that are displayed in the table view mode. */
+  viewTableColumns: "Index,Name,Size,Type,Tags",
+  /** Specifies whether to check for the presence of CSP headers before initialization. */
   checkCSP: true,
-  /** Whether to disable the main action button. */
+  /** Specifies whether to disable the "Actions" button in the manager interface. */
   disableActionButton: false,
-  /** Whether to show the settings button. */
+  /** Specifies whether to display the "Manage displayed columns" button for configuring the table columns in the list view. */
   showSettings: false,
-  /** Whether the frame is in a loading state. */
+  /** Specifies whether the frame is in the loading state. */
   waiting: false,
-  /** Whether to initialize the frame without showing a loading spinner. */
+  /** Specifies whether to initialize the frame without showing a loading spinner. */
   noLoader: true,
-  /** Whether to enable the search bar. */
+  /** Specifies whether to display "Search" in the selector mode. */
   withSearch: true,
-  /** Whether to show breadcrumb navigation. */
+  /** Specifies whether to show breadcrumb navigation in the selector mode. */
   withBreadCrumbs: true,
-  /** Whether to display a subtitle. */
+  /** Specifies whether to display a subtitle with additional comments or descriptions for the current directory. */
   withSubtitle: true,
-  /** Default filter parameter to apply (e.g., "ALL", "FAVORITES"). */
+  /** The filter parameters that facilitate searching files in the selector mode.  */
   filterParam: "ALL",
-  /** Hex code for customizing the button color. */
+  /** The HEX code to customize the selector button color. */
   buttonColor: "#5299E0",
-  /** Whether to make the info panel visible by default. */
+  /** Specifies whether to display a button to show the info panel in the DocSpace manager. */
   infoPanelVisible: true,
-  /** Whether to trigger an event instead of downloading directly. */
+  /** Specifies whether to handle download links using the `onDownload` event instead of downloading directly. */
   downloadToEvent: false,
-  /** Filter configuration parameters. */
+  /** The filter parameters that facilitate searching files and folders in the DocSpace manager. */
   filter: {
-    /** Number of items per page. */
+    /** The number of files and folders displayed on one page. */
     count: "100",
-    /** Page number to start from. */
+    /** The page number to start from. */
     page: "1",
-    /** Sort direction for the list. */
+    /** The sort direction for the list of files and folders. */
     sortOrder: FilterSortOrder.Descending,
-    /** Property by which to sort the list. */
+    /** The parameter used to sort the list of files and folders. */
     sortBy: FilterSortBy.ModifiedDate,
-    /** Search string. */
+    /** The query used to search for files and folders. */
     search: "",
-    /** Whether to include subfolders in results. */
+    /** Specifies whether to exclude subfolders when searching for files. */
     withSubfolders: false,
   },
-  /** Customization options specific to the embedded editor. */
+  /** The parameters to customize editors. */
   editorCustomization: {},
-  /** Callback functions for SDK events. */
+  /** The callback functions for SDK events. */
   events: {
-    /** Triggered when an item is selected by the user. */
+    /** The function called in the "room-selector" and "file-selector" modes when a room or file is selected, returning information about the selected item. */
     onSelectCallback: null,
-    /** Triggered when the frame is closed manually. */
+    /** The function called in the "room-selector" and "file-selector" modes when the room or file selector is closed or the selection is canceled. */
     onCloseCallback: null,
-    /** Triggered when the frame is fully initialized. */
+    /** The function called when SDK is initialized successfully. */
     onAppReady: null,
-    /** Triggered when an error occurs inside the app. */
+    /** The function called when SDK is initialized with an error. This error is returned during the initialization. */
     onAppError: null,
-    /** Triggered when the editor is closed. */
+    /** The function called when the document editor is closed. */
     onEditorCloseCallback: null,
-    /** Triggered when the authentication is successfull. */
+    /** The function called upon successful authorization. */
     onAuthSuccess: null,
-    /** Triggered when user clicks “Sign Out”. */
+    /** The function called when logging out of the user account. */
     onSignOut: null,
-    /** Triggered when user downloads a file. */
+    /** The function called when download events are fired from the manager. The function returns a link to the download object. This event is triggered only when the "downloadToEvent" parameter is specified in the config. */
     onDownload: null,
-    /** Triggered when there is no user access. */
+    /** The function called when trying to initialize the frame in a room or folder that is inaccessible or has been deleted. */
     onNoAccess: null,
-    /** Triggered when frame is not found. */
+    /** The function called when trying to initialize the frame in a room or folder that is not found. */
     onNotFound: null,
-    /** Triggered when content is ready. */
+    /** The function called when the frame is loaded. */
     onContentReady: null,
-    /** Triggered after the editor is opened. */
+    /** The function called when the document editor is opened for creating or editing documents, or filling out forms, from the context menu, modal windows, panels, or hotkeys. */
     onEditorOpen: null,
+    /** The function called when a file is clicked in the list of files. */
     onFileManagerClick: null
   },
 } as const;
 
-/** Error message displayed when the current domain is not included in the CSP settings. */
+/** The error message displayed when the current domain is not included in the CSP settings. */
 export const cspErrorText =
   "The current domain is not set in the Content Security Policy (CSP) settings." as const;
 
-/** Error message displayed when the message bus fails to connect with the embedded frame. */
+/** The error message displayed when the message bus fails to connect with the embedded frame. */
 export const connectErrorText = "Message bus is not connected with frame" as const;
