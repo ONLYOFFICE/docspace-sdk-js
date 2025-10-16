@@ -26,13 +26,13 @@ import { SDKMode } from "../enums";
 import { SDKInstance } from "../instance";
 
 /**
- * The SDK class is responsible for managing multiple SDKInstance objects.
+ * The SDK class is responsible for managing multiple `SDKInstance` objects.
  * It provides methods to initialize instances with different configurations for various DocSpace modes.
  *
  * @remarks
- * - If an instance with the same frameId already exists, it reinitializes that instance.
- * - Otherwise, it creates a new instance, initializes it, and adds it to the instances list.
- * - All configuration properties except `frameId` and `src` have sensible defaults.
+ * - If an instance with the same `frameId` already exists, it will be reinitialized.
+ * - Otherwise, a new instance is created, initialized, and added to the list of instances.
+ * - All configuration properties, except `frameId` and `src`, have sensible defaults.
  *
  * @example
  * ```typescript
@@ -48,7 +48,7 @@ import { SDKInstance } from "../instance";
  */
 export class SDK {
   /**
-   * Maps frame IDs to their corresponding SDKInstance objects.
+   * Maps frame IDs to their corresponding `SDKInstance` objects.
    * Used to track and manage multiple SDK instances across different frames.
    */
   frames: Record<string, SDKInstance> = {};
@@ -56,8 +56,8 @@ export class SDK {
    * Initializes an SDK instance with the provided configuration.
    *
    * This is the core initialization method that creates or reinitializes SDK instances.
-   * If an instance with the same frameId already exists, it reinitializes that instance.
-   * Otherwise, it creates a new instance, initializes it, and adds it to the instances list.
+   * If an instance with the same `frameId` already exists, it reinitializes that instance.
+   * Otherwise, it creates a new instance, initializes it, and adds it to the list of instances.
    * This method provides the foundation for all DocSpace integrations.
    *
    * @param config - The configuration object for the SDK instance. Only `frameId` and `src` are required.
@@ -91,7 +91,7 @@ export class SDK {
    *   viewAs: ManagerViewMode.Table,
    *   showFilter: true,
    *   showMenu: true,
-   *   viewTableColumns: 'Name,Size,Type,ModifiedDate,Author',
+   *   viewTableColumns: 'Name,Size,Type,Modified Date,Author',
    *   filter: {
    *     count: '50',
    *     sortBy: FilterSortBy.Name,
@@ -227,7 +227,7 @@ export class SDK {
    * Initializes the frame with the given configuration.
    *
    * This is a convenience wrapper around the main `init` method that creates or reinitializes
-   * a DocSpace frame with the specified configuration. It's equivalent to calling `init` directly
+   * a DocSpace frame with the specified configuration. It is equivalent to calling `init` directly,
    * but provides a more explicit method name for frame initialization use cases.
    *
    * @param config - The configuration object for the frame. Only `frameId` and `src` are required.
@@ -338,9 +338,9 @@ export class SDK {
    * The manager mode provides a full-featured file management interface for DocSpace,
    * allowing users to browse, organize, upload, and manage files and folders.
    * This mode is ideal for creating file management dashboards and administrative interfaces.
-   * Manager mode is the default mode in the SDK.
+   * Manager mode is the default SDK mode.
    *
-   * @param config - The configuration object for initializing the manager. `frameId` and `src` are required.
+   * @param config - The configuration object for initializing the manager. Only `frameId` and `src` are required.
    * @returns The initialized SDK instance.
    *
    * @example
@@ -371,7 +371,7 @@ export class SDK {
    *   viewAs: ManagerViewMode.Table,
    *   showFilter: true,
    *   showMenu: true,
-   *   viewTableColumns: 'Name,Size,Type,ModifiedDate,Author,Tags',
+   *   viewTableColumns: 'Name,Size,Type,Modified Date,Author,Tags',
    *   filter: {
    *     count: '50',
    *     sortBy: FilterSortBy.Name,
@@ -471,7 +471,7 @@ export class SDK {
    * and other files in DocSpace. This mode is perfect for document preview functionality,
    * content review, and read-only document sharing scenarios.
    *
-   * @param config - The configuration object for the viewer. `frameId` and `src` are required.
+   * @param config - The configuration object for the viewer. Only `frameId` and `src` are required.
    * @returns The initialized SDK instance.
    *
    * @example
@@ -600,9 +600,9 @@ export class SDK {
    *
    * The editor mode provides full document editing capabilities, allowing users to create,
    * modify, and collaborate on documents in real-time. This mode supports various document
-   * types including text documents, spreadsheets, and presentations with collaborative features.
+   * types, including text documents, spreadsheets, and presentations with collaborative features.
    *
-   * @param config - The configuration object for the editor. `frameId` and `src` are required.
+   * @param config - The configuration object for the editor. Only `frameId` and `src` are required.
    * @returns The initialized SDK instance.
    *
    * @example
@@ -765,13 +765,13 @@ export class SDK {
     this.init({ ...config, mode: SDKMode.Editor });
   
   /**
-   * Initializes the Room Selector with the provided configuration.
+   * Initializes the room selector with the provided configuration.
    *
    * The room selector mode provides a specialized interface for browsing and selecting
    * rooms within DocSpace. This is ideal for applications that need users to choose
    * specific rooms for file operations, integrations, or access control.
    *
-   * @param config - The configuration object for initializing the Room Selector. `frameId` and `src` are required.
+   * @param config - The configuration object for initializing the room selector. Only `frameId` and `src` are required.
    * @returns The initialized SDK instance.
    *
    * @example
@@ -913,7 +913,7 @@ export class SDK {
    * files and folders within DocSpace. This is perfect for integration scenarios where
    * users need to pick specific files for operations, attachments, or imports.
    *
-   * @param config - The configuration object for the file selector. `frameId` and `src` are required.
+   * @param config - The configuration object for the file selector. Only `frameId` and `src` are required.
    * @returns The initialized SDK instance.
    *
    * @example
