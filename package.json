@@ -13,7 +13,8 @@
     "url": "git+https://github.com/ONLYOFFICE/docspace-sdk-js.git"
   },
   "bugs": {
-    "url": "https://github.com/ONLYOFFICE/docspace-sdk-js"
+    "url": "https://github.com/ONLYOFFICE/docspace-sdk-js/issues",
+    "email": "support@onlyoffice.com"
   },
   "keywords": [
     "onlyoffice",
