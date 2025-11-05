@@ -1864,13 +1864,9 @@ export class SDKInstance {
    * @see {@link SDK.initEditor} - Initializes the editor before executing custom functions.
    * @see {@link getSelection} - Retrieves the selected content to operate on within the editor.
    */
-  executeInEditor(
-    callback: (instance: object, data?: object) => void,
-    data?: object
-  ): void {
-    this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
-      callback,
-      data,
+  executeInEditor(callback: (instance:object, data?: object) => void, data?: object): void {
+    void this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
+      callback, data
     });
   }
 }

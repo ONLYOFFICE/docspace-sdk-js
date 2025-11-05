@@ -22,17 +22,17 @@
  */
 
 import {
-  SDKMode,
-  SelectorFilterType,
-  EditorType,
-  ManagerViewMode,
-  Theme,
-  FilterSortOrder,
-  HeaderBannerDisplaying,
-  FilterSortBy,
-  MessageTypes,
+  type SDKMode,
+  type SelectorFilterType,
+  type EditorType,
+  type ManagerViewMode,
+  type Theme,
+  type FilterSortOrder,
+  type HeaderBannerDisplaying,
+  type FilterSortBy,
+  type MessageTypes,
 } from "../enums";
-import { SDKInstance } from "../instance";
+import type { SDKInstance } from "../instance";
 
 declare global {
   interface Window {
