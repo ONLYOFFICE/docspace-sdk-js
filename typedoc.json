@@ -7,7 +7,7 @@
     "src/sdk/index.ts",
     "src/types/index.ts"
   ],
-  "plugin": ["typedoc-plugin-markdown", "typedoc-docusaurus-theme"],
+  "plugin": ["typedoc-plugin-markdown", "typedoc-plugin-frontmatter", "typedoc-docusaurus-theme"],
   "out": "docs",
   "entryFileName": "index.md",
   "includeVersion": true,

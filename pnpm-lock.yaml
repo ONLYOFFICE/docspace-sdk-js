@@ -48,8 +48,11 @@ importers:
         specifier: 0.28.10
         version: 0.28.10(typescript@5.7.2)
       typedoc-docusaurus-theme:
-        specifier: ^1.4.2
+        specifier: 1.4.2
         version: 1.4.2(typedoc-plugin-markdown@4.8.1(typedoc@0.28.10(typescript@5.7.2)))
+      typedoc-plugin-frontmatter:
+        specifier: 1.3.0
+        version: 1.3.0(typedoc-plugin-markdown@4.8.1(typedoc@0.28.10(typescript@5.7.2)))
       typedoc-plugin-markdown:
         specifier: 4.8.1
         version: 4.8.1(typedoc@0.28.10(typescript@5.7.2))
@@ -2115,6 +2118,11 @@ packages:
     resolution: {integrity: sha512-i9YYDcScLD0WUiX8I+LXHX3ZVvRDlJsmRo9l/uWrFT37cHlMz4Ay0GOnWzHUBnnwAo1uzYOw9RjUXznbWozBEA==}
     peerDependencies:
       typedoc-plugin-markdown: '>=4.8.0'
+
+  typedoc-plugin-frontmatter@1.3.0:
+    resolution: {integrity: sha512-xYQFMAecMlsRUjmf9oM/Sq2FVz4zlgcbIeVFNLdO118CHTN06gIKJNSlyExh9+Xl8sK0YhIvoQwViUURxritWA==}
+    peerDependencies:
+      typedoc-plugin-markdown: '>=4.5.0'
 
   typedoc-plugin-markdown@4.8.1:
     resolution: {integrity: sha512-ug7fc4j0SiJxSwBGLncpSo8tLvrT9VONvPUQqQDTKPxCoFQBADLli832RGPtj6sfSVJebNSrHZQRUdEryYH/7g==}
@@ -4592,6 +4600,11 @@ snapshots:
   typedoc-docusaurus-theme@1.4.2(typedoc-plugin-markdown@4.8.1(typedoc@0.28.10(typescript@5.7.2))):
     dependencies:
       typedoc-plugin-markdown: 4.8.1(typedoc@0.28.10(typescript@5.7.2))
+
+  typedoc-plugin-frontmatter@1.3.0(typedoc-plugin-markdown@4.8.1(typedoc@0.28.10(typescript@5.7.2))):
+    dependencies:
+      typedoc-plugin-markdown: 4.8.1(typedoc@0.28.10(typescript@5.7.2))
+      yaml: 2.8.0
 
   typedoc-plugin-markdown@4.8.1(typedoc@0.28.10(typescript@5.7.2)):
     dependencies:
