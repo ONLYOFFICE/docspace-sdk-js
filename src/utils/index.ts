@@ -111,15 +111,15 @@ export const getConfigFromParams = (): TFrameConfig | null => {
 
   const configTemplate: TFrameConfig = { ...defaultConfig };
 
-  type FilterParams = Record<string, string | number | boolean>;
+  type TFilterParams = Record<string, string | number | boolean>;
 
   searchParams.forEach((value, key) => {
     const parsedValue =
       value === "true" ? true : value === "false" ? false : value;
     if (defaultConfig.filter && key in defaultConfig.filter) {
-      (configTemplate.filter as FilterParams)[key] = parsedValue;
+      (configTemplate.filter as TFilterParams)[key] = parsedValue;
     } else {
-      (configTemplate as unknown as FilterParams)[key] = parsedValue;
+      (configTemplate as unknown as TFilterParams)[key] = parsedValue;
     }
   });
 

@@ -1038,7 +1038,7 @@ export class SDKInstance {
    * @param data - Optional data object to be passed to the callback function
    */
   executeInEditor(callback: (instance:object, data?: object) => void, data?: object): void {
-    this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
+    void this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
       callback, data
     });
   }

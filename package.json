@@ -25,7 +25,7 @@
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
   "types": "dist/types/main.d.ts",
-    "files": [
+  "files": [
     "dist"
   ],
   "scripts": {
@@ -47,7 +47,7 @@
     "eslint": "9.31.0",
     "jest-environment-jsdom": "29.7.0",
     "jest": "29.7.0",
-    "pnpm": "10.11.0",
+    "pnpm": "10.20.0",
     "ts-jest": "29.4.0",
     "ts-node": "10.9.2",
     "tslib": "2.8.1",
@@ -62,5 +62,6 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
-  }
+  },
+  "packageManager": "pnpm@10.20.0"
 }

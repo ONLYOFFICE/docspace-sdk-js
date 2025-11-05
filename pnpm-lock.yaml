@@ -36,8 +36,8 @@ importers:
         specifier: 29.7.0
         version: 29.7.0
       pnpm:
-        specifier: 10.11.0
-        version: 10.11.0
+        specifier: 10.20.0
+        version: 10.20.0
       ts-jest:
         specifier: 29.4.0
         version: 29.4.0(@babel/core@7.26.0)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.26.0))(esbuild@0.25.2)(jest-util@29.7.0)(jest@29.7.0(@types/node@22.10.1)(ts-node@10.9.2(@types/node@22.10.1)(typescript@5.7.2)))(typescript@5.7.2)
@@ -1676,8 +1676,8 @@ packages:
     resolution: {integrity: sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ==}
     engines: {node: '>=8'}
 
-  pnpm@10.11.0:
-    resolution: {integrity: sha512-ZUBYP0HMX2KOs9l3Ps7oAvT575kjzEW2mJD7R5kdSwkpZGlOw6T3OKQgyRijMwYsi5JdMS9C5PDCY+tgNVH5dw==}
+  pnpm@10.20.0:
+    resolution: {integrity: sha512-z5mYIiFi3YWGTQqBAueJLnukzq3rv1ox+cL85I384xepxTufZGTR75BCy6LgKuAqn3wUOitDjNk8kYQPAZK53Q==}
     engines: {node: '>=18.12'}
     hasBin: true
 
@@ -4023,7 +4023,7 @@ snapshots:
     dependencies:
       find-up: 4.1.0
 
-  pnpm@10.11.0: {}
+  pnpm@10.20.0: {}
 
   prelude-ls@1.2.1: {}
 
