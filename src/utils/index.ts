@@ -26,10 +26,10 @@ import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 
 /**
- * Converts an object with string, number, or boolean values into URLSearchParams.
+ * Converts an object with string, number, or boolean values into `URLSearchParams`.
  *
  * @param data - An object where the keys are strings and the values are either strings, numbers, or booleans.
- * @returns A new instance of URLSearchParams initialized with the provided object.
+ * @returns A new instance of `URLSearchParams` initialized with the provided object.
  */
 export const customUrlSearchParams = (
   data: Record<string, string | number | boolean | undefined | null>
