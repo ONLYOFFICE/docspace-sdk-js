@@ -16,8 +16,8 @@
  * @license
  */
 
+import { execSync } from "node:child_process";
 import { build } from "esbuild";
-import { execSync } from "child_process";
 import esbuildPluginTsc from "esbuild-plugin-tsc";
 
 const baseOptions = {
@@ -26,48 +26,80 @@ const baseOptions = {
   treeShaking: true,
   logLevel: "info",
   sourcemap: false,
+  legalComments: "eof",
 };
 
-const createBuildConfig = (format, output, entry, additionalPlugins = []) => ({
-  ...baseOptions,
-  format,
-  entryPoints: [entry],
-  ...(format === "iife" ? { outfile: output } : { outdir: output }),
-  plugins: additionalPlugins,
+const typescriptPlugin = esbuildPluginTsc({
+  force: true,
+  tsconfigPath: "./tsconfig.json",
 });
 
-const typescriptPlugin = esbuildPluginTsc({ force: true });
 const declarationsPlugin = {
   name: "TypeScriptDeclarationsPlugin",
   setup(build) {
     build.onEnd((result) => {
       if (result.errors.length === 0) {
-        execSync("tsc --outDir ./dist/types");
+        try {
+          execSync("tsc --outDir ./dist/types", { stdio: "inherit" });
+        } catch (error) {
+          console.error(
+            "Failed to generate TypeScript declarations:",
+            error.message
+          );
+          throw error;
+        }
       }
     });
   },
 };
 
+function createBuildConfig(format, output, entry, options = {}) {
+  const config = {
+    ...baseOptions,
+    format,
+    entryPoints: [entry],
+    ...(format === "iife" ? { outfile: output } : { outdir: output }),
+    ...options,
+  };
+
+  return config;
+}
+
 async function buildAll() {
   try {
     await Promise.all([
       build(
-        createBuildConfig("esm", "./dist/esm", "./src/main.ts", [
-          typescriptPlugin,
-          declarationsPlugin,
-        ])
+        createBuildConfig("esm", "./dist/esm", "./src/main.ts", {
+          platform: "neutral",
+          plugins: [typescriptPlugin, declarationsPlugin],
+          target: ["es2020"],
+          splitting: false,
+          mainFields: ["module", "main"],
+        })
       ),
+
       build(
-        createBuildConfig("cjs", "./dist/cjs", "./src/main.ts", [
-          typescriptPlugin,
-        ])
+        createBuildConfig("cjs", "./dist/cjs", "./src/main.ts", {
+          platform: "node",
+          plugins: [typescriptPlugin],
+          target: ["node18"],
+          mainFields: ["main", "module"],
+        })
       ),
+
       build(
-        createBuildConfig("iife", "./dist/api.js", "./src/main.browser.ts")
+        createBuildConfig("iife", "./dist/api.js", "./src/main.browser.ts", {
+          platform: "browser",
+          target: ["es2020", "chrome80", "firefox80", "safari14", "edge80"],
+          globalName: "DocSpace",
+          minifyWhitespace: true,
+          minifyIdentifiers: true,
+          minifySyntax: true,
+        })
       ),
     ]);
   } catch (error) {
-    console.error("Build failed:", error);
+    console.error("Build failed:", error.message);
     process.exit(1);
   }
 }
