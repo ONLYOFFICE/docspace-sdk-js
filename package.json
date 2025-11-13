@@ -31,7 +31,7 @@
   "scripts": {
     "lint": "eslint src/",
     "test": "jest",
-    "docs": "typedoc && ts-node tools/update-sidebar.mjs",
+    "docs": "ts-node tools/update-revision.mjs && typedoc && ts-node tools/update-sidebar.mjs",
     "build": "ts-node tools/build.mjs"
   },
   "engines": {
