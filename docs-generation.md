@@ -7,6 +7,7 @@ This guide explains how to generate documentation for the ONLYOFFICE DocSpace Ja
 The documentation system uses:
 - **TypeDoc** - Main documentation generator that extracts documentation from TypeScript source files
 - **typedoc-plugin-markdown** - Converts TypeDoc output to Markdown format
+- **typedoc-plugin-frontmatter** - Adds frontmatter metadata to generated Markdown files
 - **typedoc-docusaurus-theme** - Provides Docusaurus-compatible documentation structure
 
 The documentation is automatically generated from JSDoc comments in the TypeScript source code.
@@ -34,7 +35,7 @@ src/
 ├── enums/index.ts        # Enumerations (SDKMode, Theme, EditorType, etc.)
 ├── instance/index.ts     # SDKInstance class - individual instance management
 ├── sdk/index.ts          # SDK class - main SDK controller
-└── types/index.ts        # Type definitions and interfaces
+├── types/index.ts        # Type definitions and interfaces
 ```
 
 ### Output Structure
@@ -69,7 +70,7 @@ docs/
 
 The documentation generation is configured in `typedoc.json`:
 
-```json
+```jsonc
 {
   "$schema": "https://typedoc.org/schema.json",
   "entryPoints": [
@@ -79,28 +80,38 @@ The documentation generation is configured in `typedoc.json`:
     "src/sdk/index.ts",
     "src/types/index.ts"
   ],
-  "plugin": ["typedoc-plugin-markdown", "typedoc-docusaurus-theme"],
+  "plugin": [
+    "typedoc-plugin-markdown",
+    "typedoc-plugin-frontmatter",
+    "typedoc-docusaurus-theme"
+  ],
   "out": "docs",
   "entryFileName": "index.md",
+  "name": "@onlyoffice/docspace-sdk-js",
   "includeVersion": true,
   "excludeReferences": true,
   "excludePrivate": true,
   "excludeProtected": true,
   "excludeInternal": true,
+  "excludeExternals": true,
   "readme": "none",
   "hideBreadcrumbs": true,
   "hidePageHeader": true,
-  "categorizeByGroup": true,
+  "hideGenerator": true,
+  "categorizeByGroup": false,
   "categoryOrder": [
     "Classes",
     "Interfaces",
     "Types",
     "Enumerations",
     "Functions",
-    "Variables"
+    "Variables",
+    "*"
   ],
+  "defaultCategory": "Other",
+  "sort": ["source-order"],
+  "sortEntryPoints": true,
   "kindSortOrder": [
-    "Document",
     "Project",
     "Module",
     "Namespace",
@@ -124,12 +135,27 @@ The documentation generation is configured in `typedoc.json`:
     "GetSignature",
     "SetSignature"
   ],
-  "sort": ["source-order"],
-  "hideGenerator": true,
-  "validation": true,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "rewrittenLink": true,
+    "notDocumented": false,
+    "unusedMergeModuleWith": true
+  },
+  "treatValidationWarningsAsErrors": false,
   "disableSources": false,
-  "gitRevision": "main",
   "sourceLinkTemplate": "https://github.com/ONLYOFFICE/docspace-sdk-js/blob/{gitRevision}/{path}#L{line}",
+  "gitRevision": "master",
+  "githubPages": false,
+  "searchInComments": true,
+  "cleanOutputDir": true,
+  "commentStyle": "jsdoc",
+  "useTsLinkResolution": true,
+  "jsDocCompatibility": {
+    "defaultTag": true,
+    "exampleTag": true,
+    "ignoreUnescapedBraces": true
+  },
   "sidebar": {
     "autoConfiguration": true,
     "pretty": true
@@ -140,11 +166,15 @@ The documentation generation is configured in `typedoc.json`:
 ### Key Configuration Options
 
 - **entryPoints**: Specifies which TypeScript files to include in documentation
-- **plugin**: Enables Markdown output and Docusaurus theme
+- **plugin**: Enables Markdown output, frontmatter metadata, and Docusaurus theme
 - **out**: Output directory for generated documentation
-- **exclude*** options: Control what gets documented (exclude private/protected/internal members)
-- **categoryOrder**: Define the order of documentation sections
+- **name**: Package name displayed in documentation
+- **exclude*** options: Control what gets documented (exclude private/protected/internal/external members)
+- **categoryOrder**: Define the order of documentation sections (with "*" and defaultCategory for uncategorized items)
+- **validation**: Comprehensive validation rules for documentation quality
+- **gitRevision**: Git branch used for source code links (dynamically set by update-revision.mjs)
 - **sourceLinkTemplate**: Creates links back to source code on GitHub
+- **jsDocCompatibility**: Enhanced JSDoc tag support and compatibility options
 - **sidebar**: Auto-generates sidebar configuration for Docusaurus
 
 ## Generating Documentation
@@ -155,17 +185,22 @@ The documentation generation is configured in `typedoc.json`:
 pnpm run docs
 ```
 
-This command executes `typedoc` using the configuration from `typedoc.json`.
+This command executes a three-step process:
+1. **update-revision.mjs** - Updates `typedoc.json` with the current Git branch name
+2. **typedoc** - Generates documentation using the configuration from `typedoc.json`
+3. **update-sidebar.mjs** - Post-processes the generated sidebar with path prefixes and reverts Git revision to default branch
 
 ### What Happens During Generation
 
-1. **TypeDoc reads** all entry point files (`src/*/index.ts`)
-2. **Parses** TypeScript code and JSDoc comments
-3. **Extracts** classes, interfaces, types, enums, functions, and constants
-4. **Generates** Markdown files organized by category
-5. **Creates** `index.md` with navigation links
-6. **Generates** `typedoc-sidebar.cjs` for Docusaurus integration
-7. **Links** documentation to source code on GitHub
+1. **update-revision.mjs** determines the current Git branch and updates `gitRevision` in `typedoc.json`
+2. **TypeDoc reads** all entry point files (`src/*/index.ts`)
+3. **Parses** TypeScript code and JSDoc comments
+4. **Extracts** classes, interfaces, types, enums, functions, and constants
+5. **Generates** Markdown files organized by category with frontmatter metadata
+6. **Creates** `index.md` with navigation links
+7. **Generates** `typedoc-sidebar.cjs` for Docusaurus integration
+8. **Links** documentation to source code on GitHub using the current branch
+9. **update-sidebar.mjs** adds Docusaurus path prefix (`docspace/javascript-sdk/usage-sdk`) to sidebar IDs and reverts `gitRevision` to `master`
 
 ### Output
 
