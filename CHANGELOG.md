@@ -1,5 +1,29 @@
 # Change Log
 
+## 2.1.0
+## Added
+- Added markdown documentation generation with TypeDoc
+- Added documentation generation guide (`docs-generation.md`)
+- Added `onFileManagerClick` event
+
+## Changed
+- Updated ESLint configuration for better code quality
+- Updated packages to latest versions
+- Optimized build process and configuration
+- Improved TypeDoc configuration with markdown plugin
+- Enhanced documentation with examples and better descriptions
+- Updated grammar and punctuation in documentation
+- Fixed typedoc configuration for proper markdown generation
+- Restored default `showHeader` value in config
+- Fixed `roomType` type for create room method
+- Fixed package structure and updated pnpm
+- Removed old markdown generator script in favor of TypeDoc
+
+## Fixed
+- Fixed docs generation process
+- Fixed examples for SDK class
+- Reverted `editorOpenEvent` option and properly implemented it
+
 ## 2.0.0
 ## Added
 - Added base SDK class tests

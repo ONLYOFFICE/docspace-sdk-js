@@ -26,10 +26,10 @@ import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 
 /**
- * Converts an object with string, number, or boolean values into URLSearchParams.
+ * Converts an object with string, number, or boolean values into `URLSearchParams`.
  *
  * @param data - An object where the keys are strings and the values are either strings, numbers, or booleans.
- * @returns A new instance of URLSearchParams initialized with the provided object.
+ * @returns A new instance of `URLSearchParams` initialized with the provided object.
  */
 export const customUrlSearchParams = (
   data: Record<string, string | number | boolean | undefined | null>
@@ -111,15 +111,15 @@ export const getConfigFromParams = (): TFrameConfig | null => {
 
   const configTemplate: TFrameConfig = { ...defaultConfig };
 
-  type FilterParams = Record<string, string | number | boolean>;
+  type TFilterParams = Record<string, string | number | boolean>;
 
   searchParams.forEach((value, key) => {
     const parsedValue =
       value === "true" ? true : value === "false" ? false : value;
     if (defaultConfig.filter && key in defaultConfig.filter) {
-      (configTemplate.filter as FilterParams)[key] = parsedValue;
+      (configTemplate.filter as TFilterParams)[key] = parsedValue;
     } else {
-      (configTemplate as unknown as FilterParams)[key] = parsedValue;
+      (configTemplate as unknown as TFilterParams)[key] = parsedValue;
     }
   });
 

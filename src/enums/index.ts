@@ -22,181 +22,182 @@
  */
 
 /**
- * Available modes in the SDK
+ * The available modes for initializing the SDK.
+ * Defines the context in which the SDK operates.
  */
 export enum SDKMode {
-  /** Manager mode */
+  /** Displays a list of entities based on the specified `rootPath`. Supports creating and managing rooms, folders, and files. */
   Manager = "manager",
-  /** Editor mode */
+  /** Opens the document editor for the file specified by its `id` parameter. */
   Editor = "editor",
-  /** Viewer mode */
+  /** Opens the document viewer for the file specified by its `id` parameter. */
   Viewer = "viewer",
-  /** Room selector mode */
+  /** Opens the room selector for selecting a room from the available list. */
   RoomSelector = "room-selector",
-  /** File selector mode */
+  /** Opens the file selector for selecting a file from the available list. */
   FileSelector = "file-selector",
-  /** System mode */
+  /** Displays a blank page with a loader and provides access to system methods. */
   System = "system",
-  /** Public room mode */
+  /** Displays a public room that provides access to view, edit, comment on, and review documents without registration. */
   PublicRoom = "public-room",
 }
 
 /**
- * Types of filters that can be applied to a selector
+ * The filter type used in the selector views.
  */
 export const enum SelectorFilterType {
-  /** Show all items */
+  /** Shows all available items. */
   All = "all",
-  /** Show only rooms */
+  /** Shows only rooms. */
   RoomsOnly = "roomsOnly",
-  /** Show only user folder */
+  /** Shows only user folders. */
   UserOnly = "userFolderOnly",
 }
 
 /**
- * Types of editors available
+ * The available types of editor interface.
  */
 export const enum EditorType {
-  /** Desktop editor */
+  /** The desktop editor optimized to access the document from a desktop or laptop computer. */
   Desktop = "desktop",
-  /** Embedded editor */
+  /** The embedded editor specifically formed to be easily embedded into a web page. */
   Embedded = "embedded",
-  /** Mobile editor */
+  /** The mobile editor optimized to access the document from a tablet or a smartphone. */
   Mobile = "mobile",
 }
 
 /**
- * View modes available in the manager
+ * The view modes available in the manager.
  */
 export const enum ManagerViewMode {
-  /** Row view */
+  /** Displays items in a vertical list, showing details for each entry in a row. */
   Row = "row",
-  /** Table view */
+  /** Displays items in a table layout with columns for structured comparison. */
   Table = "table",
-  /** Tile view */
+  /** Displays items as tiles, emphasizing visual previews and key information. */
   Tile = "tile",
 }
 
 /**
- * Available application themes
+ * The available application themes.
  */
 export const enum Theme {
-  /** Base theme */
+  /** The light/base theme. */
   Base = "Base",
-  /** Dark theme */
+  /** The dark mode theme. */
   Dark = "Dark",
-  /** System theme */
+  /** Follows the system UI theme. */
   System = "System",
 }
 
 /**
- * Sort order for filtering
+ * The item sorting order.
  */
 export const enum FilterSortOrder {
-  /** Ascending order */
+  /** Ascending order: items sorted from smallest to largest, A–Z, etc. */
   Ascending = "ascending",
-  /** Descending order */
+  /** Descending order: items sorted from largest to smallest, Z–A, etc. */
   Descending = "descending",
 }
 
 /**
- * Criteria for filtering and sorting items
+ * The criteria for filtering and sorting items.
  */
 export const enum FilterSortBy {
-  /** Sort by author */
+  /** Sorts items by author name. */
   Author = "Author",
-  /** Sort by creation date */
+  /** Sorts items by creation date. */
   CreationDate = "DateAndTimeCreation",
-  /** Sort by last opened date */
+  /** Sorts items by the last opened date. */
   LastOpened = "LastOpened",
-  /** Sort by modification date */
+  /** Sorts items by modification date. */
   ModifiedDate = "DateAndTime",
-  /** Sort by name */
+  /** Sorts items by name. */
   Name = "AZ",
-  /** Sort by room */
+  /** Sorts items by room. */
   Room = "Room",
-  /** Sort by room type */
+  /** Sorts items by room type. */
   RoomType = "roomType",
-  /** Sort by size */
+  /** Sorts items by size. */
   Size = "Size",
-  /** Sort by tags */
+  /** Sorts items by tags. */
   Tags = "Tags",
-  /** Sort by type */
+  /** Sorts items by type. */
   Type = "Type",
-  /** Sort by used space */
+  /** Sorts items by used space. */
   UsedSpace = "usedspace",
 }
 
 /**
- * Header banner display options
+ * The display settings of the header banner.
  */
 export const enum HeaderBannerDisplaying {
-  /** Display all header banners */
+  /** Displays all header banners. */
   All = "all",
-  /** Display only informational header banners */
+  /** Displays only informational header banners. */
   Info = "info",
-  /** Do not display any header banners */
+  /** Does not display any header banners. */
   None = "none",
 }
 
 /**
- * Available instance methods in the SDK for file management, user info, and settings
+ * Available instance methods in the SDK for file management, user information, and settings.
  */
 export const enum InstanceMethods {
-  /** Add tags to a room */
+  /** Adds the specified tags to the room with the specified ID. */
   AddTagsToRoom = "addTagsToRoom",
-  /** Create a new file */
+  /** Creates a new file with the specified parameters. */
   CreateFile = "createFile",
-  /** Create a new folder */
+  /** Creates a new folder with the specified parameters. */
   CreateFolder = "createFolder",
-  /** Create a hash */
+  /** Generates the hash string based on the specified hash settings. */
   CreateHash = "createHash",
-  /** Create a new room */
+  /** Creates a new room with the specified parameters. */
   CreateRoom = "createRoom",
-  /** Create a new tag */
+  /** Creates a new tag with the specified name. */
   CreateTag = "createTag",
-  /** Get files list */
+  /** Returns the information about all files in the SDK frame. */
   GetFiles = "getFiles",
-  /** Get folder information */
+  /** Returns the information about the current directory opened in the SDK frame. */
   GetFolderInfo = "getFolderInfo",
-  /** Get folders list */
+  /** Returns the information about all the folders in the SDK frame. */
   GetFolders = "getFolders",
-  /** Get hash settings */
+  /** Returns the DocSpace hash settings for generating a password hash. */
   GetHashSettings = "getHashSettings",
-  /** Get general list */
+  /** Returns the information about all files and folders in the SDK frame. */
   GetList = "getList",
-  /** Get rooms list */
+  /** Returns the information about rooms according to the specified filter parameters. */
   GetRooms = "getRooms",
-  /** Get current selection */
+  /** Returns the information about the selected elements in the SDK frame. */
   GetSelection = "getSelection",
-  /** Get user information */
+  /** Returns the information about the current DocSpace user or null if there are no authorized users. */
   GetUserInfo = "getUserInfo",
-  /** Perform login */
+  /** Logs in to the DocSpace account using the specified email and password hash. */
   Login = "login",
-  /** Perform logout */
+  /** Logs out from the DocSpace account of the current user. */
   Logout = "logout",
-  /** Open a modal */
+  /** Opens the DocSpace modal window of the specified type. */
   OpenModal = "openModal",
-  /** Remove tags from a room */
+  /** Removes the specified tags from the room with the specified ID. */
   RemoveTagsFromRoom = "removeTagsFromRoom",
-  /** Set configuration */
+  /** Sets the specified config for the current SDK entity. */
   SetConfig = "setConfig",
-  /** Set list view */
+  /** Sets the display of entity lists according to the specified type. */
   SetListView = "setListView",
-  /** Execute callback inside editor context */
+  /** Executes the specified callback within the editor context. */
   ExecuteInEditor = "executeInEditor",
 }
 
 /**
- * Types of messages
+ * The types of messages exchanged between SDK components and the host application.
  */
 export const enum MessageTypes {
-  /** Method return message */
+  /** The message sent when a method returns a result. */
   OnMethodReturn = "onMethodReturn",
-  /** Event return message */
+  /** The message sent when an event occurs. */
   OnEventReturn = "onEventReturn",
-  /** Command call message */
+  /** The message sent when a command is called. */
   OnCallCommand = "onCallCommand",
-  /** Error message */
+  /** The message sent when an error occurs. */
   Error = "error",
 }
