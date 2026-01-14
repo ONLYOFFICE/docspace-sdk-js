@@ -16,16 +16,58 @@
  * @license
  */
 
-// @ts-check
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const PATH_PREFIX = "docspace/javascript-sdk/usage-sdk";
 const SIDEBAR_FILE = join(process.cwd(), "docs", "typedoc-sidebar.cjs");
 const CONFIG_FILE = join(process.cwd(), "typedoc.json");
+const DOCS_DIR = join(process.cwd(), "docs");
 const DEFAULT_BRANCH = "master";
 
+function unescapeUnderscores(content) {
+  return content
+    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (match, text, url) => {
+      const unescapedText = text.replace(/\\_/g, "_");
+      return `[${unescapedText}](${url})`;
+    })
+    .replace(/^(#{1,6}\s+.*)$/gm, (match) => {
+      return match.replace(/\\_/g, "_");
+    })
+    .replace(/\*\*([^*]+)\*\*/g, (match, text) => {
+      const unescapedText = text.replace(/\\_/g, "_");
+      return `**${unescapedText}**`;
+    })
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, (match, text) => {
+      const unescapedText = text.replace(/\\_/g, "_");
+      return `*${unescapedText}*`;
+    });
+}
+
+function processMarkdownFiles(dir) {
+  const files = readdirSync(dir);
+
+  for (const file of files) {
+    const filePath = join(dir, file);
+    const stat = statSync(filePath);
+
+    if (stat.isDirectory()) {
+      processMarkdownFiles(filePath);
+    } else if (file.endsWith(".md")) {
+      const content = readFileSync(filePath, "utf-8");
+      const updated = unescapeUnderscores(content);
+
+      if (content !== updated) {
+        writeFileSync(filePath, updated, "utf-8");
+      }
+    }
+  }
+}
+
 try {
+  processMarkdownFiles(DOCS_DIR);
+  console.log("Fixed escaped underscores in markdown links");
+
   let content = readFileSync(SIDEBAR_FILE, "utf-8");
 
   content = content.replace(
