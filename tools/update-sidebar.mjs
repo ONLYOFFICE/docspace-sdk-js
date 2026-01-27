@@ -17,12 +17,16 @@
  */
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const rootDir = join(__dirname, "..");
 
 const PATH_PREFIX = "docspace/javascript-sdk/usage-sdk";
-const SIDEBAR_FILE = join(process.cwd(), "docs", "typedoc-sidebar.cjs");
-const CONFIG_FILE = join(process.cwd(), "typedoc.json");
-const DOCS_DIR = join(process.cwd(), "docs");
+const SIDEBAR_FILE = join(rootDir, "docs", "typedoc-sidebar.cjs");
+const CONFIG_FILE = join(rootDir, "typedoc.json");
+const DOCS_DIR = join(rootDir, "docs");
 const DEFAULT_BRANCH = "master";
 
 function unescapeUnderscores(content) {
