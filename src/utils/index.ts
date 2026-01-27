@@ -275,6 +275,18 @@ export const getFramePath = (config: TFrameConfig) => {
       return path;
     }
 
+    case SDKMode.Uploader: {
+      const uploaderConfig = {
+        ...baseFrameOptions,
+        targetId: config.id,
+        acceptCategories: config.acceptCategories,
+      };
+
+      const urlParams = customUrlSearchParams(uploaderConfig);
+
+      return `/sdk/uploader${urlParams ? `?${urlParams}` : ""}`;
+    }
+
     default:
       return config.rootPath || "/";
   }

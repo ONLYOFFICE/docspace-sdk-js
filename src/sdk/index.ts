@@ -1088,4 +1088,31 @@ export class SDK {
    */
   initSystem = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.System });
+  
+  /**
+   * Initializes the uploader with the provided configuration.
+   *
+   * The uploader mode provides an interface for uploading files to a specified folder
+   * in DocSpace. This mode is ideal for integration scenarios where users need to
+   * upload files to a specific location.
+   *
+   * @param config - The configuration object for the uploader. Only `frameId` and `src` are required.
+   * @returns The initialized SDK instance.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   * 
+   * const sdk = new SDK();
+   * const uploader = sdk.initUploader({
+   *   frameId: 'file-uploader',
+   *   src: 'https://your-docspace.com',
+   *   id: 'target-folder-123'
+   * });
+   * 
+   * console.log('Uploader initialized');
+   * ```
+   */
+  initUploader = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.Uploader });
 }
