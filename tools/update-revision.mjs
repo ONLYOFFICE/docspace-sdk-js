@@ -18,9 +18,12 @@
 
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const CONFIG_FILE = join(process.cwd(), "typedoc.json");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const rootDir = join(__dirname, "..");
+const CONFIG_FILE = join(rootDir, "typedoc.json");
 
 try {
   const gitBranch = execSync("git rev-parse --abbrev-ref HEAD", {
