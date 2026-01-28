@@ -1108,6 +1108,7 @@ export class SDK {
    *   frameId: 'file-uploader',
    *   src: 'https://your-docspace.com',
    *   id: 'target-folder-123'
+   *   acceptCategories: 'document, spreadsheet, presentation'
    * });
    * 
    * console.log('Uploader initialized');
