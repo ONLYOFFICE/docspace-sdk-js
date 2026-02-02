@@ -217,6 +217,10 @@ export type TFrameEvents = {
   onEditorOpen?: null | ((e?: Event | object | string) => void);
   /** The function called when a file is clicked in the list of files. */
   onFileManagerClick?: null | ((e?: Event | object | string) => void);
+  /** The function called when a file is uploaded successfully. */
+  onUploadSuccess?: null | ((e?: Event | object | string) => void);
+  /** The function called when a file upload fails. */
+  onUploadError?: null | ((e?: Event | object | string) => void);
 };
 
 /**
@@ -315,6 +319,12 @@ export type TFrameConfig = {
   withSubtitle?: boolean;
   /** The accepted file categories for the uploader mode. */
   acceptCategories?: string;
+  /** The link main text displayed in the uploader mode. */
+  linkMainText?: string;
+  /** The link secondary text displayed in the uploader mode. */
+  linkSecondaryText?: string;
+  /** The extensions text displayed in the uploader mode. */
+  extensionsText?: string;
 };
 
 /** The template literal type for message types. */
