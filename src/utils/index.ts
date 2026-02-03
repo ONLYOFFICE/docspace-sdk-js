@@ -279,7 +279,7 @@ export const getFramePath = (config: TFrameConfig) => {
       const uploaderConfig = {
         ...baseFrameOptions,
         targetId: config.id,
-        acceptCategories: config.acceptCategories,
+        acceptExtensions: config.acceptExtensions,
         linkMainText: config.linkMainText,
         linkSecondaryText: config.linkSecondaryText,
         extensionsText: config.extensionsText,

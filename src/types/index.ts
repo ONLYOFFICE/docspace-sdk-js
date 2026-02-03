@@ -317,14 +317,14 @@ export type TFrameConfig = {
   withSearch?: boolean;
   /** Specifies whether to display a subtitle with additional comments or descriptions for the current directory. */
   withSubtitle?: boolean;
-  /** The accepted file categories for the uploader mode. */
-  acceptCategories?: string;
   /** The link main text displayed in the uploader mode. */
   linkMainText?: string;
   /** The link secondary text displayed in the uploader mode. */
   linkSecondaryText?: string;
   /** The extensions text displayed in the uploader mode. */
   extensionsText?: string;
+  /** The accepted file extensions for the uploader mode. */
+  acceptExtensions?: string;
 };
 
 /** The template literal type for message types. */
