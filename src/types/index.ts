@@ -221,6 +221,8 @@ export type TFrameEvents = {
   onUploadSuccess?: null | ((e?: Event | object | string) => void);
   /** The function called when a file upload fails. */
   onUploadError?: null | ((e?: Event | object | string) => void);
+  /** The function called when a file upload progress is updated. */
+  onUploadProgress?: null | ((e?: Event | object | string) => void);
 };
 
 /**
