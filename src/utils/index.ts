@@ -281,8 +281,10 @@ export const getFramePath = (config: TFrameConfig) => {
         targetId: config.id,
         acceptExtensions: config.acceptExtensions,
         linkMainText: config.linkMainText,
-        linkSecondaryText: config.linkSecondaryText,
+        secondaryText: config.secondaryText,
         extensionsText: config.extensionsText,
+        isFolderUpload: config.isFolderUpload,
+        isMultipleUpload: config.isMultipleUpload,
       };
 
       const urlParams = customUrlSearchParams(uploaderConfig);

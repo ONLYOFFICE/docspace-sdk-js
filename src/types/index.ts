@@ -321,12 +321,16 @@ export type TFrameConfig = {
   withSubtitle?: boolean;
   /** The link main text displayed in the uploader mode. */
   linkMainText?: string;
-  /** The link secondary text displayed in the uploader mode. */
-  linkSecondaryText?: string;
+  /** The secondary text displayed in the uploader mode. */
+  secondaryText?: string;
   /** The extensions text displayed in the uploader mode. */
   extensionsText?: string;
   /** The accepted file extensions for the uploader mode. */
   acceptExtensions?: string;
+  /** Specifies whether to allow folder upload in the uploader mode. */
+  isFolderUpload?: boolean;
+  /** Specifies whether to allow multiple file upload in the uploader mode. */
+  isMultipleUpload?: boolean;
 };
 
 /** The template literal type for message types. */
