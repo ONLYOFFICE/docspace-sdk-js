@@ -217,6 +217,12 @@ export type TFrameEvents = {
   onEditorOpen?: null | ((e?: Event | object | string) => void);
   /** The function called when a file is clicked in the list of files. */
   onFileManagerClick?: null | ((e?: Event | object | string) => void);
+  /** The function called when a file is uploaded successfully. */
+  onUploadSuccess?: null | ((e?: Event | object | string) => void);
+  /** The function called when a file upload fails. */
+  onUploadError?: null | ((e?: Event | object | string) => void);
+  /** The function called when a file upload progress is updated. */
+  onUploadProgress?: null | ((e?: Event | object | string) => void);
 };
 
 /**
@@ -313,6 +319,18 @@ export type TFrameConfig = {
   withSearch?: boolean;
   /** Specifies whether to display a subtitle with additional comments or descriptions for the current directory. */
   withSubtitle?: boolean;
+  /** The link main text displayed in the uploader mode. */
+  linkMainText?: string;
+  /** The secondary text displayed in the uploader mode. */
+  secondaryText?: string;
+  /** The extensions text displayed in the uploader mode. */
+  extensionsText?: string;
+  /** The accepted file extensions for the uploader mode. */
+  acceptExtensions?: string;
+  /** Specifies whether to allow folder upload in the uploader mode. */
+  isFolderUpload?: boolean;
+  /** Specifies whether to allow multiple file upload in the uploader mode. */
+  isMultipleUpload?: boolean;
 };
 
 /** The template literal type for message types. */

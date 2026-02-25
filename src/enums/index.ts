@@ -40,6 +40,8 @@ export enum SDKMode {
   System = "system",
   /** Displays a public room that provides access to view, edit, comment on, and review documents without registration. */
   PublicRoom = "public-room",
+  /** Opens the uploader interface for uploading files to a specified folder. */
+  Uploader = "uploader",
 }
 
 /**
