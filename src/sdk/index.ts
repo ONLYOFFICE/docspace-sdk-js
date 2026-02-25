@@ -1107,8 +1107,8 @@ export class SDK {
    * const uploader = sdk.initUploader({
    *   frameId: 'file-uploader',
    *   src: 'https://your-docspace.com',
-   *   id: 'target-folder-123'
-   *   acceptCategories: 'document, spreadsheet, presentation'
+   *   id: 'target-folder-123',
+   *   acceptExtensions: '.docx, .xlsx, .pptx',
    * });
    * 
    * console.log('Uploader initialized');
