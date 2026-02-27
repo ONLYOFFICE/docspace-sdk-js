@@ -178,6 +178,7 @@ export const enum HeaderBannerDisplaying {
  * These are used internally by {@link SDKInstance} — call the corresponding
  * public methods on the instance instead of using these values directly.
  *
+ * @internal
  * @example
  * ```typescript
  * // Do this:
@@ -236,6 +237,8 @@ export const enum InstanceMethods {
  * The `postMessage` message types in the iframe ↔ host protocol.
  * Direction: all messages are sent **from the DocSpace iframe to the host page**.
  * The host processes them in `SDKInstance.#onMessage`.
+ *
+ * @internal
  */
 export const enum MessageTypes {
   /** The iframe returns the result of a method call (e.g. `getFiles`). The host resolves the pending promise with `methodReturnData`. */
