@@ -68,6 +68,11 @@ describe("customUrlSearchParams", () => {
     const result = customUrlSearchParams({ a: "1", b: undefined, c: null } as any);
     expect(result).toBe("a=1");
   });
+
+  test("returns empty string for falsy input", () => {
+    expect(customUrlSearchParams(null as any)).toBe("");
+    expect(customUrlSearchParams(undefined as any)).toBe("");
+  });
 });
 
 describe("validateCSP", () => {
@@ -153,6 +158,11 @@ describe("getConfigFromParams", () => {
     const result = getConfigFromParams();
     expect(result?.filter?.count).toBe("50");
     expect(result?.filter?.search).toBe("query");
+  });
+
+  test("throws when document.currentScript is null", () => {
+    Object.defineProperty(document, "currentScript", { value: null, configurable: true });
+    expect(() => getConfigFromParams()).toThrow();
   });
 });
 
@@ -248,6 +258,32 @@ describe("getFramePath", () => {
       } as any;
       const path = getFramePath(config);
       expect(path).toBe("/sdk/file-selector?selectorType=all");
+    });
+
+    test.each([
+      "undefined",
+      "null",
+    ])("Editor mode uses fileId -1 when id is %s", (id) => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Editor,
+        id,
+        editorType: "desktop",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("fileId=-1");
+    });
+
+    test("Editor mode uses fileId -1 when id is missing", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Editor,
+        editorType: "desktop",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("fileId=-1");
     });
 
     test("Editor mode includes editorGoBack true", () => {
