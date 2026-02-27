@@ -61,6 +61,7 @@ describe("SDK class wrappers", () => {
     ["initRoomSelector", SDKMode.RoomSelector],
     ["initFileSelector", SDKMode.FileSelector],
     ["initSystem", SDKMode.System],
+    ["initUploader", SDKMode.Uploader],
   ])("%s sets mode to %s and calls initFrame", (methodName, mode) => {
     const instance = setMockReturn(mockInstanceFactory());
     const result = (sdk as any)[methodName]({ ...baseConfig, mode: "WRONG" });

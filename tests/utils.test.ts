@@ -79,39 +79,39 @@ describe("validateCSP", () => {
   });
 
   test("passes when origin includes targetSrc (short-circuit) and skips fetch", async () => {
-    (global as any).fetch = vi.fn();
+    const fetchSpy = vi.spyOn(global, "fetch");
     await expect(validateCSP(defaultOrigin)).resolves.not.toThrow();
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   test("passes when host is in fetched domains", async () => {
-    (global as any).fetch = vi.fn().mockResolvedValue({
+    vi.spyOn(global, "fetch").mockResolvedValue({
       json: async () => ({ response: { domains: [host, `https://${host}/path`] } }),
-    });
+    } as Response);
     await expect(validateCSP("https://remote.example"))
       .resolves.not.toThrow();
   });
 
   test("passes when host is empty but origin host matches (simulated by domains including origin host)", async () => {
-    (global as any).fetch = vi.fn().mockResolvedValue({
+    vi.spyOn(global, "fetch").mockResolvedValue({
       json: async () => ({ response: { domains: [new URL(defaultOrigin).host] } }),
-    });
+    } as Response);
     await expect(validateCSP("https://remote.example"))
       .resolves.not.toThrow();
   });
 
   test("throws when host not included", async () => {
-    (global as any).fetch = vi.fn().mockResolvedValue({
+    vi.spyOn(global, "fetch").mockResolvedValue({
       json: async () => ({ response: { domains: ["other.com"] } }),
-    });
+    } as Response);
     await expect(validateCSP("https://remote.example"))
       .rejects.toThrow(cspErrorText);
   });
 
   test("throws on invalid JSON", async () => {
-    (global as any).fetch = vi.fn().mockResolvedValue({
+    vi.spyOn(global, "fetch").mockResolvedValue({
       json: async () => { throw "Invalid JSON"; },
-    });
+    } as Response);
     await expect(validateCSP("https://remote.example"))
       .rejects.toThrow("CSP validation failed: Invalid JSON");
   });
@@ -299,6 +299,20 @@ describe("getFramePath", () => {
       } as any;
       const path = getFramePath(config);
       expect(path).toBe("/old-sdk/system");
+    });
+
+    test("Uploader mode builds expected path", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Uploader,
+        id: "folder-42",
+        acceptExtensions: ".docx,.xlsx",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/uploader");
+      expect(path).toContain("targetId=folder-42");
+      expect(path).toContain("acceptExtensions=.docx%2C.xlsx");
     });
 
     test("handles all modes without throwing", () => {
