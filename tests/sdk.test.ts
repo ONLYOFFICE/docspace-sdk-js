@@ -16,25 +16,27 @@
  * @license
  */
 
-jest.mock("../src/instance");
+import { vi, type Mock } from "vitest";
+
+vi.mock("../src/instance");
 
 import { SDKMode } from "../src/enums";
 import { SDKInstance } from "../src/instance";
 import type { TFrameConfig } from "../src/types";
 import { SDK } from "../src/sdk/index";
 
-type MockInst = { initFrame: jest.Mock; config?: TFrameConfig } & Record<
+type MockInst = { initFrame: Mock; config?: TFrameConfig } & Record<
   string,
   unknown
 >;
 
 const mockInstanceFactory = (): MockInst => ({
-  initFrame: jest.fn(),
+  initFrame: vi.fn(),
   config: undefined,
 });
 
 const setMockReturn = (instance: MockInst) => {
-  (SDKInstance as unknown as jest.Mock).mockReturnValue(instance as any);
+  (SDKInstance as unknown as Mock).mockReturnValue(instance as any);
   return instance;
 };
 
@@ -49,7 +51,7 @@ describe("SDK class wrappers", () => {
       mode: SDKMode.Viewer,
       src: "https://example.com",
     };
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
   });
 
   test.each([
@@ -79,7 +81,7 @@ describe("SDK class wrappers", () => {
   test("reusing same frameId with different wrapper keeps same instance", () => {
     const first = setMockReturn(mockInstanceFactory());
     sdk.initViewer(baseConfig);
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
     const returned = sdk.initManager({ ...baseConfig, mode: SDKMode.Viewer });
     expect(returned).toBe(first);
     expect(first.initFrame).toHaveBeenCalledTimes(2);
@@ -106,7 +108,7 @@ describe("SDK init core", () => {
       mode: SDKMode.Viewer,
       src: "https://example.com",
     };
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
   });
 
   test("creates new instance when frameId absent", () => {
@@ -120,7 +122,7 @@ describe("SDK init core", () => {
   test("reuses existing instance when frameId present", () => {
     const inst = setMockReturn(mockInstanceFactory());
     sdk.init(config);
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
     const result = sdk.init({ ...config, src: "https://changed.example.com" });
     expect(result).toBe(inst);
     expect(inst.initFrame).toHaveBeenCalledTimes(2);

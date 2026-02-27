@@ -16,6 +16,8 @@
  * @license
  */
 
+import { vi } from "vitest";
+
 import {
   customUrlSearchParams,
   validateCSP,
@@ -36,13 +38,18 @@ const registerScript = (src: string) => {
   return script;
 };
 
+const originalLocation = window.location;
+
 afterEach(() => {
   const scripts = Array.from(document.querySelectorAll("script"));
   scripts.forEach((s) => s.parentElement?.removeChild(s));
 
-  // @ts-ignore
-  delete (window as any).location;
-  jest.restoreAllMocks();
+  Object.defineProperty(window, "location", {
+    value: originalLocation,
+    writable: true,
+    configurable: true,
+  });
+  vi.restoreAllMocks();
 });
 
 describe("customUrlSearchParams", () => {
@@ -68,17 +75,17 @@ describe("validateCSP", () => {
   const host = window.location.host;
 
   beforeEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   test("passes when origin includes targetSrc (short-circuit) and skips fetch", async () => {
-    (global as any).fetch = jest.fn();
+    (global as any).fetch = vi.fn();
     await expect(validateCSP(defaultOrigin)).resolves.not.toThrow();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test("passes when host is in fetched domains", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
+    (global as any).fetch = vi.fn().mockResolvedValue({
       json: async () => ({ response: { domains: [host, `https://${host}/path`] } }),
     });
     await expect(validateCSP("https://remote.example"))
@@ -86,7 +93,7 @@ describe("validateCSP", () => {
   });
 
   test("passes when host is empty but origin host matches (simulated by domains including origin host)", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
+    (global as any).fetch = vi.fn().mockResolvedValue({
       json: async () => ({ response: { domains: [new URL(defaultOrigin).host] } }),
     });
     await expect(validateCSP("https://remote.example"))
@@ -94,7 +101,7 @@ describe("validateCSP", () => {
   });
 
   test("throws when host not included", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
+    (global as any).fetch = vi.fn().mockResolvedValue({
       json: async () => ({ response: { domains: ["other.com"] } }),
     });
     await expect(validateCSP("https://remote.example"))
@@ -102,7 +109,7 @@ describe("validateCSP", () => {
   });
 
   test("throws on invalid JSON", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
+    (global as any).fetch = vi.fn().mockResolvedValue({
       json: async () => { throw "Invalid JSON"; },
     });
     await expect(validateCSP("https://remote.example"))
