@@ -331,6 +331,10 @@ export type TFrameConfig = {
   isFolderUpload?: boolean;
   /** Specifies whether to allow multiple file upload in the uploader mode. */
   isMultipleUpload?: boolean;
+  /** The maximum size of a single uploaded file/folder in upload mode. */
+  maxPerUploadSize?: string;
+  /** The maximum total size of all files/folders uploaded in multiple file/folder upload mode. */
+  maxTotalUploadSize?: string;
 };
 
 /** The template literal type for message types. */
