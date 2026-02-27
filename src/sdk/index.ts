@@ -124,19 +124,9 @@ export class SDK {
    *   theme: Theme.System,
    *   editorType: EditorType.Desktop,
    *   editorCustomization: {
-   *     customer: {
-   *       name: 'Your Company',
-   *       logo: 'https://your-company.com/logo.png'
-   *     },
-   *     features: {
-   *       spellcheck: true,
-   *       chat: true,
-   *       comments: true
-   *     },
-   *     goback: {
-   *       url: '/documents',
-   *       text: 'Back to Documents'
-   *     }
+   *     compactToolbar: true,
+   *     forcesave: true,
+   *     comments: true,
    *   },
    *   events: {
    *     onAppReady: () => {
@@ -568,14 +558,8 @@ export class SDK {
    *       request: false,
    *       label: 'Guest Viewer'
    *     },
-   *     goback: {
-   *       text: 'Close Viewer',
-   *       url: '/documents'
-   *     },
-   *     customer: {
-   *       name: 'Document Portal',
-   *       logo: 'https://example.com/logo.png'
-   *     }
+   *     compactToolbar: true,
+   *     zoom: -1,
    *   },
    *   events: {
    *     onAppReady: () => {
@@ -634,20 +618,10 @@ export class SDK {
    *   theme: Theme.System,
    *   locale: 'en-US',
    *   editorCustomization: {
-   *     customer: {
-   *       name: 'Your Company',
-   *       logo: 'https://your-company.com/logo.png'
-   *     },
-   *     features: {
-   *       spellcheck: true,
-   *       comments: true,
-   *       chat: true,
-   *       review: true
-   *     },
-   *     goback: {
-   *       text: 'Back to Documents',
-   *       url: '/documents'
-   *     }
+   *     compactToolbar: true,
+   *     comments: true,
+   *     autosave: true,
+   *     forcesave: true,
    *   },
    *   events: {
    *     onAppReady: () => {
@@ -680,24 +654,12 @@ export class SDK {
    *   height: '700px',
    *   editorType: EditorType.Embedded,
    *   editorCustomization: {
-   *     toolbar: {
-   *       file: {
-   *         print: false,
-   *         download: false
-   *       },
-   *       plugins: {
-   *         autostart: [],
-   *         pluginsData: []
-   *       }
-   *     },
+   *     plugins: false,
    *     anonymous: {
    *       request: false,
    *       label: 'Restricted Editor'
    *     },
-   *     goback: {
-   *       url: '/documents',
-   *       text: 'Back to Documents'
-   *     }
+   *     zoom: 100,
    *   },
    *   events: {
    *     onAppReady: () => {
@@ -729,18 +691,9 @@ export class SDK {
    *   theme: Theme.System,
    *   locale: navigator.language,
    *   editorCustomization: {
-   *     mobile: {
-   *       forceView: false,
-   *       standardView: false
-   *     },
-   *     features: {
-   *       zoom: true,
-   *       spellcheck: true
-   *     },
-   *     customer: {
-   *       name: 'Mobile App',
-   *       logo: 'https://example.com/mobile-logo.png'
-   *     }
+   *     mobileForceView: false,
+   *     compactToolbar: true,
+   *     zoom: 100,
    *   },
    *   events: {
    *     onAppReady: () => {

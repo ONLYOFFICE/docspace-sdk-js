@@ -244,39 +244,10 @@ export class SDKInstance {
   }
 
   /**
-   * Manages the frame loading completion process.
-   * Handles frame finalization, visual transition management, and user event coordination.
-   * Ensures a smooth switch from initialization to working state
-   * with animations and resource cleanup for better user experience.
+   * Called by the DocSpace iframe (via `onCallCommand`) when the app has finished loading.
+   * Fades out the loader spinner, fades in the iframe, and fires {@link TFrameEvents.onContentReady}.
    *
-   * @example
-   * ```typescript
-   * sdkInstance.setIsLoaded();
-   * console.log('Frame loading completed and content is ready');
-   * ```
-   *
-   * @example
-   * ```typescript
-   * try {
-   *   await customFrameSetup();
-   *   sdkInstance.setIsLoaded();
-   * } catch (error) {
-   *   console.error('Setup failed:', error);
-   *   sdkInstance.setIsLoaded();
-   * }
-   * ```
-   *
-   * @returns void - This method performs side effects by updating the frame appearance
-   *               and triggering events. It does not return values, focusing on
-   *               state transition and user experience optimization.
-   *
-   * @throws {Error} May throw an error if frame elements cannot be accessed or if style
-   *                 modifications fail due to browser security restrictions.
-   *
-   * @see {@link initFrame} Initializes the frame before the loading process completes.
-   * @see {@link destroyFrame} Cleans up resources when the frame is no longer needed.
-   * @see {@link setConfig} Updates configuration parameters that affect loading behavior.
-   * @see {@link TFrameEvents.onContentReady | onContentReady} The callback triggered when the frame content is ready.
+   * @see {@link TFrameEvents.onContentReady}
    */
   setIsLoaded(): void {
     const { frameId, width, height, events } = this.config;
@@ -732,7 +703,7 @@ export class SDKInstance {
    *   id: 'document-456',
    *   events: {
    *     onContentReady: () => console.log('Editor loaded'),
-   *     onDocumentReady: () => console.log('Document ready for editing'),
+   *     onEditorOpen: () => console.log('Document opened for editing'),
    *     onAppError: (error) => console.error('Editor error:', error)
    *   }
    * });
@@ -886,7 +857,7 @@ export class SDKInstance {
    * try {
    *   await sdkInstance.setConfig({
    *     id: 'new-document-789',
-   *     editorType: 'word'
+   *     editorType: 'embedded'
    *   });
    *   console.log('Successfully switched to new document');
    * } catch (error) {
@@ -918,7 +889,8 @@ export class SDKInstance {
    * similar settings.
    *
    * @returns The current configuration object containing all active settings.
-   *   * @example
+   *
+   * @example
    * ```typescript
    * const config = sdkInstance.getConfig();
    *
