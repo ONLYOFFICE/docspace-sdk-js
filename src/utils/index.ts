@@ -26,10 +26,21 @@ import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 
 /**
- * Converts an object with string, number, or boolean values into `URLSearchParams`.
+ * Converts a record of primitive values into a URL query string.
+ * Strips `null` and `undefined` entries before serialization.
  *
- * @param data - An object where the keys are strings and the values are either strings, numbers, or booleans.
- * @returns A new instance of `URLSearchParams` initialized with the provided object.
+ * Used internally by {@link getFramePath} to build iframe `src` query parameters.
+ *
+ * @param data - Key-value pairs to serialize. `null`/`undefined` values are removed.
+ * @returns A URL-encoded query string (without the leading `?`), or `""` if `data` is falsy.
+ *
+ * @example
+ * ```typescript
+ * customUrlSearchParams({ theme: "Dark", locale: null, page: 1 });
+ * // → "theme=Dark&page=1"
+ * ```
+ *
+ * @internal
  */
 export const customUrlSearchParams = (
   data: Record<string, string | number | boolean | undefined | null>
@@ -44,12 +55,24 @@ export const customUrlSearchParams = (
 };
 
 /**
- * Validates the Content Security Policy (CSP) of the target source.
+ * Checks whether the current host domain is in the DocSpace CSP allowlist.
  *
- * @param targetSrc - The target source URL to validate against the current origin.
- * @returns A promise that resolves if the CSP validation passes, otherwise it throws an error.
+ * Fetches `{targetSrc}{@link CSPApiUrl}` and compares `window.location.host`
+ * against the `domains` array in the JSON response. If the host is not listed,
+ * throws an error with {@link cspErrorText}.
  *
- * @throws Will throw an error if the current origin is not included in the allowed domains from the target source's CSP.
+ * Skipped when `window.location.origin` already contains `targetSrc`
+ * (same-origin embedding).
+ *
+ * Called by `SDKInstance.initFrame` when {@link TFrameConfig.checkCSP} is `true`.
+ *
+ * @param targetSrc - The DocSpace server URL (e.g. `"https://docspace.example.com"`).
+ * @returns Resolves on success; rejects with an `Error` on failure.
+ *
+ * @throws `Error` — if the CSP response cannot be parsed as JSON.
+ * @throws `Error` — with {@link cspErrorText} if the current host is not in the allowlist.
+ *
+ * @internal
  */
 export const validateCSP = async (targetSrc: string) => {
   const { origin, host } = window.location;
@@ -86,23 +109,68 @@ export const validateCSP = async (targetSrc: string) => {
   }
 };
 
+/**
+ * Returns an HTML string for the CSP error page displayed inside the iframe
+ * via `srcdoc` when {@link validateCSP} fails.
+ *
+ * The page shows the DocSpace logo, an error illustration, {@link cspErrorText},
+ * and a link to the Developer Tools section where the domain can be added.
+ *
+ * @param src - The DocSpace server URL used to resolve static image assets and the Developer Tools link.
+ * @returns A complete `<body>` HTML string ready for iframe `srcdoc`.
+ *
+ * @internal
+ */
 export const getCSPErrorBody = (src: string) => {
   return `<body style=background:#f3f4f4><link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300"rel=stylesheet><div style="display:flex;flex-direction:column;gap:80px;align-items:center;justify-content:flex-start;margin-top:60px;padding:0 30px"><div style=flex-shrink:0;position:relative><img src=${src}/static/images/logo/lightsmall.svg></div><div style=display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:flex-start;flex-shrink:0;position:relative><div style=flex-shrink:0;width:120px;height:100px;position:relative><img src=${src}/static/images/frame-error.svg></div><span style="color:#a3a9ae;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px">${cspErrorText} Please add it via <a href=${src}/developer-tools/javascript-sdk style="color:#4781d1;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px;text-decoration-line:underline"target=_blank>the Developer Tools section</a>.</span></div></div></body>`;
 };
 
+/**
+ * Returns a CSS string for the spinning loader animation injected into the
+ * iframe container while the DocSpace app is loading.
+ *
+ * Features:
+ * - Dark/light mode via `prefers-color-scheme`.
+ * - Reduced motion support via `prefers-reduced-motion` (slows animation to 1.5 s).
+ *
+ * The loader is created by `SDKInstance.initFrame` when {@link TFrameConfig.noLoader} is `false`
+ * and removed by `SDKInstance.setIsLoaded`.
+ *
+ * @param className - The CSS class name applied to the loader `<div>`. Used to scope the styles.
+ * @returns A `<style>`-ready CSS string (without `<style>` tags).
+ *
+ * @internal
+ */
 export const getLoaderStyle = (className: string) => {
   return `@keyframes rotate { 0%{ transform: rotate(-45deg); will-change: transform; } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; will-change: transform; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } } @media (prefers-reduced-motion: reduce) { .${className} { animation-duration: 1.5s; } }`;
 };
 
 /**
- * Retrieves the configuration from the URL parameters of the current script element.
+ * Parses the current `<script>` element's URL query parameters into a {@link TFrameConfig} object.
  *
- * This function extracts the `src` attribute from the current script element,
- * decodes it, and parses the query parameters to construct a configuration object.
- * The configuration is based on the `defaultConfig` object and overrides its properties
- * with the parsed parameters.
+ * Designed for the **script-tag embedding** pattern where the SDK is loaded via a
+ * `<script src="...sdk.js?src=https://docspace.example.com&mode=manager&...">` tag.
+ * The function reads `document.currentScript.src`, decodes it, and merges the
+ * query parameters on top of {@link defaultConfig}.
  *
- * @returns {TFrameConfig | null} The parsed configuration object or null if the `src` attribute is empty.
+ * Boolean strings `"true"` / `"false"` are converted to actual booleans.
+ * Parameters whose keys match {@link TFrameConfig.filter | filter} fields
+ * (e.g. `sortBy`, `sortOrder`, `count`) are placed inside `config.filter`.
+ *
+ * @returns A complete {@link TFrameConfig} with parsed overrides, or `null` if no `src` parameter is present.
+ *
+ * @example
+ * ```html
+ * <div id="ds-frame"></div>
+ * <script src="https://cdn.example.com/sdk.js?src=https://docspace.example.com&mode=manager&showMenu=true"></script>
+ * ```
+ *
+ * ```typescript
+ * const config = getConfigFromParams();
+ * // config.src  → "https://docspace.example.com"
+ * // config.mode → "manager"
+ * // config.showMenu → true
+ * ```
  */
 export const getConfigFromParams = (): TFrameConfig | null => {
   const scriptElement = document.currentScript as HTMLScriptElement;
@@ -131,21 +199,33 @@ export const getConfigFromParams = (): TFrameConfig | null => {
 };
 
 /**
- * Generates a URL path based on the provided configuration.
+ * Builds the iframe URL path (without the origin) for the given {@link TFrameConfig}.
  *
- * @param config - The configuration object for generating the frame path.
- * @returns The generated URL path as a string.
+ * The returned path is appended to {@link TFrameConfig.src} to form the full iframe `src`.
+ * Each {@link SDKMode} produces a different base path and query string:
  *
- * @remarks
- * The function handles different modes specified in the `config.mode` property:
- * - `SDKMode.Manager`: Generates a path for the manager mode, including optional request tokens and filters.
- * - `SDKMode.PublicRoom`: Generates a path for the public room mode, including request tokens and filters.
- * - `SDKMode.RoomSelector`: Returns a fixed path for the room selector.
- * - `SDKMode.FileSelector`: Returns a path for the file selector with the specified selector type.
- * - `SDKMode.System`: Returns a fixed path for the system mode.
- * - `SDKMode.Editor`: Generates a path for the editor mode, including customization and event handling.
- * - `SDKMode.Viewer`: Generates a path for the viewer mode, similar to the editor mode but with view action.
+ * | Mode | Base path | Key parameters |
+ * |------|-----------|----------------|
+ * | {@link SDKMode.Manager} | `{rootPath}` | `filter.*`, `requestToken` |
+ * | {@link SDKMode.RoomSelector} | `/sdk/room-selector` | `theme`, `locale`, selector options |
+ * | {@link SDKMode.FileSelector} | `/sdk/file-selector` | `selectorType`, `filterParam`, selector options |
+ * | {@link SDKMode.PublicRoom} | `/sdk/public-room` | `requestToken`, `showFilter`, `showHeader` |
+ * | {@link SDKMode.System} | `/old-sdk/system` | `theme`, `locale` |
+ * | {@link SDKMode.Editor} | `/doceditor` | `fileId`, `editorType`, `share` |
+ * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
+ * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
+ * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
+ * @param config - The frame configuration. At minimum, {@link TFrameConfig.mode} must be set.
+ * @returns A URL path string (e.g. `"/sdk/room-selector?theme=Dark&locale=en-US"`).
+ *
+ * @example
+ * ```typescript
+ * const path = getFramePath({ ...defaultConfig, mode: SDKMode.System, theme: Theme.Dark });
+ * // → "/old-sdk/system?theme=Dark"
+ * ```
+ *
+ * @internal
  */
 export const getFramePath = (config: TFrameConfig) => {
   const baseFrameOptions = {

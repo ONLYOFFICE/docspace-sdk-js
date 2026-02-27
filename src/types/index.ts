@@ -44,345 +44,369 @@ declare global {
     };
   }
 }
-/** The template literal type representing the frame mode based on `SDKMode`. */
+
+/** String union of {@link SDKMode} values. Accepted by {@link TFrameConfig.mode}. */
 export type TFrameMode = `${SDKMode}`;
 
-/** The template literal type for the selector filters. */
+/** String union of {@link SelectorFilterType} values. Accepted by {@link TFrameConfig.selectorType}. */
 export type TSelectorType = `${SelectorFilterType}`;
 
-/** The template literal type based on the `EditorType` enum. */
+/** String union of {@link EditorType} values. Accepted by {@link TFrameConfig.type} and {@link TFrameConfig.editorType}. */
 export type TEditorType = `${EditorType}`;
 
-/** The template literal type representing the manager view mode. */
+/** String union of {@link ManagerViewMode} values. Accepted by {@link TFrameConfig.viewAs}. */
 export type TManagerViewMode = `${ManagerViewMode}`;
 
-/** The template literal type representing the theme options. */
+/** String union of {@link Theme} values. Accepted by {@link TFrameConfig.theme}. */
 export type TTheme = `${Theme}`;
 
-/** The template literal type representing the filter sort order. */
+/** String union of {@link FilterSortOrder} values. Accepted by {@link TFrameFilter.sortOrder}. */
 export type TFilterSortOrder = `${FilterSortOrder}`;
 
-/** The template literal type for the display options of the header banner. */
+/** String union of {@link HeaderBannerDisplaying} values. Accepted by {@link TFrameConfig.showHeaderBanner}. */
 export type TBannerDisplaying = `${HeaderBannerDisplaying}`;
 
-/** The template literal type representing the filter sort options. */
+/** String union of {@link FilterSortBy} values. Accepted by {@link TFrameFilter.sortBy}. */
 export type TFilterSortBy = `${FilterSortBy}`;
 
 /**
- * The editor customization configuration.
+ * Editor customization options passed via {@link TFrameConfig.editorCustomization}.
+ * Controls the editor UI: toolbar, menus, macros, theme, and zoom.
+ * Only applies to {@link SDKMode.Editor} and {@link SDKMode.Viewer} modes.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({
+ *   mode: "editor",
+ *   editorCustomization: {
+ *     compactToolbar: true,
+ *     hideRulers: true,
+ *     uiTheme: "theme-dark",
+ *   },
+ *   ...
+ * });
+ * ```
  */
 export type TEditorCustomization = {
-  /** The anonymous access configuration. */
+  /** Anonymous user settings. */
   anonymous?: {
-    /** Specifies whether to request for the anonymous name. The default value is `true`. */
+    /** Prompt for anonymous name on open. Default: `true`. */
     request?: boolean;
-    /** A postfix added to the anonymous user name. The default value is "Guest". */
+    /** Postfix for anonymous user name. Default: `"Guest"`. */
     label?: string;
   };
-  /** Specifies whether to enable or disable the "Autosave" menu option.
-   * If set to `false`, only "Strict" co-editing mode can be selected, as "Fast" does not work without autosave. The default value is `true`.
-  */
+  /** Enable "Autosave" menu option. When `false`, only "Strict" co-editing mode is available. Default: `true`. */
   autosave?: boolean;
-  /** Specifies whether to enable or disable the "Comments" menu button.
-   * Please note that in case you hide the "Comments" button, the corresponding commenting functionality will be available for viewing only,
-   * adding and editing comments will be unavailable. The default value is `true`.
-   */
+  /** Show "Comments" button. When `false`, comments are view-only. Default: `true`. */
   comments?: boolean;
-  /** Specifies whether to display or hide the additional action buttons in the upper part of the editor window header next to the logo (`false`)
-   * or in the toolbar (`true`), making the header more compact. The default value is `false`.
-   */
+  /** Move action buttons from header to toolbar, making the header compact. Default: `false`. */
   compactHeader?: boolean;
-  /** Specifies whether the top toolbar type displayed is full (`false`) or compact (`true`).
-   * The default value is `false`. Starting from version 8.3, this setting is also available for the viewer.
-   * The default value for the view mode is `true`.
-   */
+  /** Use compact toolbar layout. Default: `false` (edit mode), `true` (view mode since v8.3). */
   compactToolbar?: boolean;
-  /** Specifies whether to use functionality only compatible with the OOXML format.
-   * For example, do not use comments on the entire document. The default value is `false`.
-   */
+  /** Restrict features to OOXML-compatible only (e.g. no whole-document comments). Default: `false`. */
   compatibleFeatures?: boolean;
-  /** Specifies whether to add the request for the file force saving to the callback handler
-   * when saving the document within the document editing service (e.g. clicking the "Save" button, etc.).
-   * The default value is `false`.
-   */
+  /** Enable force-save on manual "Save" click. Default: `false`. */
   forcesave?: boolean;
-  /** Specifies whether to display or hide the "Help" menu button. The default value is `true`. */
+  /** Show "Help" button. Default: `true`. */
   help?: boolean;
-  /** Specifies whether to display or hide the right menu on first loading. The default value is `true`. */
+  /** Collapse the right panel on first load. Default: `true`. */
   hideRightMenu?: boolean;
-  /** Specifies whether to display or hide the editor rulers.
-   * This parameter is available for the document and presentation editors.
-   * The default value is `false` for the document editor and `true` for presentations.
-   */
+  /** Hide rulers. Available for document and presentation editors. Default: `false` (documents), `true` (presentations). */
   hideRulers?: boolean;
-  /** The mode of embedding editors into the web page.
-   * The "embed" value disables scrolling to the editor frame when it is loaded as the focus is not captured.
-   */
+  /** Integration mode. Set to `"embed"` to prevent auto-scroll to the editor frame on load. */
   integrationMode?: string;
-  /** Specifies whether to automatically run macros when the editor opens. The default value is `true`.
-   * Starting version 9.0.3, the `false` value completely disables macros — they cannot be run, added, or edited.
-   * The "Macros" button is also hidden from the "View" tab.
-   */
+  /** Enable macros auto-run. `false` disables macros entirely (since v9.0.3). Default: `true`. */
   macros?: boolean;
-  /** The macros run mode when autostart is enabled. Can take the following values: "disable" - don't run macros at all,
-   * "warn" - warn about macros and ask permission to run them,
-   * "enable" - run all macros automatically. The default value is "warn".
-   */
+  /** Macros auto-run policy: `"disable"` | `"warn"` | `"enable"`. Default: `"warn"`. */
   macrosMode?: string;
-  /** The hint that describes the event after mentions in a comment.
-   * If `true`, a hint indicates that the user will receive a notification and access to the document.
-   * If `false`, a hint indicates that the user will receive only a notification of the mention.
-   * The default value is `true`.
-   */
+  /** Mention hint behavior. `true` = user gets notification + access; `false` = notification only. Default: `true`. */
   mentionShare?: boolean;
-  /** Specifies whether to open the mobile document editor in the view/edit mode on launch.
-   * The default value is `true`.
-   */
+  /** Open mobile editor in view/edit mode on launch. Default: `true`. */
   mobileForceView?: boolean;
-  /** Specifies whether the plugins will be launched and available. The default value is `true`. */
+  /** Enable plugins. Default: `true`. */
   plugins?: boolean;
-  /** Specifies whether to display (`false`) or hide (`true`) the document title on the top toolbar.
-   * The default value is `false`.
-   */
+  /** Hide document title on the top toolbar. Default: `false`. */
   toolbarHideFileName?: boolean;
-  /** Specifies whether to distinctly display (`false`) or only highlight (`true`) the top toolbar tabs in toolbar.
-   * The default value is `false`.
-   */
+  /** Use flat (highlighted) toolbar tabs instead of distinct tabs. Default: `false`. */
   toolbarNoTabs?: boolean;
-  /** The editor theme settings. It can be set in two ways: "theme id" - the user sets the theme parameter by its id
-   * ("theme-light", "theme-classic-light", "theme-dark", "theme-contrast-dark", "theme-white", "theme-night"),
-   * "default theme" - the default dark or light theme value will be set ("default-dark", "default-light").
-   * The default light theme is "theme-classic-light".
-   */
+  /** Editor theme ID or preset. IDs: `"theme-light"`, `"theme-classic-light"`, `"theme-dark"`, `"theme-contrast-dark"`, `"theme-white"`, `"theme-night"`. Presets: `"default-dark"`, `"default-light"`. Default: `"theme-classic-light"`. */
   uiTheme?: string;
-  /** The measurement units used on the ruler and in dialog boxes. Can take the following values: "cm" - centimeters, "pt" - points,
-   * "inch" - inches. The default value is centimeters ("cm").
-   */
+  /** Ruler/dialog measurement units: `"cm"` | `"pt"` | `"inch"`. Default: `"cm"`. */
   unit?: string;
-  /** The document display zoom value measured in percent. Can take values larger than "0".
-   * For text documents and presentations it is possible to set this parameter to "-1" (fitting the document to page option)
-   * or to "-2" (fitting the document page width to the editor page).
-   * The default value is "100".
-   */
+  /** Zoom percentage. `> 0` for explicit zoom, `-1` = fit to page, `-2` = fit to width. Default: `100`. */
   zoom?: number;
 };
 
 /**
- * The frame filter criteria.
+ * Filter and pagination parameters for the file list in {@link SDKMode.Manager} mode.
+ * Passed via {@link TFrameConfig.filter}.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({
+ *   mode: "manager",
+ *   filter: { count: "50", sortBy: "AZ", sortOrder: "ascending" },
+ *   ...
+ * });
+ * ```
  */
 export type TFrameFilter = {
-  /** The number of files and folders displayed on one page. */
+  /** Items per page. Default: `"100"`. */
   count?: string;
-  /** The target folder. */
+  /** Target folder ID. Set automatically when {@link TFrameConfig.id} is provided in manager mode. */
   folder?: string;
-  /** The page number to start from. */
+  /** Page number (1-based). Default: `"1"`. */
   page?: string;
-  /** The query used to search for files and folders. */
+  /** Search query. Empty string = no search. */
   search?: string;
-  /** The parameter used to sort the list of files and folders. */
+  /** Sort criterion. See {@link FilterSortBy}. Default: {@link FilterSortBy.ModifiedDate}. */
   sortBy?: TFilterSortBy;
-  /** The sort direction for the list of files and folders. */
+  /** Sort direction. See {@link FilterSortOrder}. Default: {@link FilterSortOrder.Descending}. */
   sortOrder?: TFilterSortOrder;
-  /** Specifies whether to exclude subfolders when searching for files. */
+  /** Include sub-folder contents in search results. Default: `false`. */
   withSubfolders?: boolean;
 };
 
 /**
- * The frame event handlers.
+ * Event handler map for the DocSpace iframe. Passed via {@link TFrameConfig.events}.
+ * All handlers are optional — set to `null` (default) to disable.
+ *
+ * Events are delivered from the iframe to the host via the `onEventReturn` postMessage type.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({
+ *   events: {
+ *     onAppReady: () => console.log("DocSpace loaded"),
+ *     onAppError: (err) => console.error("Init error:", err),
+ *     onSelectCallback: (item) => console.log("Selected:", item),
+ *   },
+ *   ...
+ * });
+ * ```
  */
 export type TFrameEvents = {
-  /** The function called when SDK is initialized with an error. This error is returned during the initialization. */
+  /** Fired when the DocSpace app encounters an initialization or runtime error. Receives the error message string. */
   onAppError?: null | ((e?: Event | object | string) => void);
-  /** The function called when SDK is initialized successfully. */
+  /** Fired once when the DocSpace app inside the iframe is fully initialized and ready. */
   onAppReady?: null | ((e?: Event | object | string) => void);
-  /** The function called upon successful authorization. */
+  /** Fired after successful user authorization inside the iframe. */
   onAuthSuccess?: null | ((e?: Event | object | string) => void);
-  /** The function called in the "room-selector" and "file-selector" modes when the room or file selector is closed or the selection is canceled. */
+  /** Fired in selector modes ({@link SDKMode.RoomSelector}, {@link SDKMode.FileSelector}) when the dialog is closed or canceled. */
   onCloseCallback?: null | ((e?: Event | object | string) => void);
-  /** The function called when the frame is loaded. */
+  /** Fired when the iframe content is fully loaded and visible. Triggered internally by {@link SDKInstance.setIsLoaded}. */
   onContentReady?: null | ((e?: Event | object | string) => void);
-  /** The function called when download events are fired from the manager. The function returns a link to the download object. This event is triggered only when the "downloadToEvent" parameter is specified in the config. */
+  /** Fired on file download when {@link TFrameConfig.downloadToEvent} is `true`. Receives the download URL. */
   onDownload?: null | ((e?: Event | object | string) => void);
-  /** The function called when the document editor is closed. */
+  /** Fired when the document editor is closed (via UI button, hotkey, or programmatically). */
   onEditorCloseCallback?: null | ((e?: Event | object | string) => void);
-  /** The function called when trying to initialize the frame in a room or folder that is inaccessible or has been deleted. */
+  /** Fired when navigating to an inaccessible or deleted room/folder. */
   onNoAccess?: null | ((e?: Event | object | string) => void);
-  /** The function called when trying to initialize the frame in a room or folder that is not found. */
+  /** Fired when navigating to a non-existent room/folder (404). */
   onNotFound?: null | ((e?: Event | object | string) => void);
-  /** The function called in the "room-selector" and "file-selector" modes when a room or file is selected, returning information about the selected item. */
+  /** Fired in selector modes when a room or file is selected. Receives the selected item data. */
   onSelectCallback?: null | ((e?: Event | object | string) => void);
-  /** The function called when logging out of the user account. */
+  /** Fired when the user signs out from the DocSpace account. */
   onSignOut?: null | ((e?: Event | object | string) => void);
-  /** The function called when the document editor is opened for creating or editing documents, or filling out forms, from the context menu, modal windows, panels, or hotkeys. */
+  /** Fired when the editor is opened from the manager (context menu, hotkeys, modal, panel). */
   onEditorOpen?: null | ((e?: Event | object | string) => void);
-  /** The function called when a file is clicked in the list of files. */
+  /** Fired when a file row is clicked in the manager file list. */
   onFileManagerClick?: null | ((e?: Event | object | string) => void);
-  /** The function called when a file is uploaded successfully. */
+  /** Fired when a file upload completes successfully. {@link SDKMode.Uploader} mode only. */
   onUploadSuccess?: null | ((e?: Event | object | string) => void);
-  /** The function called when a file upload fails. */
+  /** Fired when a file upload fails. {@link SDKMode.Uploader} mode only. */
   onUploadError?: null | ((e?: Event | object | string) => void);
-  /** The function called when a file upload progress is updated. */
+  /** Fired on file upload progress update. {@link SDKMode.Uploader} mode only. */
   onUploadProgress?: null | ((e?: Event | object | string) => void);
 };
 
 /**
- * The frame configuration.
+ * The main configuration object for initializing a DocSpace frame.
+ * Passed to {@link SDKInstance.initFrame} or any `SDK.init*` wrapper.
+ *
+ * Only `frameId`, `mode`, and `src` are required — all other fields have defaults from {@link defaultConfig}.
+ *
+ * @example
+ * ```typescript
+ * const config: TFrameConfig = {
+ *   frameId: "ds-frame",
+ *   src: "https://docspace.example.com",
+ *   mode: "manager",
+ *   width: "100%",
+ *   height: "700px",
+ *   theme: "Dark",
+ * };
+ * sdk.initFrame(config);
+ * ```
  */
 export type TFrameConfig = {
-  /** Specifies whether to initialize the frame without showing a loading spinner. */
+  /** Skip the loading spinner. `true` = iframe appears immediately. Note: {@link SDKMode.Manager} and {@link SDKMode.System} force `false`. Default: `true`. */
   noLoader?: boolean;
-  /** The selector room type. */
+  /** Room type filter for selector modes. */
   roomType?: string;
-  /** The label for the selector accept button. */
+  /** Custom label for the selector "Accept" button. */
   acceptButtonLabel?: string;
-  /** The label for the selector cancel button. */
+  /** Custom label for the selector "Cancel" button. */
   cancelButtonLabel?: string;
-  /** The HEX code to customize the selector button color. */
+  /** HEX color for the selector accept button. Default: `"#5299E0"`. */
   buttonColor?: string;
-  /** Specifies whether to check for the presence of CSP headers before initialization. */
+  /** Validate CSP headers before loading the iframe. `false` skips the fetch to {@link CSPApiUrl}. Default: `true`. */
   checkCSP?: boolean;
-  /** The text to display when destroying the frame. It will be inserted into the `div` tag when the "destroyFrame" method is called. */
+  /** HTML string inserted into the placeholder `div` after {@link SDKInstance.destroyFrame}. Default: `""`. */
   destroyText?: string;
-  /** Specifies whether to disable the "Actions" button in the manager interface. */
+  /** Hide the "Actions" button in {@link SDKMode.Manager}. Default: `false`. */
   disableActionButton?: boolean;
-  /** Specifies whether to handle download links using the `onDownload` event instead of downloading directly. */
+  /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly. Default: `false`. */
   downloadToEvent?: boolean;
-  /** The parameters to customize editors. */
+  /** Editor UI customization. See {@link TEditorCustomization}. Default: `{}`. */
   editorCustomization?: TEditorCustomization | object;
-  /** Specifies whether the "Open file location" button is displayed in the editor. */
+  /** Show "Open file location" in editor. `true` = show button, `"event"` = trigger {@link TFrameEvents.onEditorCloseCallback}. Default: `true`. */
   editorGoBack?: boolean | string;
-  /** The editor mode display type. */
+  /** Editor UI layout sent to the backend. See {@link EditorType}. Default: `"desktop"`. */
   editorType?: TEditorType;
-  /** The callback functions for SDK events. */
+  /** Event handlers. See {@link TFrameEvents}. */
   events?: TFrameEvents;
-  /** The filter parameters that facilitate searching files and folders in the DocSpace manager. */
+  /** Filter/sort/pagination for the file list. See {@link TFrameFilter}. */
   filter?: TFrameFilter;
-  /** The filter parameters that facilitate searching files in the selector mode. */
+  /** File type filter for {@link SDKMode.FileSelector}. `"ALL"` = no restriction. */
   filterParam?: string;
-  /** The unique frame identifier used to refer to the SDK instance. */
+  /** **Required.** Unique frame identifier. Used as the DOM `id` and the postMessage routing key. Default: `"ds-frame"`. */
   frameId: string;
-  /** The iframe height measured in percentages or pixels. */
+  /** Iframe height. CSS value: `"100%"`, `"600px"`, etc. Default: `"100%"`. */
   height?: string;
-  /** The unique instance identifier used in the SDK initialization modes. */
+  /** Entity ID (file, folder, or room) for modes that require it ({@link SDKMode.Editor}, {@link SDKMode.Viewer}, {@link SDKMode.Uploader}). Default: `null`. */
   id?: string | number | null;
-  /** Specifies whether to display a button to show the info panel in the DocSpace manager. */
+  /** Show info panel toggle in {@link SDKMode.Manager}. Default: `true`. */
   infoPanelVisible?: boolean;
-  /** Specifies whether to initialize the frame. */
+  /** Reserved. Controls whether the frame should auto-initialize. */
   init?: boolean | null;
-  /** The language of the DocSpace user interface specified with the four letter language code. */
+  /** UI locale as a BCP 47 code (e.g. `"en-US"`). `null` = DocSpace server default. */
   locale?: string | null;
-  /** The SDK initialization mode. */
+  /** **Required.** SDK mode. Determines UI and available methods. See {@link SDKMode}. */
   mode: TFrameMode | string;
-  /** The iframe name used for messaging at the SDK level. */
+  /** Iframe `name` attribute prefix. Default: {@link FRAME_NAME}. */
   name?: string;
-  /** The authorization token for API requests. Used to open public rooms and files in public rooms. */
+  /** Auth token for public rooms ({@link SDKMode.PublicRoom}) and shared files. Default: `null`. */
   requestToken?: string | null;
-  /** The base path used for DocSpace navigation. By default, opens a list of rooms. */
+  /** Base navigation path for {@link SDKMode.Manager}. Default: `"/rooms/shared/"`. */
   rootPath?: string;
-  /** The filter type used in the selector views. */
+  /** Content filter for selector modes. See {@link SelectorFilterType}. Default: `"all"`. */
   selectorType?: TSelectorType;
-  /** Specifies whether the filter options are displayed in the DocSpace manager. */
+  /** Show filter toolbar in {@link SDKMode.Manager}. Default: `false`. */
   showFilter?: boolean;
-  /** Specifies whether the interface header is displayed in the mobile view manager. */
+  /** Show header bar in mobile manager view. Default: `false`. */
   showHeader?: boolean;
-  /** The display settings of the header banner. */
+  /** Header banner visibility. See {@link HeaderBannerDisplaying}. Default: `"none"`. */
   showHeaderBanner?: TBannerDisplaying;
-  /** Specifies whether the left menu is displayed in the DocSpace manager. */
+  /** Show left navigation menu in {@link SDKMode.Manager}. Default: `false`. */
   showMenu?: boolean;
-  /** Specifies whether the "Cancel" button is displayed in the selector mode. */
+  /** Show "Cancel" button in selector modes. Default: `false`. */
   showSelectorCancel?: boolean;
-  /** Specifies whether the interface header is displayed in the selector mode. */
+  /** Show header bar in selector modes. Default: `false`. */
   showSelectorHeader?: boolean;
-  /** Specifies whether to display the "Manage displayed columns" button for configuring the table columns in the list view. */
+  /** Show "Manage displayed columns" button in table view. Default: `false`. */
   showSettings?: boolean;
-  /** Specifies whether the "Sign out" button is displayed. */
+  /** Show "Sign out" button. Default: `true`. */
   showSignOut?: boolean;
-  /** Specifies whether the title of the current section/room/folder is displayed in the DocSpace manager. */
+  /** Show current section/room/folder title in {@link SDKMode.Manager}. Default: `true`. */
   showTitle?: boolean;
-  /** The source URL to the iframe used to generate links. */
+  /** **Required.** DocSpace server URL. Used as the iframe `src` origin. */
   src: string;
-  /** The UI theme settings. */
+  /** Color theme. See {@link Theme}. Default: `"System"`. */
   theme?: TTheme | string;
-  /** The platform type used by the browser and affects the parameters of the inserted object. */
+  /** Platform layout. Affects iframe CSS (e.g. `"mobile"` sets `position: fixed`). See {@link EditorType}. Default: `"desktop"`. */
   type?: TEditorType;
-  /** The default view mode - the way items are arranged in the DocSpace manager. */
+  /** Item layout in {@link SDKMode.Manager}. See {@link ManagerViewMode}. Default: `"row"`. */
   viewAs?: TManagerViewMode;
-  /** The comma-separated string of table column names that are displayed in the table view mode. */
+  /** Visible table columns when `viewAs` is `"table"`. Comma-separated: `"Index,Name,Size,Type,Tags"`. */
   viewTableColumns?: string;
-  /** Specifies whether the frame is in the loading state. */
+  /** Delay iframe append. When `true`, iframe is not rendered until {@link SDKInstance.setConfig} is called. Exception: {@link SDKMode.System} always renders. Default: `false`. */
   waiting?: boolean;
-  /** The iframe width measured in percentages or pixels. */
+  /** Iframe width. CSS value: `"100%"`, `"800px"`, etc. Default: `"100%"`. */
   width?: string;
-  /** Specifies whether to show breadcrumb navigation in the selector mode. */
+  /** Show breadcrumb navigation in selector modes. Default: `true`. */
   withBreadCrumbs?: boolean;
-  /** Specifies whether to display "Search" in the selector mode. */
+  /** Show search bar in selector modes. Default: `true`. */
   withSearch?: boolean;
-  /** Specifies whether to display a subtitle with additional comments or descriptions for the current directory. */
+  /** Show subtitle with folder description in selector modes. Default: `true`. */
   withSubtitle?: boolean;
-  /** The link main text displayed in the uploader mode. */
+  /** Link main text in {@link SDKMode.Uploader}. */
   linkMainText?: string;
-  /** The secondary text displayed in the uploader mode. */
+  /** Secondary description text in {@link SDKMode.Uploader}. */
   secondaryText?: string;
-  /** The extensions text displayed in the uploader mode. */
+  /** File extensions hint text in {@link SDKMode.Uploader}. */
   extensionsText?: string;
-  /** The accepted file extensions for the uploader mode. */
+  /** Accepted file extensions for {@link SDKMode.Uploader} (e.g. `".pdf,.docx"`). */
   acceptExtensions?: string;
-  /** Specifies whether to allow folder upload in the uploader mode. */
+  /** Allow folder upload in {@link SDKMode.Uploader}. */
   isFolderUpload?: boolean;
-  /** Specifies whether to allow multiple file upload in the uploader mode. */
+  /** Allow multiple file upload in {@link SDKMode.Uploader}. */
   isMultipleUpload?: boolean;
-  /** The maximum size of a single uploaded file/folder in upload mode. */
+  /** Max single file/folder size in {@link SDKMode.Uploader}. */
   maxPerUploadSize?: string;
-  /** The maximum total size of all files/folders uploaded in multiple file/folder upload mode. */
+  /** Max total upload size in {@link SDKMode.Uploader}. */
   maxTotalUploadSize?: string;
 };
 
-/** The template literal type for message types. */
+/**
+ * String union of {@link MessageTypes} values. Used in {@link TMessageData.type}.
+ * @internal
+ */
 export type TMessageTypes = `${MessageTypes}`;
 
 /**
- * The message data structure.
+ * The postMessage payload structure sent from the DocSpace iframe to the host.
+ * Parsed by `SDKInstance.#onMessage`. The `type` field determines how the message is handled.
+ *
+ * @internal
+ * @see {@link MessageTypes} — possible `type` values and their handling logic.
  */
 export type TMessageData = {
-  /** The command data payload. */
+  /** Payload for {@link MessageTypes.OnCallCommand}. Passed as the argument to the called method. */
   commandData?: object;
-  /** The name of the command to execute in the DocSpace frame. */
+  /** Method or command name. Used by {@link MessageTypes.OnCallCommand} to invoke a public method on the instance. */
   commandName: string;
-  /** The event return data. */
+  /** Payload for {@link MessageTypes.OnEventReturn}. Contains the event name and its data. */
   eventReturnData?: TEventReturnData;
-  /** The error information. */
+  /** Error details for {@link MessageTypes.Error}. */
   error?: {
-    /** The error message. */
+    /** Human-readable error description. */
     message: string;
-    /** The error code. */
+    /** Optional numeric error code. */
     code?: number;
   };
-  /** The frame unique identifier. */
+  /** Frame identifier. Messages with a `frameId` not matching the instance's config are ignored. */
   frameId: string;
-  /** The method return data. */
+  /** Payload for {@link MessageTypes.OnMethodReturn}. Contains the return value of the called method. */
   methodReturnData?: object;
-  /** The message type. */
+  /** Message type. Determines the handling branch in `SDKInstance.#onMessage`. See {@link MessageTypes}. */
   type: TMessageTypes;
 };
 
 /**
- * The event return data structure.
+ * Event data within a {@link MessageTypes.OnEventReturn} message.
+ * The `event` field is matched against {@link TFrameEvents} handler names.
+ *
+ * @internal
  */
 export type TEventReturnData = {
-  /** The event data payload. */
+  /** Event payload passed as the argument to the handler. */
   data?: object;
-  /** The event name. */
+  /** Event name. Must match a key in {@link TFrameEvents} (e.g. `"onAppReady"`, `"onSelectCallback"`). */
   event: string;
 };
 
 /**
- * The task object structure.
+ * Internal message envelope queued by `SDKInstance.#executeMethod` and sent to the iframe via `postMessage`.
+ * This is an internal type — consumers interact with the public methods on {@link SDKInstance} instead.
+ *
+ * @internal
  */
 export type TTask = {
-  /** The task data payload. */
+  /** Method parameters. `null` for parameterless methods. */
   data?: object | null;
-  /** The method name. */
+  /** Method name matching an {@link InstanceMethods} value. */
   methodName: string;
-  /** The task type. */
+  /** Always `"method"` for method calls. */
   type: string;
 };
