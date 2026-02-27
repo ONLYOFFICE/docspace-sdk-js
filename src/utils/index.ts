@@ -285,6 +285,8 @@ export const getFramePath = (config: TFrameConfig) => {
         extensionsText: config.extensionsText,
         isFolderUpload: config.isFolderUpload,
         isMultipleUpload: config.isMultipleUpload,
+        maxPerUploadSize: config.maxPerUploadSize,
+        maxTotalUploadSize: config.maxTotalUploadSize,
       };
 
       const urlParams = customUrlSearchParams(uploaderConfig);
