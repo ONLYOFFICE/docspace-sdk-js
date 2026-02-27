@@ -48,6 +48,21 @@ function unescapeUnderscores(content) {
     });
 }
 
+function processSourceLinks(content) {
+  const sourcePattern =
+    /^Defined in: \[([^\]]+)\]\((https:\/\/github\.com\/[^)]+)\)$/gm;
+  let isFirst = true;
+  let result = content.replace(sourcePattern, (_, _label, url) => {
+    if (isFirst) {
+      isFirst = false;
+      return `[View source on GitHub](${url})`;
+    }
+    return "";
+  });
+  result = result.replace(/\n{3,}/g, "\n\n");
+  return result;
+}
+
 function processMarkdownFiles(dir) {
   const files = readdirSync(dir);
 
@@ -59,7 +74,7 @@ function processMarkdownFiles(dir) {
       processMarkdownFiles(filePath);
     } else if (file.endsWith(".md")) {
       const content = readFileSync(filePath, "utf-8");
-      const updated = unescapeUnderscores(content);
+      const updated = processSourceLinks(unescapeUnderscores(content));
 
       if (content !== updated) {
         writeFileSync(filePath, updated, "utf-8");
@@ -70,7 +85,7 @@ function processMarkdownFiles(dir) {
 
 try {
   processMarkdownFiles(DOCS_DIR);
-  console.log("Fixed escaped underscores in markdown links");
+  console.log("Processed markdown files: fixed underscores and source links");
 
   let content = readFileSync(SIDEBAR_FILE, "utf-8");
 

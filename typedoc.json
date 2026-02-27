@@ -82,6 +82,9 @@
   "propertiesFormat": "table",
   "enumMembersFormat": "table",
   "typeDeclarationFormat": "table",
+  "tableColumnSettings": {
+    "hideSources": true
+  },
   "commentStyle": "jsdoc",
   "useTsLinkResolution": true,
   "jsDocCompatibility": {
