@@ -194,6 +194,22 @@ describe("setIsLoaded", () => {
   });
 });
 
+describe("executeMethod before connection", () => {
+  test("calls onAppError when method is invoked before iframe load", () => {
+    const onAppError = vi.fn();
+    setupTarget();
+    const config = makeConfig({
+      events: { ...defaultConfig.events, onAppError },
+    });
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    inst.getFiles();
+
+    expect(onAppError).toHaveBeenCalledWith("Message bus is not connected with frame");
+  });
+});
+
 describe("message handling", () => {
   const initConnectedInstance = (configOverrides: Partial<TFrameConfig> = {}) => {
     setupTarget();

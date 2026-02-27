@@ -497,7 +497,7 @@ export class SDKInstance {
     console.error("SDK Error:", error);
 
     this.config.events?.onAppError?.(
-      error instanceof Error ? error.message : "Unknown error occurred"
+      error.message || "Unknown error occurred"
     );
   }
 
