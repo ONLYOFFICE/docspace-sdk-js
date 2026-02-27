@@ -847,10 +847,16 @@ export class SDKInstance {
    */
   #getMethodPromise = (
     methodName: string,
-    params: object | null = null
+    params: object | null = null,
+    withReload: boolean = false
   ): Promise<object> => {
     return new Promise((resolve) => {
-      this.#executeMethod(methodName, params, (data) => resolve(data));
+      if (withReload) {
+        this.initFrame(this.config);
+        resolve(this.config);
+      } else {
+        this.#executeMethod(methodName, params, (data) => resolve(data));
+      }
     });
   };
 
@@ -893,10 +899,13 @@ export class SDKInstance {
    * @see {@link getConfig} - Retrieves the current configuration.
    * @see {@link initFrame} - Performs the initial frame setup.
    */
-  setConfig(config: TFrameConfig = defaultConfig): Promise<object> {
+  setConfig(
+    config: TFrameConfig = defaultConfig,
+    reload: boolean = false
+  ): Promise<object> {
     this.config = { ...this.config, ...config };
 
-    return this.#getMethodPromise(InstanceMethods.SetConfig, this.config);
+    return this.#getMethodPromise(InstanceMethods.SetConfig, this.config, reload);
   }
 
   /**

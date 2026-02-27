@@ -188,6 +188,41 @@ describe("getConfig", () => {
   });
 });
 
+describe("setConfig", () => {
+  test("merges new config into existing", () => {
+    setupTarget();
+    const config = makeConfig();
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+    iframe.dispatchEvent(new Event("load"));
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    inst.setConfig({ ...config, theme: "Dark" });
+
+    expect(inst.getConfig().theme).toBe("Dark");
+    expect(postMessageSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("reload=true re-initializes the frame and resolves with config", async () => {
+    setupTarget();
+    const config = makeConfig();
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    const result = await inst.setConfig({ ...config, height: "500px" }, true);
+
+    expect(result).toHaveProperty("height", "500px");
+
+    const newIframe = document.getElementById("ds-frame") as HTMLIFrameElement;
+    expect(newIframe).toBeInstanceOf(HTMLIFrameElement);
+  });
+});
+
 describe("setIsLoaded", () => {
   test("calls onContentReady event", () => {
     const onContentReady = vi.fn();
