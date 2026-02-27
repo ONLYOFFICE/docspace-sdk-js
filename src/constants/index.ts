@@ -33,145 +33,172 @@ import {
   HeaderBannerDisplaying,
 } from "../enums";
 
-/** The API endpoint for managing Content Security Policy (CSP) settings. */
+/**
+ * The DocSpace CSP validation endpoint. Used internally to check
+ * whether the current host domain is allowed in the target DocSpace instance.
+ *
+ * @see {@link TFrameConfig.checkCSP} — enables/disables CSP validation on frame init.
+ */
 export const CSPApiUrl = "/api/2.0/security/csp" as const;
 
-/** The default name for the DocSpace iframe element. */
+/**
+ * The prefix for iframe `name` attribute. The full name is `{FRAME_NAME}__#{frameId}`.
+ * Used internally by the postMessage protocol to route messages to the correct frame.
+ *
+ * @see {@link TFrameConfig.frameId} — the unique identifier appended to this prefix.
+ */
 export const FRAME_NAME = "frameDocSpace" as const;
 
 /**
- * The default configuration object for initializing and embedding a DocSpace frame.
- * 
- * @type {TFrameConfig}
+ * The default configuration applied to every frame before user overrides.
+ * Merge order in {@link SDKInstance.initFrame}: `defaultConfig` → instance config → user config.
+ *
+ * Override only the fields you need — unset fields fall back to these defaults.
+ *
+ * @example
+ * ```typescript
+ * // Minimal config — everything else comes from defaultConfig
+ * sdk.initFrame({
+ *   frameId: "ds-frame",
+ *   src: "https://docspace.example.com",
+ *   mode: "manager",
+ * });
+ * ```
  */
 export const defaultConfig: TFrameConfig = {
-  /** The source URL to the iframe used to generate links. */
+  /** DocSpace server URL. Must be set — no default. Used as the iframe `src` origin. */
   src: "",
-  /** The base path used for DocSpace navigation. By default, opens a list of rooms. */
+  /** Base navigation path for {@link SDKMode.Manager}. Default: `"/rooms/shared/"`. */
   rootPath: "/rooms/shared/",
-  /** The authorization token for API requests. Used to open public rooms and files in public rooms. */
+  /** Auth token for public rooms ({@link SDKMode.PublicRoom}). `null` = no token. */
   requestToken: null,
-  /** The iframe width measured in percentages or pixels. */
+  /** Iframe width. CSS value: `"100%"`, `"800px"`, etc. */
   width: "100%",
-  /** The iframe height measured in percentages or pixels. */
+  /** Iframe height. CSS value: `"100%"`, `"600px"`, etc. */
   height: "100%",
-  /** The iframe name used for messaging at the SDK level. */
+  /** Iframe `name` attribute prefix. Default: {@link FRAME_NAME}. */
   name: FRAME_NAME,
-  /** The platform type used by the browser and affects the parameters of the inserted object. */
+  /** Platform layout type. Affects iframe CSS (e.g. `"mobile"` sets `position: fixed`). See {@link EditorType}. */
   type: EditorType.Desktop,
-  /** The unique frame identifier used to refer to the SDK instance. */
+  /** Unique frame identifier. Used as the DOM element `id` and the postMessage routing key. */
   frameId: "ds-frame",
-  /** The SDK initialization mode. */
+  /** SDK mode. Determines UI and available methods. See {@link SDKMode}. */
   mode: SDKMode.Manager,
-  /** The unique instance identifier used in the SDK initialization modes. */
+  /** Entity ID (file, folder, or room) for modes that require it ({@link SDKMode.Editor}, {@link SDKMode.Viewer}, {@link SDKMode.Uploader}). `null` = none. */
   id: null,
-  /** The language of the DocSpace user interface specified with the four letter language code. */
+  /** UI locale as a BCP 47 code (e.g. `"en-US"`, `"ru-RU"`). `null` = DocSpace default. */
   locale: null,
-  /** The UI theme settings. */
+  /** Color theme. See {@link Theme}. Default: follows the OS preference. */
   theme: Theme.System,
-  /** The editor mode display type. */
+  /** Editor UI layout sent to the backend. See {@link EditorType}. */
   editorType: EditorType.Desktop,
-  /** Specifies whether the "Open file location" button is displayed in the editor. */
+  /** Show "Open file location" button in editor/viewer modes. `true` = show, `"event"` = trigger `onEditorCloseCallback` instead. */
   editorGoBack: true,
-  /** The filter type used in the selector views. */
+  /** Content filter for selector modes. See {@link SelectorFilterType}. */
   selectorType: SelectorFilterType.All,
-  /** Specifies whether the "Cancel" button is displayed in the selector mode. */
+  /** Show "Cancel" button in selector modes. */
   showSelectorCancel: false,
-  /** Specifies whether the interface header is displayed in the selector mode. */
+  /** Show header bar in selector modes. */
   showSelectorHeader: false,
-  /** Specifies whether the interface header is displayed in the mobile view manager. */
+  /** Show header bar in mobile manager view. */
   showHeader: false,
-  /** The display settings of the header banner. */
+  /** Header banner visibility. See {@link HeaderBannerDisplaying}. */
   showHeaderBanner: HeaderBannerDisplaying.None,
-  /** Specifies whether the title of the current section/room/folder is displayed in the DocSpace manager. */
+  /** Show the current section/room/folder title in manager mode. */
   showTitle: true,
-  /** Specifies whether the left menu is displayed in the DocSpace manager. */
+  /** Show the left navigation menu in manager mode. */
   showMenu: false,
-  /** Specifies whether the filter options are displayed in the DocSpace manager. */
+  /** Show the filter toolbar in manager mode. */
   showFilter: false,
-  /** Specifies whether the "Sign out" button is displayed. */
+  /** Show "Sign out" button. */
   showSignOut: true,
-  /** The text to display when destroying the frame. It will be inserted into the `div` tag when the "destroyFrame" method is called. */
+  /** HTML string inserted into the placeholder `div` after {@link SDKInstance.destroyFrame} is called. */
   destroyText: "",
-  /** The default view mode - the way items are arranged in the DocSpace manager.  */
+  /** Item layout in manager mode. See {@link ManagerViewMode}. */
   viewAs: ManagerViewMode.Row,
-  /** The comma-separated string of table column names that are displayed in the table view mode. */
+  /** Visible table columns when `viewAs` is `"table"`. Comma-separated names: `"Index,Name,Size,Type,Tags"`. */
   viewTableColumns: "Index,Name,Size,Type,Tags",
-  /** Specifies whether to check for the presence of CSP headers before initialization. */
+  /** Validate CSP headers before loading the iframe. Set to `false` to skip the fetch to {@link CSPApiUrl}. */
   checkCSP: true,
-  /** Specifies whether to disable the "Actions" button in the manager interface. */
+  /** Hide the "Actions" button in manager mode. */
   disableActionButton: false,
-  /** Specifies whether to display the "Manage displayed columns" button for configuring the table columns in the list view. */
+  /** Show "Manage displayed columns" button in table view. */
   showSettings: false,
-  /** Specifies whether the frame is in the loading state. */
+  /** Delay iframe rendering. When `true`, the iframe is not appended until `setConfig` is called. Exception: {@link SDKMode.System} always appends. */
   waiting: false,
-  /** Specifies whether to initialize the frame without showing a loading spinner. */
+  /** Skip the loading spinner. `true` = show the iframe immediately with `opacity: 1`. Note: {@link SDKMode.Manager} and {@link SDKMode.System} force this to `false`. */
   noLoader: true,
-  /** Specifies whether to display "Search" in the selector mode. */
+  /** Show the search bar in selector modes. */
   withSearch: true,
-  /** Specifies whether to show breadcrumb navigation in the selector mode. */
+  /** Show breadcrumb navigation in selector modes. */
   withBreadCrumbs: true,
-  /** Specifies whether to display a subtitle with additional comments or descriptions for the current directory. */
+  /** Show subtitle with folder description in selector modes. */
   withSubtitle: true,
-  /** The filter parameters that facilitate searching files in the selector mode.  */
+  /** File type filter for the file selector. `"ALL"` = no restriction. */
   filterParam: "ALL",
-  /** The HEX code to customize the selector button color. */
+  /** HEX color for the selector accept button. */
   buttonColor: "#5299E0",
-  /** Specifies whether to display a button to show the info panel in the DocSpace manager. */
+  /** Show the info panel toggle button in manager mode. */
   infoPanelVisible: true,
-  /** Specifies whether to handle download links using the `onDownload` event instead of downloading directly. */
+  /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly. */
   downloadToEvent: false,
-  /** The filter parameters that facilitate searching files and folders in the DocSpace manager. */
+  /** Default filter/sort/pagination for the file list in manager mode. See {@link TFrameFilter}. */
   filter: {
-    /** The number of files and folders displayed on one page. */
+    /** Items per page. */
     count: "100",
-    /** The page number to start from. */
+    /** Page number (1-based). */
     page: "1",
-    /** The sort direction for the list of files and folders. */
+    /** Sort direction. See {@link FilterSortOrder}. */
     sortOrder: FilterSortOrder.Descending,
-    /** The parameter used to sort the list of files and folders. */
+    /** Sort criterion. See {@link FilterSortBy}. */
     sortBy: FilterSortBy.ModifiedDate,
-    /** The query used to search for files and folders. */
+    /** Search query string. Empty = no search. */
     search: "",
-    /** Specifies whether to exclude subfolders when searching for files. */
+    /** Include items from sub-folders in search results. */
     withSubfolders: false,
   },
-  /** The parameters to customize editors. */
+  /** Editor customization options (toolbar, plugins, macros, etc.). See {@link TEditorCustomization}. */
   editorCustomization: {},
-  /** The callback functions for SDK events. */
+  /** Event handlers. All callbacks are `null` by default (disabled). See {@link TFrameEvents}. */
   events: {
-    /** The function called in the "room-selector" and "file-selector" modes when a room or file is selected, returning information about the selected item. */
+    /** Fired in selector modes when a room or file is selected. Receives the selected item data. */
     onSelectCallback: null,
-    /** The function called in the "room-selector" and "file-selector" modes when the room or file selector is closed or the selection is canceled. */
+    /** Fired in selector modes when the dialog is closed or selection is canceled. */
     onCloseCallback: null,
-    /** The function called when SDK is initialized successfully. */
+    /** Fired once when the DocSpace app inside the iframe is fully initialized. */
     onAppReady: null,
-    /** The function called when SDK is initialized with an error. This error is returned during the initialization. */
+    /** Fired when the DocSpace app encounters an initialization error. Receives the error message. */
     onAppError: null,
-    /** The function called when the document editor is closed. */
+    /** Fired when the document editor is closed (via UI or programmatically). */
     onEditorCloseCallback: null,
-    /** The function called upon successful authorization. */
+    /** Fired after successful user authorization. */
     onAuthSuccess: null,
-    /** The function called when logging out of the user account. */
+    /** Fired when the user signs out. */
     onSignOut: null,
-    /** The function called when download events are fired from the manager. The function returns a link to the download object. This event is triggered only when the "downloadToEvent" parameter is specified in the config. */
+    /** Fired on file download when `downloadToEvent` is `true`. Receives the download URL. */
     onDownload: null,
-    /** The function called when trying to initialize the frame in a room or folder that is inaccessible or has been deleted. */
+    /** Fired when navigating to an inaccessible or deleted room/folder. */
     onNoAccess: null,
-    /** The function called when trying to initialize the frame in a room or folder that is not found. */
+    /** Fired when navigating to a non-existent room/folder. */
     onNotFound: null,
-    /** The function called when the frame is loaded. */
+    /** Fired when the iframe content is fully loaded and visible. Triggered by {@link SDKInstance.setIsLoaded}. */
     onContentReady: null,
-    /** The function called when the document editor is opened for creating or editing documents, or filling out forms, from the context menu, modal windows, panels, or hotkeys. */
+    /** Fired when the editor is opened from the manager (via context menu, hotkeys, etc.). */
     onEditorOpen: null,
-    /** The function called when a file is clicked in the list of files. */
+    /** Fired when a file row is clicked in the manager file list. */
     onFileManagerClick: null
   },
 } as const;
 
-/** The error message displayed when the current domain is not included in the CSP settings. */
+/**
+ * Error message shown when the host domain is not in the DocSpace CSP allowlist.
+ * Displayed inside the iframe via `srcdoc` when {@link TFrameConfig.checkCSP} is `true` and validation fails.
+ */
 export const cspErrorText =
   "The current domain is not set in the Content Security Policy (CSP) settings." as const;
 
-/** The error message displayed when the message bus fails to connect with the embedded frame. */
+/**
+ * Error message passed to {@link TFrameEvents.onAppError} when a method is called
+ * before the iframe `load` event fires (i.e. before the postMessage channel is established).
+ */
 export const connectErrorText = "Message bus is not connected with frame" as const;
