@@ -535,7 +535,7 @@ export class SDKInstance {
    * @returns The merged configuration, ready for frame initialization.
    */
   #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
-    const mergedConfig = { ...this.config, ...defaultConfig, ...config };
+    const mergedConfig = { ...defaultConfig, ...this.config, ...config };
 
     if (mergedConfig.mode === "manager" || mergedConfig.mode === "system") {
       mergedConfig.noLoader = false;

@@ -176,6 +176,16 @@ describe("getConfig", () => {
     expect(returned.frameId).toBe("ds-frame");
     expect(returned.src).toBe(BASE_SRC);
   });
+
+  test("initFrame preserves constructor config when field is omitted", () => {
+    setupTarget();
+    const ctorConfig = makeConfig({ src: "https://custom.example.com", theme: "Dark" });
+    const inst = new SDKInstance(ctorConfig);
+    inst.initFrame({ frameId: "ds-frame", mode: "manager", src: "https://custom.example.com", checkCSP: false } as TFrameConfig);
+
+    const returned = inst.getConfig();
+    expect(returned.theme).toBe("Dark");
+  });
 });
 
 describe("setIsLoaded", () => {
