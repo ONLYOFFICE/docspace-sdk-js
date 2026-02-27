@@ -22,184 +22,228 @@
  */
 
 /**
- * The available modes for initializing the SDK.
- * Defines the context in which the SDK operates.
+ * The SDK initialization mode. Passed via {@link TFrameConfig.mode}.
+ * Determines the UI and available functionality of the embedded frame.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://docspace.example.com" });
+ * ```
  */
 export enum SDKMode {
-  /** Displays a list of entities based on the specified `rootPath`. Supports creating and managing rooms, folders, and files. */
+  /** File/folder browser. Displays a list of entities at `rootPath`. Supports CRUD operations on rooms, folders, and files. Forces `noLoader: false`. */
   Manager = "manager",
-  /** Opens the document editor for the file specified by its `id` parameter. */
+  /** Document editor. Requires `id` — the file identifier to open for editing. */
   Editor = "editor",
-  /** Opens the document viewer for the file specified by its `id` parameter. */
+  /** Read-only document viewer. Requires `id` — the file identifier to open for viewing. */
   Viewer = "viewer",
-  /** Opens the room selector for selecting a room from the available list. */
+  /** Room picker dialog. Returns the selected room via `onSelectCallback`. */
   RoomSelector = "room-selector",
-  /** Opens the file selector for selecting a file from the available list. */
+  /** File picker dialog. Returns the selected file via `onSelectCallback`. Filterable by `selectorType`. */
   FileSelector = "file-selector",
-  /** Displays a blank page with a loader and provides access to system methods. */
+  /** Headless mode. Renders a blank page with a loader; used to call system methods (e.g. `login`, `logout`) without UI. Forces `noLoader: false`. */
   System = "system",
-  /** Displays a public room that provides access to view, edit, comment on, and review documents without registration. */
+  /** Public room view. Grants anonymous access to view, edit, comment on, and review documents. Requires `requestToken`. */
   PublicRoom = "public-room",
-  /** Opens the uploader interface for uploading files to a specified folder. */
+  /** File upload interface. Uploads files to the folder specified by `id`. */
   Uploader = "uploader",
 }
 
 /**
- * The filter type used in the selector views.
+ * The content filter for selector modes ({@link SDKMode.RoomSelector}, {@link SDKMode.FileSelector}).
+ * Passed via {@link TFrameConfig.selectorType}.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({ mode: SDKMode.FileSelector, selectorType: SelectorFilterType.RoomsOnly, ... });
+ * ```
  */
 export const enum SelectorFilterType {
-  /** Shows all available items. */
+  /** No filter — shows rooms and user folders. */
   All = "all",
   /** Shows only rooms. */
   RoomsOnly = "roomsOnly",
-  /** Shows only user folders. */
+  /** Shows only the current user's personal folders. API value: `"userFolderOnly"`. */
   UserOnly = "userFolderOnly",
 }
 
 /**
- * The available types of editor interface.
+ * The editor/viewer platform layout. Used in two config fields:
+ * - {@link TFrameConfig.type} — the iframe platform type (affects CSS and touch behavior).
+ * - {@link TFrameConfig.editorType} — the editor UI layout sent to the DocSpace backend.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({ mode: SDKMode.Editor, type: EditorType.Mobile, editorType: EditorType.Mobile, ... });
+ * ```
  */
 export const enum EditorType {
-  /** The desktop editor optimized to access the document from a desktop or laptop computer. */
+  /** Standard desktop/laptop layout. Default value. */
   Desktop = "desktop",
-  /** The embedded editor specifically formed to be easily embedded into a web page. */
+  /** Compact layout for embedding into third-party web pages. */
   Embedded = "embedded",
-  /** The mobile editor optimized to access the document from a tablet or a smartphone. */
+  /** Touch-optimized layout for tablets and smartphones. Sets `position: fixed` and `overflow: hidden` on the iframe. */
   Mobile = "mobile",
 }
 
 /**
- * The view modes available in the manager.
+ * The item layout in {@link SDKMode.Manager} mode.
+ * Passed via {@link TFrameConfig.viewAs}.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({ mode: SDKMode.Manager, viewAs: ManagerViewMode.Table, ... });
+ * ```
  */
 export const enum ManagerViewMode {
-  /** Displays items in a vertical list, showing details for each entry in a row. */
+  /** Vertical list — one item per row with details. */
   Row = "row",
-  /** Displays items in a table layout with columns for structured comparison. */
+  /** Table with sortable columns. Column visibility is controlled by `viewTableColumns`. */
   Table = "table",
-  /** Displays items as tiles, emphasizing visual previews and key information. */
+  /** Grid of visual tiles with thumbnails. */
   Tile = "tile",
 }
 
 /**
- * The available application themes.
+ * The UI color theme. Passed via {@link TFrameConfig.theme}.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({ theme: Theme.Dark, ... });
+ * ```
  */
 export const enum Theme {
-  /** The light/base theme. */
+  /** Light theme. */
   Base = "Base",
-  /** The dark mode theme. */
+  /** Dark theme. */
   Dark = "Dark",
-  /** Follows the system UI theme. */
+  /** Follows the OS / browser preferred color scheme. */
   System = "System",
 }
 
 /**
- * The item sorting order.
+ * The sort direction for file/folder lists. Passed via {@link TFrameFilter.sortOrder}.
  */
 export const enum FilterSortOrder {
-  /** Ascending order: items sorted from smallest to largest, A–Z, etc. */
+  /** A-Z, oldest first, smallest first. */
   Ascending = "ascending",
-  /** Descending order: items sorted from largest to smallest, Z–A, etc. */
+  /** Z-A, newest first, largest first. */
   Descending = "descending",
 }
 
 /**
- * The criteria for filtering and sorting items.
+ * The sort criterion for file/folder lists. Passed via {@link TFrameFilter.sortBy}.
+ *
+ * Note: string values are API identifiers and may differ from the enum key names.
  */
 export const enum FilterSortBy {
-  /** Sorts items by author name. */
+  /** Sort by author name. API value: `"Author"`. */
   Author = "Author",
-  /** Sorts items by creation date. */
+  /** Sort by creation date. API value: `"DateAndTimeCreation"`. */
   CreationDate = "DateAndTimeCreation",
-  /** Sorts items by the last opened date. */
+  /** Sort by last opened date. API value: `"LastOpened"`. */
   LastOpened = "LastOpened",
-  /** Sorts items by modification date. */
+  /** Sort by last modification date. API value: `"DateAndTime"`. */
   ModifiedDate = "DateAndTime",
-  /** Sorts items by name. */
+  /** Sort alphabetically by name. API value: `"AZ"`. */
   Name = "AZ",
-  /** Sorts items by room. */
+  /** Sort by room. API value: `"Room"`. */
   Room = "Room",
-  /** Sorts items by room type. */
+  /** Sort by room type. API value: `"roomType"`. */
   RoomType = "roomType",
-  /** Sorts items by size. */
+  /** Sort by file size. API value: `"Size"`. */
   Size = "Size",
-  /** Sorts items by tags. */
+  /** Sort by tags. API value: `"Tags"`. */
   Tags = "Tags",
-  /** Sorts items by type. */
+  /** Sort by file type/extension. API value: `"Type"`. */
   Type = "Type",
-  /** Sorts items by used space. */
+  /** Sort by used storage space. API value: `"usedspace"`. */
   UsedSpace = "usedspace",
 }
 
 /**
- * The display settings of the header banner.
+ * The header banner visibility. Passed via {@link TFrameConfig.showHeaderBanner}.
  */
 export const enum HeaderBannerDisplaying {
-  /** Displays all header banners. */
+  /** Show all banners (informational + promotional). */
   All = "all",
-  /** Displays only informational header banners. */
+  /** Show only informational banners. */
   Info = "info",
-  /** Does not display any header banners. */
+  /** Hide all banners. */
   None = "none",
 }
 
 /**
- * Available instance methods in the SDK for file management, user information, and settings.
+ * Internal method identifiers sent to the DocSpace iframe via `postMessage`.
+ * These are used internally by {@link SDKInstance} — call the corresponding
+ * public methods on the instance instead of using these values directly.
+ *
+ * @example
+ * ```typescript
+ * // Do this:
+ * const files = await instance.getFiles();
+ *
+ * // NOT this:
+ * instance.#executeMethod(InstanceMethods.GetFiles, null, callback);
+ * ```
  */
 export const enum InstanceMethods {
-  /** Adds the specified tags to the room with the specified ID. */
+  /** Calls `SDKInstance.addTagsToRoom(roomId, tags)`. */
   AddTagsToRoom = "addTagsToRoom",
-  /** Creates a new file with the specified parameters. */
+  /** Calls `SDKInstance.createFile(folderId, title, templateId, formId)`. */
   CreateFile = "createFile",
-  /** Creates a new folder with the specified parameters. */
+  /** Calls `SDKInstance.createFolder(parentFolderId, title)`. */
   CreateFolder = "createFolder",
-  /** Generates the hash string based on the specified hash settings. */
+  /** Calls `SDKInstance.createHash(password, hashSettings)`. */
   CreateHash = "createHash",
-  /** Creates a new room with the specified parameters. */
+  /** Calls `SDKInstance.createRoom(title, roomType)`. */
   CreateRoom = "createRoom",
-  /** Creates a new tag with the specified name. */
+  /** Calls `SDKInstance.createTag(name)`. */
   CreateTag = "createTag",
-  /** Returns the information about all files in the SDK frame. */
+  /** Calls `SDKInstance.getFiles()`. Returns all files in the current folder. */
   GetFiles = "getFiles",
-  /** Returns the information about the current directory opened in the SDK frame. */
+  /** Calls `SDKInstance.getFolderInfo()`. Returns metadata of the current directory. */
   GetFolderInfo = "getFolderInfo",
-  /** Returns the information about all the folders in the SDK frame. */
+  /** Calls `SDKInstance.getFolders()`. Returns all sub-folders. */
   GetFolders = "getFolders",
-  /** Returns the DocSpace hash settings for generating a password hash. */
+  /** Calls `SDKInstance.getHashSettings()`. Returns settings for password hashing. */
   GetHashSettings = "getHashSettings",
-  /** Returns the information about all files and folders in the SDK frame. */
+  /** Calls `SDKInstance.getList()`. Returns all files and folders. */
   GetList = "getList",
-  /** Returns the information about rooms according to the specified filter parameters. */
+  /** Calls `SDKInstance.getRooms(filter)`. Returns rooms matching the filter. */
   GetRooms = "getRooms",
-  /** Returns the information about the selected elements in the SDK frame. */
+  /** Calls `SDKInstance.getSelection()`. Returns currently selected items. */
   GetSelection = "getSelection",
-  /** Returns the information about the current DocSpace user or null if there are no authorized users. */
+  /** Calls `SDKInstance.getUserInfo()`. Returns current user or `null` if not authorized. */
   GetUserInfo = "getUserInfo",
-  /** Logs in to the DocSpace account using the specified email and password hash. */
+  /** Calls `SDKInstance.login(email, passwordHash)`. */
   Login = "login",
-  /** Logs out from the DocSpace account of the current user. */
+  /** Calls `SDKInstance.logout()`. */
   Logout = "logout",
-  /** Opens the DocSpace modal window of the specified type. */
+  /** Calls `SDKInstance.openModal(type, options)`. */
   OpenModal = "openModal",
-  /** Removes the specified tags from the room with the specified ID. */
+  /** Calls `SDKInstance.removeTagsFromRoom(roomId, tags)`. */
   RemoveTagsFromRoom = "removeTagsFromRoom",
-  /** Sets the specified config for the current SDK entity. */
+  /** Calls `SDKInstance.setConfig(config, reload?)`. Updates the frame configuration. */
   SetConfig = "setConfig",
-  /** Sets the display of entity lists according to the specified type. */
+  /** Calls `SDKInstance.setListView(viewType)`. Changes the file list layout. */
   SetListView = "setListView",
-  /** Executes the specified callback within the editor context. */
+  /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a callback inside the editor context. */
   ExecuteInEditor = "executeInEditor",
 }
 
 /**
- * The types of messages exchanged between SDK components and the host application.
+ * The `postMessage` message types in the iframe ↔ host protocol.
+ * Direction: all messages are sent **from the DocSpace iframe to the host page**.
+ * The host processes them in `SDKInstance.#onMessage`.
  */
 export const enum MessageTypes {
-  /** The message sent when a method returns a result. */
+  /** The iframe returns the result of a method call (e.g. `getFiles`). The host resolves the pending promise with `methodReturnData`. */
   OnMethodReturn = "onMethodReturn",
-  /** The message sent when an event occurs. */
+  /** The iframe fires a subscribed event (e.g. `onAppReady`). The host calls the matching handler from `config.events`. */
   OnEventReturn = "onEventReturn",
-  /** The message sent when a command is called. */
+  /** The iframe requests the host to call a public method on the instance (e.g. `setIsLoaded`). */
   OnCallCommand = "onCallCommand",
-  /** The message sent when an error occurs. */
+  /** The iframe reports an error. The host passes it to `config.events.onAppError`. */
   Error = "error",
 }
