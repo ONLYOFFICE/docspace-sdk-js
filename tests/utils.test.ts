@@ -357,5 +357,15 @@ describe("getFramePath", () => {
         expect(() => getFramePath(conf)).not.toThrow();
       });
     });
+
+    test("default branch returns rootPath for unknown mode", () => {
+      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "/custom/" } as TFrameConfig;
+      expect(getFramePath(conf)).toBe("/custom/");
+    });
+
+    test("default branch returns / when rootPath is empty", () => {
+      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "" } as TFrameConfig;
+      expect(getFramePath(conf)).toBe("/");
+    });
   });
 });
