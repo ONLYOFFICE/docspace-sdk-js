@@ -45,28 +45,75 @@ declare global {
   }
 }
 
-/** String union of {@link SDKMode} values. Accepted by {@link TFrameConfig.mode}. */
+/**
+ * String literal union of all {@link SDKMode} values.
+ *
+ * Accepted by {@link TFrameConfig.mode}. Using the {@link SDKMode} enum constants
+ * is preferred, but plain string literals (e.g. `"manager"`, `"editor"`) are equally valid.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({ frameId: 'ds-frame', src: 'https://docspace.example.com', mode: 'manager' });
+ * // equivalent to:
+ * sdk.initFrame({ frameId: 'ds-frame', src: 'https://docspace.example.com', mode: SDKMode.Manager });
+ * ```
+ */
 export type TFrameMode = `${SDKMode}`;
 
-/** String union of {@link SelectorFilterType} values. Accepted by {@link TFrameConfig.selectorType}. */
+/**
+ * String literal union of all {@link SelectorFilterType} values.
+ *
+ * Accepted by {@link TFrameConfig.selectorType} in {@link SDKMode.FileSelector} mode.
+ * Using the {@link SelectorFilterType} enum constants is preferred.
+ */
 export type TSelectorType = `${SelectorFilterType}`;
 
-/** String union of {@link EditorType} values. Accepted by {@link TFrameConfig.type} and {@link TFrameConfig.editorType}. */
+/**
+ * String literal union of all {@link EditorType} values.
+ *
+ * Accepted by {@link TFrameConfig.editorType} and {@link TFrameConfig.type}.
+ * Using the {@link EditorType} enum constants is preferred.
+ */
 export type TEditorType = `${EditorType}`;
 
-/** String union of {@link ManagerViewMode} values. Accepted by {@link TFrameConfig.viewAs}. */
+/**
+ * String literal union of all {@link ManagerViewMode} values.
+ *
+ * Accepted by {@link TFrameConfig.viewAs} in {@link SDKMode.Manager} mode.
+ * Using the {@link ManagerViewMode} enum constants is preferred.
+ */
 export type TManagerViewMode = `${ManagerViewMode}`;
 
-/** String union of {@link Theme} values. Accepted by {@link TFrameConfig.theme}. */
+/**
+ * String literal union of all {@link Theme} values.
+ *
+ * Accepted by {@link TFrameConfig.theme} to control the iframe color scheme.
+ * Using the {@link Theme} enum constants is preferred.
+ */
 export type TTheme = `${Theme}`;
 
-/** String union of {@link FilterSortOrder} values. Accepted by {@link TFrameFilter.sortOrder}. */
+/**
+ * String literal union of all {@link FilterSortOrder} values.
+ *
+ * Accepted by {@link TFrameFilter.sortOrder}.
+ * Using the {@link FilterSortOrder} enum constants is preferred.
+ */
 export type TFilterSortOrder = `${FilterSortOrder}`;
 
-/** String union of {@link HeaderBannerDisplaying} values. Accepted by {@link TFrameConfig.showHeaderBanner}. */
+/**
+ * String literal union of all {@link HeaderBannerDisplaying} values.
+ *
+ * Accepted by {@link TFrameConfig.showHeaderBanner}.
+ * Using the {@link HeaderBannerDisplaying} enum constants is preferred.
+ */
 export type TBannerDisplaying = `${HeaderBannerDisplaying}`;
 
-/** String union of {@link FilterSortBy} values. Accepted by {@link TFrameFilter.sortBy}. */
+/**
+ * String literal union of all {@link FilterSortBy} values.
+ *
+ * Accepted by {@link TFrameFilter.sortBy}.
+ * Using the {@link FilterSortBy} enum constants is preferred.
+ */
 export type TFilterSortBy = `${FilterSortBy}`;
 
 /**

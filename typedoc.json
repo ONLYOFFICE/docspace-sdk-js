@@ -78,6 +78,10 @@
   "githubPages": false,
   "searchInComments": true,
   "cleanOutputDir": true,
+  "parametersFormat": "table",
+  "propertiesFormat": "table",
+  "enumMembersFormat": "table",
+  "typeDeclarationFormat": "table",
   "commentStyle": "jsdoc",
   "useTsLinkResolution": true,
   "jsDocCompatibility": {

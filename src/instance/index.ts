@@ -683,8 +683,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * With event handlers — see {@link TFrameEvents} for the full list of available events.
    * ```typescript
-   * // With event handlers — use {@link TFrameEvents} for the full list
    * const iframe = instance.initFrame({
    *   frameId: 'ds-editor',
    *   src: 'https://docspace.example.com',
@@ -729,9 +729,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Destroy and reinitialize the same frame in a different mode using {@link SDK.initEditor}.
    * ```typescript
-   * // Destroy and reinitialize the same frame in a different mode
-   * // using {@link SDK.initEditor}
    * instance.destroyFrame();
    * sdk.initEditor({ frameId: 'ds-frame', src: 'https://docspace.example.com', id: 99 });
    * ```
@@ -813,9 +812,9 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Switch to a different document while keeping existing settings —
+   * read them first via {@link SDKInstance.getConfig}.
    * ```typescript
-   * // Switch to a different document while keeping existing settings —
-   * // read them first via {@link SDKInstance.getConfig}
    * const current = instance.getConfig();
    * await instance.setConfig({ ...current, id: 99, mode: SDKMode.Editor }, true);
    * ```
@@ -841,9 +840,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Preserve existing settings when making a partial update via {@link SDKInstance.setConfig}.
    * ```typescript
-   * // Preserve all current settings when making a partial update
-   * // via {@link SDKInstance.setConfig}
    * const config = instance.getConfig();
    * await instance.setConfig({ ...config, theme: Theme.Dark });
    * ```
@@ -864,8 +862,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Check write access before calling {@link SDKInstance.createFolder}.
    * ```typescript
-   * // Check write access before calling {@link SDKInstance.createFolder}
    * const info = await instance.getFolderInfo();
    * if (info.security?.create) {
    *   await instance.createFolder(info.id, 'Archive');
@@ -888,8 +886,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Pass the selection as context to {@link SDKInstance.openModal}.
    * ```typescript
-   * // Pass the selection as context to {@link SDKInstance.openModal}
    * const selection = await instance.getSelection();
    * if (selection.length > 0) {
    *   await instance.openModal('share', { items: selection });
@@ -912,8 +910,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Open the first file in viewer mode via {@link SDKInstance.setConfig}.
    * ```typescript
-   * // Open the first file in viewer mode via {@link SDKInstance.setConfig}
    * const files = await instance.getFiles();
    * if (files[0]) {
    *   await instance.setConfig({ id: files[0].id, mode: SDKMode.Viewer }, true);
@@ -936,8 +934,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Navigate into the first subfolder via {@link SDKInstance.setConfig}.
    * ```typescript
-   * // Navigate into the first subfolder via {@link SDKInstance.setConfig}
    * const folders = await instance.getFolders();
    * if (folders[0]) {
    *   await instance.setConfig({ id: folders[0].id }, true);
@@ -992,9 +990,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Find rooms and remove an outdated tag from each using {@link SDKInstance.removeTagsFromRoom}.
    * ```typescript
-   * // Find rooms and remove an outdated tag from each
-   * // using {@link SDKInstance.removeTagsFromRoom}
    * const rooms = await instance.getRooms({ search: 'sprint-22' });
    * for (const room of rooms) {
    *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
@@ -1017,8 +1014,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Apply the user's preferred locale via {@link SDKInstance.setConfig}.
    * ```typescript
-   * // Apply the user's preferred locale via {@link SDKInstance.setConfig}
    * const user = await instance.getUserInfo();
    * if (user.cultureName) {
    *   await instance.setConfig({ locale: user.cultureName });
@@ -1041,9 +1038,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Full authentication flow using {@link SDKInstance.createHash} and {@link SDKInstance.login}.
    * ```typescript
-   * // Full authentication flow using {@link SDKInstance.createHash}
-   * // and {@link SDKInstance.login}
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * await instance.login('user@example.com', hash);
@@ -1067,9 +1063,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Open a share dialog for the items currently selected in the frame using {@link SDKInstance.getSelection}.
    * ```typescript
-   * // Open a share dialog for the items currently selected in the frame
-   * // using {@link SDKInstance.getSelection}
    * const selection = await instance.getSelection();
    * if (selection.length > 0) {
    *   await instance.openModal('share', { items: selection });
@@ -1096,9 +1091,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Create a file and immediately open it in the editor using {@link SDKInstance.setConfig}.
    * ```typescript
-   * // Create a file and immediately open it in the editor
-   * // using {@link SDKInstance.setConfig}
    * const file = await instance.createFile('folder-123', 'Report', 'template-456', '');
    * await instance.setConfig({ id: file.id, mode: SDKMode.Editor }, true);
    * ```
@@ -1131,9 +1125,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Create a folder and immediately add a file inside it using {@link SDKInstance.createFile}.
    * ```typescript
-   * // Create a folder and immediately add a file inside it
-   * // using {@link SDKInstance.createFile}
    * const folder = await instance.createFolder('parent-123', 'Q1 Reports');
    * await instance.createFile(folder.id, 'Summary', 'template-456', '');
    * ```
@@ -1165,9 +1158,9 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Create a room, then create a new tag and apply it using {@link SDKInstance.createTag}
+   * and {@link SDKInstance.addTagsToRoom}.
    * ```typescript
-   * // Create a room, then create a new tag and apply it
-   * // using {@link SDKInstance.createTag} and {@link SDKInstance.addTagsToRoom}
    * const room = await instance.createRoom('Marketing', 'collaboration');
    * await instance.createTag('campaigns');
    * await instance.addTagsToRoom(room.id, ['campaigns']);
@@ -1207,9 +1200,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Switch to tile view only when in manager mode — read the current mode via {@link SDKInstance.getConfig}.
    * ```typescript
-   * // Switch to tile view only when in manager mode —
-   * // read the current mode via {@link SDKInstance.getConfig}
    * const { mode } = instance.getConfig();
    * if (mode === SDKMode.Manager) {
    *   await instance.setListView('tile');
@@ -1237,9 +1229,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Full login flow using {@link SDKInstance.getHashSettings} and {@link SDKInstance.login}.
    * ```typescript
-   * // Full login flow using {@link SDKInstance.getHashSettings}
-   * // and {@link SDKInstance.login}
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * await instance.login('user@example.com', hash, undefined, true);
@@ -1265,15 +1256,14 @@ export class SDKInstance {
    * @returns A promise that resolves with the authentication result.
    *
    * @example
+   * Login with a pre-hashed password from {@link SDKInstance.createHash}.
    * ```typescript
-   * // Login with a pre-hashed password (from {@link SDKInstance.createHash})
    * await instance.login('user@example.com', passwordHash);
    * ```
    *
    * @example
+   * Full authentication flow using {@link SDKInstance.getHashSettings} and {@link SDKInstance.createHash}.
    * ```typescript
-   * // Full authentication flow using {@link SDKInstance.getHashSettings}
-   * // and {@link SDKInstance.createHash}
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * const result = await instance.login('user@example.com', hash, undefined, true);
@@ -1305,10 +1295,9 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Log out and immediately authenticate as a different user using {@link SDKInstance.getHashSettings},
+   * {@link SDKInstance.createHash}, and {@link SDKInstance.login}.
    * ```typescript
-   * // Log out and immediately authenticate as a different user
-   * // using {@link SDKInstance.getHashSettings}, {@link SDKInstance.createHash},
-   * // and {@link SDKInstance.login}
    * await instance.logout();
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('newpassword', settings);
@@ -1332,9 +1321,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Create a tag and immediately apply it to a room using {@link SDKInstance.addTagsToRoom}.
    * ```typescript
-   * // Create a tag and immediately apply it to a room
-   * // using {@link SDKInstance.addTagsToRoom}
    * await instance.createTag('archived');
    * await instance.addTagsToRoom('room-123', ['archived']);
    * ```
@@ -1356,9 +1344,9 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Create a new tag with {@link SDKInstance.createTag} and apply it
+   * to a newly created room via {@link SDKInstance.createRoom}.
    * ```typescript
-   * // Create a new tag with {@link SDKInstance.createTag}, then apply it
-   * // to a newly created room via {@link SDKInstance.createRoom}
    * await instance.createTag('design');
    * const room = await instance.createRoom('Creative Hub', 'collaboration');
    * await instance.addTagsToRoom(room.id, ['design']);
@@ -1384,9 +1372,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Find rooms by name and clean up a tag from each using {@link SDKInstance.getRooms}.
    * ```typescript
-   * // Find rooms by name and clean up a tag from each
-   * // using {@link SDKInstance.getRooms}
    * const rooms = await instance.getRooms({ search: 'sprint-22' });
    * for (const room of rooms) {
    *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
@@ -1416,9 +1403,8 @@ export class SDKInstance {
    * ```
    *
    * @example
+   * Initialize editor mode with {@link SDK.initEditor} and inject content when the document is ready.
    * ```typescript
-   * // Initialize editor mode with {@link SDK.initEditor},
-   * // then inject content when the document is ready
    * const instance = sdk.initEditor({
    *   frameId: 'ds-editor',
    *   src: 'https://docspace.example.com',
