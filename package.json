@@ -20,11 +20,30 @@
     "onlyoffice",
     "docspace",
     "sdk",
-    "js-sdk"
+    "js-sdk",
+    "iframe",
+    "embed",
+    "document-management",
+    "file-manager",
+    "editor",
+    "collaboration",
+    "document-editor",
+    "rooms",
+    "file-selector",
+    "integration",
+    "typescript"
   ],
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
+  "exports": {
+    ".": {
+      "types": "./dist/types/main.d.ts",
+      "import": "./dist/esm/main.js",
+      "require": "./dist/cjs/main.js"
+    }
+  },
   "types": "dist/types/main.d.ts",
+  "sideEffects": false,
   "files": [
     "dist"
   ],
@@ -37,8 +56,7 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "engines": {
-    "node": ">=22",
-    "pnpm": ">=10"
+    "node": ">=18"
   },
   "devDependencies": {
     "@eslint/js": "9.39.1",
