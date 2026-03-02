@@ -10,16 +10,13 @@
 - Added new events and properties for uploader customization
 - Added unit tests for SDK instance class
 - Added edge case tests for utils and uploader
-- Added npm publish CI workflow
 
 ### Changed
 - Migrated from Jest to Vitest for testing
 - Updated packages to latest versions
 - Updated pnpm version
-- Updated copyright information
 - Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
 - Improved documentation generation: fixed links processing, generation format, and sidebar sorting
-- Updated build scripts for compatibility with new esbuild version
 
 ### Fixed
 - Fixed wrong config merge in `setConfig` method
