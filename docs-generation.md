@@ -1,6 +1,6 @@
 # Documentation Generation Guide
 
-This guide explains how to generate documentation for the ONLYOFFICE DocSpace JavaScript SDK using TypeDoc and related tools.
+This guide explains how to generate and write documentation for the ONLYOFFICE DocSpace JavaScript SDK.
 
 ## Overview
 
@@ -25,157 +25,30 @@ cd docspace-sdk-js
 pnpm install
 ```
 
-## Documentation Structure
+## Source and Output Structure
 
-The documentation is generated from the following source files:
+Documentation is generated from five entry points:
 
 ```
 src/
-├── constants/index.ts    # SDK constants (CSPApiUrl, FRAME_NAME, error messages, etc.)
+├── constants/index.ts    # SDK constants (CSPApiUrl, FRAME_NAME, defaultConfig, error messages)
 ├── enums/index.ts        # Enumerations (SDKMode, Theme, EditorType, etc.)
-├── instance/index.ts     # SDKInstance class - individual instance management
-├── sdk/index.ts          # SDK class - main SDK controller
-├── types/index.ts        # Type definitions and interfaces
+├── instance/index.ts     # SDKInstance class — individual iframe instance management
+├── sdk/index.ts          # SDK class — main controller, creates and stores instances
+├── types/index.ts        # Type definitions (TFrameConfig, TFrameEvents, etc.)
 ```
 
-### Output Structure
-
-Generated documentation is placed in the `docs/` directory:
+Generated output in `docs/`:
 
 ```
 docs/
 ├── index.md                      # Main documentation index
 ├── typedoc-sidebar.cjs           # Sidebar configuration for Docusaurus
-├── classes/                      # Class documentation
-│   ├── SDK.md
-│   └── SDKInstance.md
-├── enumerations/                 # Enum documentation
-│   ├── SDKMode.md
-│   ├── Theme.md
-│   ├── EditorType.md
-│   └── ...
-├── type-aliases/                 # Type alias documentation
-│   ├── TFrameConfig.md
-│   ├── TFrameEvents.md
-│   └── ...
-└── variables/                    # Constant/variable documentation
-    ├── CSPApiUrl.md
-    ├── FRAME_NAME.md
-    └── ...
+├── classes/                      # Class documentation (SDK, SDKInstance)
+├── enumerations/                 # Enum documentation (SDKMode, Theme, etc.)
+├── type-aliases/                 # Type alias documentation (TFrameConfig, etc.)
+└── variables/                    # Constant/variable documentation (defaultConfig, etc.)
 ```
-
-## Configuration
-
-### TypeDoc Configuration (`typedoc.json`)
-
-The documentation generation is configured in `typedoc.json`:
-
-```jsonc
-{
-  "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": [
-    "src/constants/index.ts",
-    "src/enums/index.ts",
-    "src/instance/index.ts",
-    "src/sdk/index.ts",
-    "src/types/index.ts"
-  ],
-  "plugin": [
-    "typedoc-plugin-markdown",
-    "typedoc-plugin-frontmatter",
-    "typedoc-docusaurus-theme"
-  ],
-  "out": "docs",
-  "entryFileName": "index.md",
-  "name": "@onlyoffice/docspace-sdk-js",
-  "includeVersion": true,
-  "excludeReferences": true,
-  "excludePrivate": true,
-  "excludeProtected": true,
-  "excludeInternal": true,
-  "excludeExternals": true,
-  "readme": "none",
-  "hideBreadcrumbs": true,
-  "hidePageHeader": true,
-  "hideGenerator": true,
-  "categorizeByGroup": false,
-  "categoryOrder": [
-    "Classes",
-    "Interfaces",
-    "Types",
-    "Enumerations",
-    "Functions",
-    "Variables",
-    "*"
-  ],
-  "defaultCategory": "Other",
-  "sort": ["source-order"],
-  "sortEntryPoints": true,
-  "kindSortOrder": [
-    "Project",
-    "Module",
-    "Namespace",
-    "Enum",
-    "EnumMember",
-    "Class",
-    "Interface",
-    "TypeAlias",
-    "Constructor",
-    "Property",
-    "Variable",
-    "Function",
-    "Accessor",
-    "Method",
-    "Parameter",
-    "TypeParameter",
-    "TypeLiteral",
-    "CallSignature",
-    "ConstructorSignature",
-    "IndexSignature",
-    "GetSignature",
-    "SetSignature"
-  ],
-  "validation": {
-    "notExported": true,
-    "invalidLink": true,
-    "rewrittenLink": true,
-    "notDocumented": false,
-    "unusedMergeModuleWith": true
-  },
-  "treatValidationWarningsAsErrors": false,
-  "disableSources": false,
-  "sourceLinkTemplate": "https://github.com/ONLYOFFICE/docspace-sdk-js/blob/{gitRevision}/{path}#L{line}",
-  "gitRevision": "master",
-  "githubPages": false,
-  "searchInComments": true,
-  "cleanOutputDir": true,
-  "commentStyle": "jsdoc",
-  "useTsLinkResolution": true,
-  "jsDocCompatibility": {
-    "defaultTag": true,
-    "exampleTag": true,
-    "ignoreUnescapedBraces": true
-  },
-  "sidebar": {
-    "autoConfiguration": true,
-    "pretty": true
-  }
-}
-```
-
-### Key Configuration Options
-
-- **entryPoints**: Specifies which TypeScript files to include in documentation
-- **plugin**: Enables Markdown output, frontmatter metadata, and Docusaurus theme
-- **out**: Output directory for generated documentation
-- **name**: Package name displayed in documentation
-- **exclude*** options: Control what gets documented (exclude private/protected/internal/external members)
-- **categoryOrder**: Define the order of documentation sections (with "*" and defaultCategory for uncategorized items)
-- **validation**: Comprehensive validation rules for documentation quality
-- **gitRevision**: Git branch used for source code links (dynamically set by update-revision.mjs)
-- **sourceLinkTemplate**: Creates links back to source code on GitHub
-- **jsDocCompatibility**: Enhanced JSDoc tag support and compatibility options
-- **sidebar**: Auto-generates sidebar configuration for Docusaurus
 
 ## Generating Documentation
 
@@ -185,57 +58,128 @@ The documentation generation is configured in `typedoc.json`:
 pnpm run docs
 ```
 
-This command executes a three-step process:
-1. **update-revision.mjs** - Updates `typedoc.json` with the current Git branch name
-2. **typedoc** - Generates documentation using the configuration from `typedoc.json`
-3. **update-sidebar.mjs** - Post-processes the generated sidebar with path prefixes and reverts Git revision to default branch
+This executes a three-step pipeline:
 
-### What Happens During Generation
+1. **`update-revision.mjs`** — reads the current Git branch name and writes it to `typedoc.json` → `gitRevision`, so source links point to the correct branch on GitHub.
+2. **`typedoc`** — parses all entry points, extracts JSDoc comments, and generates Markdown files in `docs/`.
+3. **`update-sidebar.mjs`** — post-processes the generated output:
+   - Removes escaped underscores (`\_`) from Markdown link text, headings, bold, and italic.
+   - Converts `Defined in: [...]` source references to a single `[View source on GitHub](...)` link per file.
+   - Adds Docusaurus path prefix (`docspace/javascript-sdk/usage-sdk`) to sidebar IDs.
+   - Reverts `gitRevision` back to `master`.
 
-1. **update-revision.mjs** determines the current Git branch and updates `gitRevision` in `typedoc.json`
-2. **TypeDoc reads** all entry point files (`src/*/index.ts`)
-3. **Parses** TypeScript code and JSDoc comments
-4. **Extracts** classes, interfaces, types, enums, functions, and constants
-5. **Generates** Markdown files organized by category with frontmatter metadata
-6. **Creates** `index.md` with navigation links
-7. **Generates** `typedoc-sidebar.cjs` for Docusaurus integration
-8. **Links** documentation to source code on GitHub using the current branch
-9. **update-sidebar.mjs** adds Docusaurus path prefix (`docspace/javascript-sdk/usage-sdk`) to sidebar IDs and reverts `gitRevision` to `master`
+## TypeDoc Configuration
 
-### Output
+The full configuration is in `typedoc.json`. Key options:
 
-After running `pnpm run docs`, you will have:
-- Complete Markdown documentation in `docs/`
-- Organized by category (classes, enumerations, type-aliases, variables)
-- Each symbol documented in its own file
-- Source code links for easy navigation
-- Docusaurus-compatible sidebar configuration
+| Option | Value | Purpose |
+|---|---|---|
+| `entryPoints` | `src/*/index.ts` (5 files) | Source files to document |
+| `plugin` | markdown, frontmatter, docusaurus-theme | Output format and integration |
+| `out` | `"docs"` | Output directory |
+| `sort` | `["alphabetical"]` | Sort members alphabetically within each category |
+| `parametersFormat` | `"table"` | Render method parameters as tables |
+| `propertiesFormat` | `"table"` | Render type properties as tables |
+| `enumMembersFormat` | `"table"` | Render enum members as tables |
+| `typeDeclarationFormat` | `"table"` | Render inline type declarations as tables |
+| `tableColumnSettings` | `{ "hideSources": true }` | Hide source column from tables |
+| `excludePrivate` | `true` | Exclude `private` members |
+| `excludeProtected` | `true` | Exclude `protected` members |
+| `excludeInternal` | `true` | Exclude members marked with `@internal` |
+| `commentStyle` | `"jsdoc"` | Use `/** */` comment style |
+| `sourceLinkTemplate` | GitHub blob URL | Link each symbol to its source line on GitHub |
+| `validation` | notExported, invalidLink, etc. | Validate documentation quality on generation |
+| `sidebar` | `{ autoConfiguration: true }` | Auto-generate Docusaurus sidebar |
 
 ## Writing Documentation Comments
 
-### JSDoc Format
+### File Header
 
-Documentation is extracted from JSDoc comments in the source code. Follow these guidelines:
-
-#### Class Documentation
+Every source file must start with a copyright header and module declaration:
 
 ```typescript
 /**
- * The SDK class is responsible for managing multiple `SDKInstance` objects.
- * It provides methods to initialize instances with different configurations.
+ * (c) Copyright Ascensio System SIA 2026
  *
- * @remarks
- * - If an instance with the same `frameId` already exists, it will be reinitialized.
- * - Otherwise, a new instance is created and added to the list of instances.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * ...
+ *
+ * @license
+ */
+
+/**
+ * @module
+ * @mergeModuleWith <project>
+ */
+```
+
+- `@license` marks the copyright block so TypeDoc excludes it from output.
+- `@module` + `@mergeModuleWith <project>` merges all entry points into a single flat namespace in the generated docs (instead of separate per-file modules).
+
+### Cross-References with `{@link}`
+
+Use `{@link}` to create navigable links between symbols. This is the primary way to connect related documentation:
+
+```typescript
+/**
+ * The SDK initialization mode. Passed via {@link TFrameConfig.mode}.
+ * Determines the UI and available functionality of the embedded frame.
+ */
+export enum SDKMode {
+  /** File/folder browser. Supports CRUD operations. Forces `noLoader: false`. */
+  Manager = "manager",
+  /** Document editor. Requires {@link TFrameConfig.id}. */
+  Editor = "editor",
+}
+```
+
+Common patterns:
+- Reference a type: `{@link TFrameConfig}`
+- Reference a specific field: `{@link TFrameConfig.mode}`
+- Reference a class method: `{@link SDKInstance.initFrame}`
+- Reference an enum value: `{@link SDKMode.Manager}`
+- Reference a constant: `{@link defaultConfig}`
+
+### Internal APIs with `@internal`
+
+Mark types and members that are part of the implementation but should not appear in the public documentation:
+
+```typescript
+/**
+ * The postMessage payload structure sent from the DocSpace iframe to the host.
+ * Parsed by `SDKInstance.#onMessage`.
+ *
+ * @internal
+ * @see {@link MessageTypes} — possible `type` values and their handling logic.
+ */
+export type TMessageData = {
+  // ...
+};
+```
+
+Types marked `@internal` are excluded from generated docs (`excludeInternal: true` in typedoc.json). Use this for:
+- Internal message types (`TMessageData`, `TEventReturnData`, `TTask`)
+- Internal enums (`InstanceMethods`, `MessageTypes`)
+- Helper types not needed by consumers
+
+### Class Documentation
+
+```typescript
+/**
+ * Manages multiple {@link SDKInstance} objects and provides convenience wrappers
+ * for each {@link SDKMode}.
+ *
+ * Calling any `init*` method with a `frameId` that already exists reinitializes
+ * the existing instance; otherwise a new instance is created and stored in {@link SDK.frames}.
  *
  * @example
  * ```typescript
  * import { SDK } from '@onlyoffice/docspace-sdk-js';
- * 
+ *
  * const sdk = new SDK();
- * const instance = sdk.init({
- *   frameId: 'my-docspace',
- *   src: 'https://your-docspace.com'
+ * const instance = sdk.initManager({
+ *   frameId: 'ds-frame',
+ *   src: 'https://docspace.example.com',
  * });
  * ```
  */
@@ -244,82 +188,139 @@ export class SDK {
 }
 ```
 
-#### Method Documentation
+### Method Documentation
 
 ```typescript
 /**
- * Initializes an SDK instance with the provided configuration.
+ * Initializes a frame in {@link SDKMode.Editor} mode — full document editor.
+ * Forces `mode` to {@link SDKMode.Editor}. Requires {@link TFrameConfig.id}.
  *
- * @param config - The configuration object for the SDK instance.
- * @returns The initialized SDK instance.
+ * @param config - Frame configuration. See {@link TFrameConfig}.
+ * @returns The initialized {@link SDKInstance}.
  *
  * @example
  * ```typescript
- * const instance = sdk.init({
- *   frameId: 'main-docspace',
- *   src: 'https://your-docspace.com',
- *   mode: SDKMode.Manager
+ * import { SDK, EditorType } from '@onlyoffice/docspace-sdk-js';
+ *
+ * const sdk = new SDK();
+ * const instance = sdk.initEditor({
+ *   frameId: 'ds-frame',
+ *   src: 'https://docspace.example.com',
+ *   id: 42,
+ *   editorType: EditorType.Desktop,
+ *   editorCustomization: { autosave: true, forcesave: true },
+ *   events: {
+ *     onAppReady: () => console.log('ready'),
+ *     onEditorCloseCallback: () => history.back(),
+ *   },
  * });
  * ```
  */
-init(config: TFrameConfig): SDKInstance {
-  // ...
-}
+initEditor = (config: TFrameConfig) =>
+  this.init({ ...config, mode: SDKMode.Editor });
 ```
 
-#### Type/Interface Documentation
+### Type Documentation
+
+Use a top-level JSDoc block for the type itself, and inline `/** */` comments for each field. Include default values where applicable:
 
 ```typescript
 /**
- * Configuration object for initializing a DocSpace frame.
+ * Editor customization options passed via {@link TFrameConfig.editorCustomization}.
+ * Controls the editor UI: toolbar, menus, macros, theme, and zoom.
+ * Only applies to {@link SDKMode.Editor} and {@link SDKMode.Viewer} modes.
  *
- * @remarks
- * Only `frameId` and `src` are required. All other properties have defaults.
+ * @example
+ * ```typescript
+ * sdk.initFrame({
+ *   mode: "editor",
+ *   editorCustomization: {
+ *     compactToolbar: true,
+ *     hideRulers: true,
+ *     uiTheme: "theme-dark",
+ *   },
+ *   ...
+ * });
+ * ```
  */
-export type TFrameConfig = {
-  /** Unique identifier for the frame. Required. */
-  frameId: string;
-  
-  /** DocSpace server URL. Required. */
-  src: string;
-  
-  /** Frame display mode. Defaults to `SDKMode.Manager`. */
-  mode?: TFrameMode;
-  
+export type TEditorCustomization = {
+  /** Enable "Autosave" menu option. When `false`, only "Strict" co-editing mode is available. Default: `true`. */
+  autosave?: boolean;
+  /** Show "Comments" button. When `false`, comments are view-only. Default: `true`. */
+  comments?: boolean;
+  /** Move action buttons from header to toolbar, making the header compact. Default: `false`. */
+  compactHeader?: boolean;
+};
+```
+
+Inline comment conventions:
+- Start with a brief description of what the field controls.
+- Add behavioral notes when the value changes behavior (e.g. "When `false`, ...").
+- End with `Default: \`value\`.` when a default exists in `defaultConfig`.
+
+### Enum Documentation
+
+```typescript
+/**
+ * The SDK initialization mode. Passed via {@link TFrameConfig.mode}.
+ * Determines the UI and available functionality of the embedded frame.
+ *
+ * @example
+ * ```typescript
+ * sdk.initFrame({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://docspace.example.com" });
+ * ```
+ */
+export enum SDKMode {
+  /** File/folder browser. Displays a list of entities at `rootPath`. Supports CRUD operations on rooms, folders, and files. Forces `noLoader: false`. */
+  Manager = "manager",
+  /** Document editor. Requires `id` — the file identifier to open for editing. */
+  Editor = "editor",
+  /** Read-only document viewer. Requires `id` — the file identifier to open for viewing. */
+  Viewer = "viewer",
+}
+```
+
+### Constant Documentation
+
+```typescript
+/**
+ * The default configuration applied to every frame before user overrides.
+ * Merge order in {@link SDKInstance.initFrame}: `defaultConfig` → instance config → user config.
+ *
+ * Override only the fields you need — unset fields fall back to these defaults.
+ *
+ * @example
+ * ```typescript
+ * // Minimal config — everything else comes from defaultConfig
+ * sdk.initFrame({
+ *   frameId: "ds-frame",
+ *   src: "https://docspace.example.com",
+ *   mode: "manager",
+ * });
+ * ```
+ */
+export const defaultConfig: TFrameConfig = {
+  /** DocSpace server URL. Must be set — no default. */
+  src: "",
+  /** Base navigation path for {@link SDKMode.Manager}. Default: `"/rooms/shared/"`. */
+  rootPath: "/rooms/shared/",
   // ...
 };
 ```
 
-#### Enum Documentation
+## JSDoc Tags Reference
 
-```typescript
-/**
- * Defines the available modes for the DocSpace SDK frame.
- */
-export enum SDKMode {
-  /** File manager mode - browse and manage files/folders */
-  Manager = "manager",
-  
-  /** Room selector mode - select a room */
-  RoomSelector = "room-selector",
-  
-  /** File selector mode - select files */
-  FileSelector = "file-selector",
-  
-  // ...
-}
-```
+Commonly used tags in this project:
 
-### JSDoc Tags
-
-Commonly used tags:
-
-- `@param` - Document parameters
-- `@returns` - Document return values
-- `@example` - Provide code examples
-- `@remarks` - Additional information
-- `@see` - Reference related items
-- `@deprecated` - Mark deprecated features
-- `@throws` - Document exceptions
-- `@internal` - Mark internal APIs (excluded from docs)
-- `@public`, `@private`, `@protected` - Visibility modifiers
+| Tag | Usage | Example |
+|---|---|---|
+| `@param` | Document method parameters | `@param config - Frame configuration.` |
+| `@returns` | Document return values | `@returns The initialized SDKInstance.` |
+| `@example` | Provide code examples (fenced with ` ```typescript `) | See examples above |
+| `@remarks` | Additional context beyond the main description | `@remarks This method forces noLoader to false.` |
+| `@see` | Reference related symbols | `@see {@link TFrameConfig}` |
+| `@internal` | Exclude from public documentation | `@internal` |
+| `@license` | Mark copyright header (excluded from output) | `@license` |
+| `@module` | Declare file as a module for TypeDoc | `@module` |
+| `@mergeModuleWith` | Merge module into parent namespace | `@mergeModuleWith <project>` |
+| `@deprecated` | Mark deprecated features | `@deprecated Use initManager instead.` |
