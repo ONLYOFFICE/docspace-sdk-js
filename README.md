@@ -1,82 +1,206 @@
 # ONLYOFFICE DocSpace JavaScript SDK
 
-## Basic concepts
+The ONLYOFFICE DocSpace JavaScript SDK allows developers to integrate ONLYOFFICE DocSpace functionality into web applications. Embed a full-featured file manager, document editor, room and file selectors, or file uploader — with just a few lines of code.
 
-The ONLYOFFICE DocSpace SDK based on JavaScript allows developers to use all the DocSpace possibilities with *api.js*. You can integrate ONLYOFFICE DocSpace into your own web application, allowing users to create and submit documents directly from your website. For example, you can use the ONLYOFFICE DocSpace [React component](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/react-component/) to integrate ONLYOFFICE DocSpace into React projects.
+You can use it as an [npm package](#npm) for modern web applications or connect it via a [script tag](#script-tag) for a quick start. For React projects, there is also a ready-made [React component](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/react-component/).
 
-You don't need to be an experienced JavaScript developer to use the DocSpace JavaScript SDK because we provide you with all the basics. You only need a few lines of JavaScript to set up a fully functional integration.
+## Prerequisites
 
-Follow the steps below to connect DocSpace as a frame to your website.
+For the SDK to work correctly, you need to add your domain to the DocSpace allowlist:
 
-## Step 1. Specifying the DocSpace URL
+1. Go to **DocSpace Settings → Developer Tools → JavaScript SDK**.
+2. In the **Enter the address of DocSpace to embed** field, add the URL of your server's root directory.
 
-For the JavaScript SDK to work correctly, it must be launched on the server. Note that running the HTML file directly will not work. Please make sure you are using a server environment.
 
-You need to add the URL of your server's root directory to the **Developer Tools** section of DocSpace:
+## Getting Started
 
-1. Go to the DocSpace settings.
-2. Navigate to the **Developer Tools** section.
-3. On the **JavaScript SDK** tab, in the **Enter the address of DocSpace to embed** field, add the URL of your server's root directory.
+### npm
 
-## Step 2. Creating the HTML file
+```bash
+npm install @onlyoffice/docspace-sdk-js
+```
 
-Create the target HTML file which must include a placeholder *div* tag, where all the information about DocSpace parameters will be passed:
+```typescript
+import { SDK } from "@onlyoffice/docspace-sdk-js";
 
-``` html
+const sdk = new SDK();
+
+// Embed a file manager
+const manager = sdk.initManager({
+  frameId: "ds-frame",
+  src: "https://your-docspace.com",
+  events: {
+    onAppReady: () => console.log("DocSpace is ready"),
+    onAppError: (err) => console.error("Error:", err),
+  },
+});
+```
+
+The SDK provides both CommonJS and ES module builds, so it works with any modern bundler (Webpack, Vite, esbuild, etc.).
+
+### Script tag
+
+If you prefer not to use a package manager, include the *api.js* script directly from your DocSpace server:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>DocSpace JavaScript SDK</title>
-        <script src="{PORTAL_SRC}/static/scripts/sdk/2.0.0/api.js"></script>
-    </head>
-    <body>
-        <div id="ds-frame"></div>
-    </body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>DocSpace SDK</title>
+    <script src="https://your-docspace.com/static/scripts/sdk/2.2.0/api.js"></script>
+  </head>
+  <body>
+    <div id="ds-frame"></div>
+    <script>
+      const instance = DocSpace.SDK.initFrame({
+        frameId: "ds-frame",
+        src: "https://your-docspace.com",
+        mode: "manager",
+      });
+    </script>
+  </body>
 </html>
 ```
 
-The API JavaScript file can normally be found in the following DocSpace folder:
+Replace `your-docspace.com` with the address of your ONLYOFFICE DocSpace server.
+You can check the latest SDK version in the [released tags](https://github.com/ONLYOFFICE/docspace-sdk-js/tags).
 
-`{PORTAL\_SRC}/static/scripts/sdk/2.0.0/api.js`
+## SDK Modes
 
-where **{PORTAL\_SRC}** is the name of the server with the ONLYOFFICE DocSpace installed.
+The SDK supports 8 modes, each rendering a different DocSpace UI inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
 
-## Step 3. Getting the base class
+| Mode | Method | Description |
+|---|---|---|
+| `manager` | [`initManager`](docs/classes/SDK.md#initmanager) | File and folder browser with full CRUD operations on rooms, folders, and files |
+| `editor` | [`initEditor`](docs/classes/SDK.md#initeditor) | Full-featured document editor. Requires `id` (file identifier) |
+| `viewer` | [`initViewer`](docs/classes/SDK.md#initviewer) | Read-only document viewer. Requires `id` (file identifier) |
+| `room-selector` | [`initRoomSelector`](docs/classes/SDK.md#initroomselector) | Dialog for selecting a room. Returns result via `onSelectCallback` event |
+| `file-selector` | [`initFileSelector`](docs/classes/SDK.md#initfileselector) | Dialog for selecting a file. Returns result via `onSelectCallback` event |
+| `system` | [`initSystem`](docs/classes/SDK.md#initsystem) | Headless mode without visible UI — used for API calls like `login`, `logout`, and `getUserInfo` |
+| `public-room` | [`initPublicRoom`](docs/classes/SDK.md#initpublicroom) | Public room view with anonymous access to documents. Requires `requestToken` |
+| `uploader` | [`initUploader`](docs/classes/SDK.md#inituploader) | File upload interface for a specific folder. Requires `id` (target folder identifier) |
 
-When the API JavaScript is connected to the page, get the base class that provides all the basic functionality of *api.js*:
+### Examples
 
-| Class        | Description                                                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| DocSpace.SDK | Defines the DocSpace document manager and allows you to perform operations with rooms, folders, and documents within the DocSpace portal. |
+**Document editor:**
 
-## Step 4. Authorizing
-
-*api.js* uses the active DocSpace application sessions to authenticate users. If the user is logged in to the DocSpace portal that the SDK will connect to, then *api.js* recognizes and uses that active session.
-
-If the users are not authenticated, they will see a page asking them to sign in to DocSpace the first time they use it. Authentication is also possible through the SDK [methods](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/methods/#login).
-
-## Step 5. Initializing
-
-> Please note that when working via HTTPS, it is necessary to set the **"SameSite": "none"** parameter in *appsettings.json* to avoid blocking the work with cookies during cross-domain requests.
-
-Initialize DocSpace frame using the [initFrame](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/methods/#initframe) method with the SDK config passed to it:
-
-``` ts
-const docSpace = DocSpace.SDK.initFrame({
-  frameId: "frameId",
-  showMenu: true,
-})
+```typescript
+const editor = sdk.initEditor({
+  frameId: "ds-editor",
+  src: "https://your-docspace.com",
+  id: 42, // file ID
+  editorCustomization: { autosave: true, forcesave: true },
+  events: {
+    onAppReady: () => console.log("Editor loaded"),
+    onEditorCloseCallback: () => history.back(),
+  },
+});
 ```
 
-You can use other available [methods](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/methods/) to initialize DocSpace.
+**File selector:**
 
-The full list of [config parameters](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/config/) can be found here.
-
-## Step 6. Using
-
-After initialization, the current SDK instance can be accessed by using its [frameId](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/config/#frameid). The list of current SDK instances is available in the *DocSpace.SDK.frames* array. To get the specific SDK instance, use the following string:
-
-``` ts
-DocSpace.SDK.frames[frameId]
+```typescript
+const selector = sdk.initFileSelector({
+  frameId: "ds-selector",
+  src: "https://your-docspace.com",
+  selectorType: "roomsOnly",
+  events: {
+    onSelectCallback: (file) => console.log("Selected:", file),
+    onCloseCallback: () => console.log("Cancelled"),
+  },
+});
 ```
+
+**Uploader:**
+
+```typescript
+const uploader = sdk.initUploader({
+  frameId: "ds-uploader",
+  src: "https://your-docspace.com",
+  id: "target-folder-id",
+  acceptExtensions: ".docx,.xlsx,.pdf",
+  isMultipleUpload: true,
+  events: {
+    onUploadSuccess: (file) => console.log("Uploaded:", file),
+    onUploadError: (err) => console.error("Upload failed:", err),
+  },
+});
+```
+
+## Events
+
+All events are optional. Pass them via the `events` field in the configuration object. The table below shows which events are available in each mode:
+
+| Event | Manager | Editor | Viewer | Room Sel. | File Sel. | System | Public Room | Uploader |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `onAppReady` | + | + | + | + | + | + | + | + |
+| `onAppError` | + | + | + | + | + | + | + | + |
+| `onContentReady` | + | + | + | + | + | + | + | + |
+| `onAuthSuccess` | + | + | + | + | + | + | | + |
+| `onSignOut` | + | + | + | + | + | + | | + |
+| `onEditorOpen` | + | | | | | | + | |
+| `onEditorCloseCallback` | | + | + | | | | | |
+| `onFileManagerClick` | + | | | | | | + | |
+| `onDownload` | + | + | + | | | | + | |
+| `onNoAccess` | + | | | | | | + | |
+| `onNotFound` | + | | | | | | + | |
+| `onSelectCallback` | | | | + | + | | | |
+| `onCloseCallback` | | | | + | + | | | |
+| `onUploadSuccess` | | | | | | | | + |
+| `onUploadError` | | | | | | | | + |
+| `onUploadProgress` | | | | | | | | + |
+
+## Instance Methods
+
+After initialization, the returned `SDKInstance` object provides methods to interact with DocSpace:
+
+```typescript
+const system = sdk.initSystem({
+  frameId: "ds-system",
+  src: "https://your-docspace.com",
+  events: { onAppReady: () => console.log("ready") },
+});
+
+// Authentication
+await system.login(email, passwordHash);
+await system.logout();
+
+// Data retrieval
+const user = await system.getUserInfo();
+const files = await system.getFiles();
+const folders = await system.getFolders();
+const rooms = await system.getRooms(filter);
+const selection = await system.getSelection();
+
+// Content management
+await system.createFile(folderId, title, templateId);
+await system.createFolder(parentFolderId, title);
+await system.createRoom(title, roomType);
+
+// Frame control
+system.setConfig({ theme: "Dark" });
+system.destroyFrame();
+```
+
+All active instances are accessible via `sdk.frames`:
+
+```typescript
+const instance = sdk.frames["ds-frame"];
+```
+
+## Authorization
+
+The SDK uses active DocSpace sessions for authentication. If the user is already logged in to the DocSpace portal, the SDK will use that session automatically.
+
+If the user is not authenticated, a sign-in page will be displayed inside the iframe. You can also authenticate programmatically using the `login` method in [system mode](#sdk-modes).
+
+## Documentation
+
+- [API Reference](https://api.onlyoffice.com/docspace/javascript-sdk/) — full configuration, methods, and events reference
+- [React Component](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/react-component/) — integration guide for React projects
+- [Changelog](./CHANGELOG.md) — version history and release notes
+
+## License
+
+Apache-2.0. See [LICENSE](./LICENSE) for details.
