@@ -1,5 +1,33 @@
 # Change Log
 
+## 2.2.0
+
+### Added
+- Added Uploader mode with `uploaderConfig` for file upload integration
+- Added `onUploadProgress` event for tracking upload progress
+- Added `acceptExtensions` parameter for filtering allowed file types in uploader
+- Added fields to limit the size of uploaded items in uploader mode
+- Added new events and properties for uploader customization
+- Added unit tests for SDK instance class
+- Added edge case tests for utils and uploader
+- Added npm publish CI workflow
+
+### Changed
+- Migrated from Jest to Vitest for testing
+- Updated packages to latest versions
+- Updated pnpm version
+- Updated copyright information
+- Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
+- Improved documentation generation: fixed links processing, generation format, and sidebar sorting
+- Updated build scripts for compatibility with new esbuild version
+
+### Fixed
+- Fixed wrong config merge in `setConfig` method
+- Fixed wrong error message in SDK instance
+- Restored missing `withReload` option for `setConfig`
+- Fixed links processing for generated documentation
+- Fixed examples in documentation
+
 ## 2.1.0
 ## Added
 - Added markdown documentation generation with TypeDoc
