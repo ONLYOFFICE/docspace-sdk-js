@@ -829,6 +829,19 @@ export class SDKInstance {
   }
 
   /**
+   * Updates the OAuth access token for Bearer authentication.
+   * The new token is sent to the iframe via postMessage.
+   * Use this to refresh an expired token without reinitializing the frame.
+   *
+   * @param accessToken - The new OAuth access token string.
+   * @returns A promise that resolves when the iframe confirms the token update.
+   */
+  setAccessToken(accessToken: string): Promise<object> {
+    this.config.accessToken = accessToken;
+    return this.#getMethodPromise(InstanceMethods.SetAccessToken, { accessToken });
+  }
+
+  /**
    * Returns the current merged configuration object.
    *
    * @returns The active {@link TFrameConfig} for this instance.

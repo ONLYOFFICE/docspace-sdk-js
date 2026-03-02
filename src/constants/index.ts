@@ -72,6 +72,8 @@ export const defaultConfig: TFrameConfig = {
   rootPath: "/rooms/shared/",
   /** Auth token for public rooms ({@link SDKMode.PublicRoom}). `null` = no token. */
   requestToken: null,
+  /** OAuth 2.0 access token for Bearer authentication. `null` = cookie-based auth (default). */
+  accessToken: null,
   /** Iframe width. CSS value: `"100%"`, `"800px"`, etc. */
   width: "100%",
   /** Iframe height. CSS value: `"100%"`, `"600px"`, etc. */
@@ -186,7 +188,9 @@ export const defaultConfig: TFrameConfig = {
     /** Fired when the editor is opened from the manager (via context menu, hotkeys, etc.). */
     onEditorOpen: null,
     /** Fired when a file row is clicked in the manager file list. */
-    onFileManagerClick: null
+    onFileManagerClick: null,
+    /** Fired when an API request returns HTTP 401 while using OAuth Bearer authentication. */
+    onTokenExpired: null,
   },
 } as const;
 

@@ -265,6 +265,9 @@ export type TFrameEvents = {
   onUploadError?: null | ((e?: Event | object | string) => void);
   /** Fired on file upload progress update. {@link SDKMode.Uploader} mode only. */
   onUploadProgress?: null | ((e?: Event | object | string) => void);
+  /** Fired when an API request returns HTTP 401 while using OAuth Bearer authentication.
+   * Use this to refresh the token via {@link SDKInstance.setAccessToken}. */
+  onTokenExpired?: null | ((e?: Event | object | string) => void);
 };
 
 /**
@@ -335,6 +338,9 @@ export type TFrameConfig = {
   name?: string;
   /** Auth token for public rooms ({@link SDKMode.PublicRoom}) and shared files. Default: `null`. */
   requestToken?: string | null;
+  /** OAuth 2.0 access token for Bearer authentication. When set, API requests use
+   * `Authorization: Bearer <token>` instead of cookie-based auth. Default: `null`. */
+  accessToken?: string | null;
   /** Base navigation path for {@link SDKMode.Manager}. Default: `"/rooms/shared/"`. */
   rootPath?: string;
   /** Content filter for selector modes. See {@link SelectorFilterType}. Default: `"all"`. */

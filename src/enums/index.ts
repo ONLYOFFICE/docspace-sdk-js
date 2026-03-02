@@ -231,6 +231,8 @@ export const enum InstanceMethods {
   SetListView = "setListView",
   /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a callback inside the editor context. */
   ExecuteInEditor = "executeInEditor",
+  /** Calls `SDKInstance.setAccessToken(accessToken)`. Updates the OAuth Bearer token. */
+  SetAccessToken = "setAccessToken",
 }
 
 /**
