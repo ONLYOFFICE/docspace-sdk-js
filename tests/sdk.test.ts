@@ -62,6 +62,7 @@ describe("SDK class wrappers", () => {
     ["initFileSelector", SDKMode.FileSelector],
     ["initSystem", SDKMode.System],
     ["initUploader", SDKMode.Uploader],
+    ["initForms", SDKMode.Forms],
   ])("%s sets mode to %s and calls initFrame", (methodName, mode) => {
     const instance = setMockReturn(mockInstanceFactory());
     const result = (sdk as any)[methodName]({ ...baseConfig, mode: "WRONG" });
@@ -86,6 +87,20 @@ describe("SDK class wrappers", () => {
     const returned = sdk.initManager({ ...baseConfig, mode: SDKMode.Viewer });
     expect(returned).toBe(first);
     expect(first.initFrame).toHaveBeenCalledTimes(2);
+  });
+
+  test("initForms defaults showMenu to true", () => {
+    const instance = setMockReturn(mockInstanceFactory());
+    sdk.initForms({ ...baseConfig, frameId: "ds-forms" });
+    const calledWith = instance.initFrame.mock.calls[0][0];
+    expect(calledWith.showMenu).toBe(true);
+  });
+
+  test("initForms respects explicit showMenu: false", () => {
+    const instance = setMockReturn(mockInstanceFactory());
+    sdk.initForms({ ...baseConfig, frameId: "ds-forms", showMenu: false });
+    const calledWith = instance.initFrame.mock.calls[0][0];
+    expect(calledWith.showMenu).toBe(false);
   });
 
   test("multiple frameIds tracked independently", () => {

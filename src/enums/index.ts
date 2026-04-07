@@ -47,7 +47,7 @@ export enum SDKMode {
   PublicRoom = "public-room",
   /** File upload interface. Uploads files to the folder specified by `id`. */
   Uploader = "uploader",
-  /** Forms gallery. Displays forms for a room specified by `id`. Supports `showMenu` to toggle the side panel. */
+  /** Forms gallery. Displays forms for the room specified by {@link TFrameConfig.id}. Supports {@link TFrameConfig.showMenu} to toggle the side panel. */
   Forms = "forms",
 }
 
@@ -255,4 +255,6 @@ export const enum MessageTypes {
   OnCallCommand = "onCallCommand",
   /** The iframe reports an error. The host passes it to `config.events.onAppError`. */
   Error = "error",
+  /** Binary file upload from the host to the iframe. Used by {@link SDKInstance.upload}. */
+  UploadFileData = "uploadFileData",
 }

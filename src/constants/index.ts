@@ -187,9 +187,15 @@ export const defaultConfig: TFrameConfig = {
     onEditorOpen: null,
     /** Fired when a file row is clicked in the manager file list. */
     onFileManagerClick: null,
-    /** Fired when a custom context menu action is clicked in Forms mode. */
+    /** Fired when a file upload completes successfully. */
+    onUploadSuccess: null,
+    /** Fired when a file upload fails. */
+    onUploadError: null,
+    /** Fired on file upload progress update. */
+    onUploadProgress: null,
+    /** Fired when a custom context menu action is clicked in {@link SDKMode.Forms}. */
     onCustomAction: null,
-    /** Fired when the user navigates to a different folder or room inside the iframe. */
+    /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. */
     onNavigate: null,
   },
 } as const;

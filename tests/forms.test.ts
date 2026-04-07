@@ -122,6 +122,16 @@ describe("getFramePath — Forms mode", () => {
     expect(path).not.toContain("providerName");
     expect(path).not.toContain("inviteKey");
   });
+
+  test("includes libraryId when set", () => {
+    const path = getFramePath(makeFormsConfig({ libraryId: "lib-7" }));
+    expect(path).toContain("libraryId=lib-7");
+  });
+
+  test("omits libraryId when undefined", () => {
+    const path = getFramePath(makeFormsConfig({ libraryId: undefined }));
+    expect(path).not.toContain("libraryId");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -447,6 +457,24 @@ describe("upload", () => {
     const payload = rawCall![0];
     expect(payload.buffer.byteLength).toBe(size);
     expect(payload.fileSize).toBe(size);
+  });
+
+  test("handles 0-byte empty file", async () => {
+    const { inst, postMessageSpy } = initConnected();
+    autoReplyOnUpload(postMessageSpy, "ds-forms", "onUploadSuccess", {});
+
+    const file = new File([], "empty.pdf");
+    const result = await inst.upload(file);
+
+    const rawCall = postMessageSpy.mock.calls.find(
+      (c) => typeof c[0] === "object" && c[0]?.type === "uploadFileData",
+    );
+    expect(rawCall).toBeDefined();
+    const payload = rawCall![0];
+    expect(payload.buffer.byteLength).toBe(0);
+    expect(payload.fileSize).toBe(0);
+    expect(payload.fileName).toBe("empty.pdf");
+    expect(result).toEqual(expect.objectContaining({ fileName: "empty.pdf" }));
   });
 });
 

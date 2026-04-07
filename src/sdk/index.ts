@@ -324,9 +324,5 @@ export class SDK {
    * ```
    */
   initForms = (config: TFrameConfig) =>
-    this.init({
-      ...config,
-      mode: SDKMode.Forms,
-      showMenu: config.showMenu ?? true,
-    });
+    this.init({ ...config, mode: SDKMode.Forms, showMenu: config.showMenu ?? true });
 }

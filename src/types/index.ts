@@ -267,7 +267,7 @@ export type TFrameEvents = {
   onUploadProgress?: null | ((e?: Event | object | string) => void);
   /** Fired when a custom context menu action is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
   onCustomAction?: null | ((e?: Event | object | string) => void);
-  /** Fired when the user navigates to a different folder or room inside the iframe. Receives the new path as a string (e.g. `"/rooms/shared/123"`). */
+  /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. Receives the new path as a string (e.g. `"/rooms/shared/123"`). */
   onNavigate?: null | ((e?: Event | object | string) => void);
 };
 
@@ -471,8 +471,29 @@ export type TTask = {
 };
 
 /**
+ * Navigation sections available in {@link SDKMode.Forms} mode.
+ * Used by {@link SDKInstance.navigateSection}.
+ *
+ * @example
+ * ```typescript
+ * await instance.navigateSection("completed-forms");
+ * ```
+ */
+export type TFormsSection = "my-forms" | "in-progress" | "completed-forms" | "library" | "settings";
+
+/**
  * A custom context menu action registered via {@link SDKInstance.setCustomActions}.
  * Displayed in the file/folder context menu in {@link SDKMode.Forms}.
+ *
+ * @example
+ * ```typescript
+ * const action: TCustomContextMenuAction = {
+ *   key: "send-to-crm",
+ *   label: "Send to CRM",
+ *   icon: "https://example.com/icon.svg",
+ *   section: ["completed-forms"],
+ * };
+ * ```
  */
 export type TCustomContextMenuAction = {
   /** Unique action identifier. Returned in {@link TFrameEvents.onCustomAction}. */
@@ -481,12 +502,26 @@ export type TCustomContextMenuAction = {
   label: string;
   /** URL of the action icon. Optional. */
   icon?: string;
-  /** Sections where this action is visible. If omitted, shown in all sections. Values: `"my-forms"`, `"in-progress"`, `"completed-forms"`. */
-  section?: string[];
+  /** Sections where this action is visible. If omitted, shown in all sections. */
+  section?: TFormsSection[];
 };
 
 /**
  * Configuration for custom context menu actions, passed to {@link SDKInstance.setCustomActions}.
+ *
+ * @example
+ * ```typescript
+ * await instance.setCustomActions({
+ *   contextMenu: {
+ *     file: [
+ *       { key: "export", label: "Export to CRM" },
+ *     ],
+ *     folder: [
+ *       { key: "share", label: "Share folder" },
+ *     ],
+ *   },
+ * });
+ * ```
  */
 export type TCustomActionsConfig = {
   contextMenu?: {

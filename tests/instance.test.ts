@@ -330,6 +330,20 @@ describe("message handling", () => {
     expect(spy).toHaveBeenCalled();
   });
 
+  test("OnCallCommand: blocks methods not in allowlist", () => {
+    const { inst } = initConnectedInstance();
+
+    const spy = vi.spyOn(inst, "destroyFrame");
+
+    dispatchMessage({
+      frameId: "ds-frame",
+      type: "onCallCommand",
+      commandName: "destroyFrame",
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   test("ignores messages for a different frameId", () => {
     const onAppReady = vi.fn();
     initConnectedInstance({

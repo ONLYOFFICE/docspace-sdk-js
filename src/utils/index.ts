@@ -214,6 +214,7 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  * | {@link SDKMode.Editor} | `/doceditor` | `fileId`, `editorType`, `share` |
  * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
  * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
+ * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
  * @param config - The frame configuration. At minimum, {@link TFrameConfig.mode} must be set.
@@ -253,11 +254,11 @@ export const getFramePath = (config: TFrameConfig) => {
     is_file: config.requestToken ? true : undefined,
     editorGoBack:
       config.events?.onEditorCloseCallback &&
-        typeof config.events.onEditorCloseCallback === "function"
+      typeof config.events.onEditorCloseCallback === "function"
         ? "event"
         : config.editorGoBack
-          ? config.editorGoBack
-          : undefined,
+        ? config.editorGoBack
+        : undefined,
   };
 
   switch (config.mode) {
@@ -274,10 +275,11 @@ export const getFramePath = (config: TFrameConfig) => {
 
       const urlParams = customUrlSearchParams(params!);
 
-      return `${config.rootPath}${config.requestToken
-        ? `?${urlParams}`
-        : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
-        }`;
+      return `${config.rootPath}${
+        config.requestToken
+          ? `?${urlParams}`
+          : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
+      }`;
     }
 
     case SDKMode.RoomSelector: {

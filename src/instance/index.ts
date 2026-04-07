@@ -29,6 +29,7 @@ import type {
   TMessageData,
   TTask,
   TCustomActionsConfig,
+  TFormsSection,
 } from "../types";
 import {
   getCSPErrorBody,
@@ -36,7 +37,7 @@ import {
   validateCSP,
   getFramePath,
 } from "../utils";
-import { InstanceMethods, MessageTypes } from "../enums";
+import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
 
 /**
  * Manages a single DocSpace iframe, handles postMessage communication,
@@ -486,13 +487,24 @@ export class SDKInstance {
     }
   }
 
+  /** Methods the iframe is allowed to invoke via `onCallCommand`. */
+  static #allowedCommands: ReadonlySet<string> = new Set([
+    "setIsLoaded",
+  ]);
+
   /**
    * Executes commands received from the DocSpace iframe by invoking the corresponding SDK method.
+   * Only methods listed in {@link SDKInstance.#allowedCommands} are callable.
    *
    * @param data - The message data containing the command name and parameters.
    */
   #executeCommand(data: TMessageData): void {
     if (!data.commandName) return;
+
+    if (!SDKInstance.#allowedCommands.has(data.commandName)) {
+      console.warn("Blocked iframe command not in allowlist:", data.commandName);
+      return;
+    }
 
     const command = this[data.commandName as keyof this];
 
@@ -552,6 +564,10 @@ export class SDKInstance {
 
     if (mergedConfig.mode === "manager" || mergedConfig.mode === "system") {
       mergedConfig.noLoader = false;
+    }
+
+    if (mergedConfig.mode === SDKMode.Forms && mergedConfig.showMenu === undefined) {
+      mergedConfig.showMenu = true;
     }
 
     return mergedConfig;
@@ -753,6 +769,12 @@ export class SDKInstance {
     } catch {
       this.#expectedOrigin = "";
     }
+
+    for (const [, pending] of this.#pendingUploads) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error("Frame reloaded"));
+    }
+    this.#pendingUploads.clear();
 
     const setupResult = this.#createContainer(this.config.frameId);
 
@@ -1503,8 +1525,23 @@ export class SDKInstance {
    * ```typescript
    * await instance.navigateSection("completed-forms");
    * ```
+   *
+   * @example
+   * Initialize Forms and navigate to the library section.
+   * ```typescript
+   * const forms = sdk.initForms({
+   *   frameId: 'ds-forms',
+   *   src: 'https://docspace.example.com',
+   *   id: 'room-42',
+   * });
+   * await forms.navigateSection("library");
+   * ```
    */
-  navigateSection(section: string): Promise<object> {
+  navigateSection(section: TFormsSection): Promise<object> {
+    if (this.config.mode !== SDKMode.Forms) {
+      throw new Error("navigateSection is only available in Forms mode");
+    }
+
     return this.#getMethodPromise(InstanceMethods.NavigateSection, { section });
   }
 
@@ -1527,22 +1564,47 @@ export class SDKInstance {
    *   },
    * });
    * ```
+   *
+   * @example
+   * Handle the custom action event on the host page.
+   * ```typescript
+   * const forms = sdk.initForms({
+   *   frameId: 'ds-forms',
+   *   src: 'https://docspace.example.com',
+   *   id: 'room-42',
+   *   events: {
+   *     onCustomAction: (data) => console.log('action:', data),
+   *   },
+   * });
+   * await forms.setCustomActions({
+   *   contextMenu: { file: [{ key: "approve", label: "Approve" }] },
+   * });
+   * ```
    */
   setCustomActions(config: TCustomActionsConfig): Promise<object> {
+    if (this.config.mode !== SDKMode.Forms) {
+      throw new Error("setCustomActions is only available in Forms mode");
+    }
+
     return this.#getMethodPromise(InstanceMethods.SetCustomActions, config);
   }
 
   /**
-   * Uploads a PDF form file into the current room.
+   * Uploads a file into the current room.
    * Only works in {@link SDKMode.Forms} mode.
    * The file is transferred to the iframe via zero-copy ArrayBuffer and uploaded
    * using the chunked upload API. The form list refreshes automatically when complete.
    *
-   * @param file - The PDF file to upload.
+   * @param file - The file to upload. Callers should validate type and size before calling.
    * @returns A promise that resolves with upload result from the iframe,
    *   or rejects if the iframe reports an error via `onUploadError`.
    *
    * @remarks
+   * The entire file is read into memory via `arrayBuffer()` before transfer.
+   * Callers should validate file size before invoking this method to avoid
+   * excessive memory usage on the host page. The server-side upload limit
+   * is configured in DocSpace and will reject files that exceed it.
+   *
    * The ArrayBuffer is transferred to the iframe (zero-copy). After `upload()`
    * returns, the buffer is neutered and cannot be reused.
    *
@@ -1552,8 +1614,23 @@ export class SDKInstance {
    * const file = input.files[0];
    * const result = await instance.upload(file);
    * ```
+   *
+   * @example
+   * Upload with error handling.
+   * ```typescript
+   * try {
+   *   await forms.upload(file);
+   *   console.log("Upload complete");
+   * } catch (err) {
+   *   console.error("Upload failed:", err.message);
+   * }
+   * ```
    */
   async upload(file: File): Promise<object> {
+    if (this.config.mode !== SDKMode.Forms) {
+      throw new Error("upload is only available in Forms mode");
+    }
+
     if (!this.#isConnected) {
       this.#handleError({ message: connectErrorText });
       throw new Error(connectErrorText);
@@ -1582,7 +1659,7 @@ export class SDKInstance {
     iframe.contentWindow.postMessage(
       {
         frameId,
-        type: "uploadFileData",
+        type: MessageTypes.UploadFileData,
         fileName: file.name,
         fileSize: file.size,
         lastModified: file.lastModified,
