@@ -490,6 +490,7 @@ export class SDKInstance {
   /** Methods the iframe is allowed to invoke via `onCallCommand`. */
   static #allowedCommands: ReadonlySet<string> = new Set([
     "setIsLoaded",
+    "setConfig",
   ]);
 
   /**
@@ -566,8 +567,11 @@ export class SDKInstance {
       mergedConfig.noLoader = false;
     }
 
-    if (mergedConfig.mode === SDKMode.Forms && mergedConfig.showMenu === undefined) {
-      mergedConfig.showMenu = true;
+    if (mergedConfig.mode === SDKMode.Forms) {
+      if (mergedConfig.showMenu === undefined) {
+        mergedConfig.showMenu = true;
+      }
+      mergedConfig.noLoader = true;
     }
 
     return mergedConfig;

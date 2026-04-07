@@ -267,7 +267,7 @@ export type TFrameEvents = {
   onUploadProgress?: null | ((e?: Event | object | string) => void);
   /** Fired when a custom context menu action is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
   onCustomAction?: null | ((e?: Event | object | string) => void);
-  /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. Receives the new path as a string (e.g. `"/rooms/shared/123"`). */
+  /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. Receives `{ section: string }` with the active {@link TFormsSection} value. */
   onNavigate?: null | ((e?: Event | object | string) => void);
 };
 
