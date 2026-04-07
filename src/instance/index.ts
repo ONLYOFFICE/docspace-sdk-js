@@ -28,6 +28,7 @@ import type {
   TFrameFilter,
   TMessageData,
   TTask,
+  TCustomActionsConfig,
 } from "../types";
 import {
   getCSPErrorBody,
@@ -1423,5 +1424,87 @@ export class SDKInstance {
     void this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
       callback, data
     });
+  }
+
+  /**
+   * Navigates the Forms frame to a specific section.
+   * Only works in {@link SDKMode.Forms} mode.
+   *
+   * @param section - Target section: `"my-forms"`, `"in-progress"`, `"completed-forms"`, `"library"`, or `"settings"`.
+   * @returns A promise that resolves when the navigation is complete.
+   *
+   * @example
+   * ```typescript
+   * await instance.navigateSection("completed-forms");
+   * ```
+   */
+  navigateSection(section: string): Promise<object> {
+    return this.#getMethodPromise(InstanceMethods.NavigateSection, { section });
+  }
+
+  /**
+   * Registers custom context menu actions for files and/or folders.
+   * Only works in {@link SDKMode.Forms} mode.
+   * When a custom action is clicked, {@link TFrameEvents.onCustomAction} fires with the action key and item data.
+   *
+   * @param config - Custom actions configuration. See {@link TCustomActionsConfig}.
+   * @returns A promise that resolves when actions are registered.
+   *
+   * @example
+   * ```typescript
+   * await instance.setCustomActions({
+   *   contextMenu: {
+   *     file: [
+   *       { key: "send-to-crm", label: "Send to CRM", icon: "https://example.com/icon.svg" },
+   *       { key: "export", label: "Export", section: ["completed-forms"] },
+   *     ],
+   *   },
+   * });
+   * ```
+   */
+  setCustomActions(config: TCustomActionsConfig): Promise<object> {
+    return this.#getMethodPromise(InstanceMethods.SetCustomActions, config);
+  }
+
+  /**
+   * Uploads a PDF form file into the current room.
+   * Only works in {@link SDKMode.Forms} mode.
+   * The file is transferred to the iframe via zero-copy ArrayBuffer and uploaded
+   * using the chunked upload API. The form list refreshes automatically when complete.
+   *
+   * @param file - The PDF file to upload.
+   * @returns A promise that resolves with file metadata once the transfer is initiated.
+   *
+   * @example
+   * ```typescript
+   * const input = document.querySelector("input[type=file]");
+   * const file = input.files[0];
+   * await instance.upload(file);
+   * ```
+   */
+  async upload(file: File): Promise<object> {
+    const { frameId, src } = this.config;
+    const iframe = document.getElementById(frameId) as HTMLIFrameElement | null;
+
+    if (!iframe?.contentWindow) {
+      throw new Error("Frame not connected");
+    }
+
+    const buffer = await file.arrayBuffer();
+
+    iframe.contentWindow.postMessage(
+      {
+        frameId,
+        type: "uploadFileData",
+        fileName: file.name,
+        fileSize: file.size,
+        lastModified: file.lastModified,
+        buffer,
+      },
+      src,
+      [buffer],
+    );
+
+    return { fileName: file.name, fileSize: file.size };
   }
 }

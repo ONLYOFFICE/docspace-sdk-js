@@ -186,7 +186,11 @@ export const defaultConfig: TFrameConfig = {
     /** Fired when the editor is opened from the manager (via context menu, hotkeys, etc.). */
     onEditorOpen: null,
     /** Fired when a file row is clicked in the manager file list. */
-    onFileManagerClick: null
+    onFileManagerClick: null,
+    /** Fired when a custom context menu action is clicked in Forms mode. */
+    onCustomAction: null,
+    /** Fired when the user navigates to a different folder or room inside the iframe. */
+    onNavigate: null,
   },
 } as const;
 

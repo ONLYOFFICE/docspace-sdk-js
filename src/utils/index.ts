@@ -253,11 +253,11 @@ export const getFramePath = (config: TFrameConfig) => {
     is_file: config.requestToken ? true : undefined,
     editorGoBack:
       config.events?.onEditorCloseCallback &&
-      typeof config.events.onEditorCloseCallback === "function"
+        typeof config.events.onEditorCloseCallback === "function"
         ? "event"
         : config.editorGoBack
-        ? config.editorGoBack
-        : undefined,
+          ? config.editorGoBack
+          : undefined,
   };
 
   switch (config.mode) {
@@ -274,11 +274,10 @@ export const getFramePath = (config: TFrameConfig) => {
 
       const urlParams = customUrlSearchParams(params!);
 
-      return `${config.rootPath}${
-        config.requestToken
-          ? `?${urlParams}`
-          : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
-      }`;
+      return `${config.rootPath}${config.requestToken
+        ? `?${urlParams}`
+        : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
+        }`;
     }
 
     case SDKMode.RoomSelector: {
@@ -372,6 +371,22 @@ export const getFramePath = (config: TFrameConfig) => {
       const urlParams = customUrlSearchParams(uploaderConfig);
 
       return `/sdk/uploader${urlParams ? `?${urlParams}` : ""}`;
+    }
+
+    case SDKMode.Forms: {
+      const formsConfig = {
+        ...baseFrameOptions,
+        roomId: config.id,
+        libraryId: config.libraryId,
+        showMenu: config.showMenu,
+        providerName: config.providerName,
+        inviteKey: config.inviteKey,
+        emplType: config.emplType,
+      };
+
+      const urlParams = customUrlSearchParams(formsConfig);
+
+      return `/sdk/forms/my-forms${urlParams ? `?${urlParams}` : ""}`;
     }
 
     default:

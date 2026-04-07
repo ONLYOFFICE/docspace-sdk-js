@@ -259,12 +259,16 @@ export type TFrameEvents = {
   onEditorOpen?: null | ((e?: Event | object | string) => void);
   /** Fired when a file row is clicked in the manager file list. */
   onFileManagerClick?: null | ((e?: Event | object | string) => void);
-  /** Fired when a file upload completes successfully. {@link SDKMode.Uploader} mode only. */
+  /** Fired when a file upload completes successfully. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
   onUploadSuccess?: null | ((e?: Event | object | string) => void);
-  /** Fired when a file upload fails. {@link SDKMode.Uploader} mode only. */
+  /** Fired when a file upload fails. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
   onUploadError?: null | ((e?: Event | object | string) => void);
   /** Fired on file upload progress update. {@link SDKMode.Uploader} mode only. */
   onUploadProgress?: null | ((e?: Event | object | string) => void);
+  /** Fired when a custom context menu action is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
+  onCustomAction?: null | ((e?: Event | object | string) => void);
+  /** Fired when the user navigates to a different folder or room inside the iframe. Receives the new path as a string (e.g. `"/rooms/shared/123"`). */
+  onNavigate?: null | ((e?: Event | object | string) => void);
 };
 
 /**
@@ -345,8 +349,14 @@ export type TFrameConfig = {
   showHeader?: boolean;
   /** Header banner visibility. See {@link HeaderBannerDisplaying}. Default: `"none"`. */
   showHeaderBanner?: TBannerDisplaying;
-  /** Show left navigation menu in {@link SDKMode.Manager}. Default: `false`. */
+  /** Show left navigation menu in {@link SDKMode.Manager} and {@link SDKMode.Forms}. Default: `false`. */
   showMenu?: boolean;
+  /** OAuth provider name for automatic authentication in {@link SDKMode.Forms}. E.g. `"nextcloud"`. */
+  providerName?: string;
+  /** Invitation key for signup via OAuth in {@link SDKMode.Forms}. */
+  inviteKey?: string;
+  /** Employee type for signup via OAuth in {@link SDKMode.Forms}. */
+  emplType?: string;
   /** Show "Cancel" button in selector modes. Default: `false`. */
   showSelectorCancel?: boolean;
   /** Show header bar in selector modes. Default: `false`. */
@@ -377,6 +387,8 @@ export type TFrameConfig = {
   withSearch?: boolean;
   /** Show subtitle with folder description in selector modes. Default: `true`. */
   withSubtitle?: boolean;
+  /** Library ID for {@link SDKMode.Forms} to display only items from a forms library. */
+  libraryId?: string;
   /** Link main text in {@link SDKMode.Uploader}. */
   linkMainText?: string;
   /** Secondary description text in {@link SDKMode.Uploader}. */
@@ -456,4 +468,31 @@ export type TTask = {
   methodName: string;
   /** Always `"method"` for method calls. */
   type: string;
+};
+
+/**
+ * A custom context menu action registered via {@link SDKInstance.setCustomActions}.
+ * Displayed in the file/folder context menu in {@link SDKMode.Forms}.
+ */
+export type TCustomContextMenuAction = {
+  /** Unique action identifier. Returned in {@link TFrameEvents.onCustomAction}. */
+  key: string;
+  /** Display label in the context menu. */
+  label: string;
+  /** URL of the action icon. Optional. */
+  icon?: string;
+  /** Sections where this action is visible. If omitted, shown in all sections. Values: `"my-forms"`, `"in-progress"`, `"completed-forms"`. */
+  section?: string[];
+};
+
+/**
+ * Configuration for custom context menu actions, passed to {@link SDKInstance.setCustomActions}.
+ */
+export type TCustomActionsConfig = {
+  contextMenu?: {
+    /** Custom actions for file context menus. */
+    file?: TCustomContextMenuAction[];
+    /** Custom actions for folder context menus. */
+    folder?: TCustomContextMenuAction[];
+  };
 };

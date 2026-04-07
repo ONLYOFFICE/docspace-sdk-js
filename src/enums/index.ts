@@ -47,6 +47,8 @@ export enum SDKMode {
   PublicRoom = "public-room",
   /** File upload interface. Uploads files to the folder specified by `id`. */
   Uploader = "uploader",
+  /** Forms gallery. Displays forms for a room specified by `id`. Supports `showMenu` to toggle the side panel. */
+  Forms = "forms",
 }
 
 /**
@@ -231,6 +233,10 @@ export const enum InstanceMethods {
   SetListView = "setListView",
   /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a callback inside the editor context. */
   ExecuteInEditor = "executeInEditor",
+  /** Calls `SDKInstance.navigateSection(section)`. Navigates Forms to a specific section. */
+  NavigateSection = "navigateSection",
+  /** Calls `SDKInstance.setCustomActions(config)`. Registers custom context menu actions. */
+  SetCustomActions = "setCustomActions",
 }
 
 /**

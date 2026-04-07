@@ -299,4 +299,34 @@ export class SDK {
    */
   initUploader = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Uploader });
+
+  /**
+   * Initializes a frame in {@link SDKMode.Forms} mode — a forms gallery for the room specified by `id`.
+   * Forces `mode` to {@link SDKMode.Forms}. Sets `showMenu` to `true` by default.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const forms = sdk.initForms({
+   *   frameId: 'ds-forms',
+   *   src: 'https://docspace.example.com',
+   *   id: 'room-id',
+   *   showMenu: true,
+   *   events: {
+   *     onCustomAction: (data) => console.log('action:', data),
+   *   },
+   * });
+   * ```
+   */
+  initForms = (config: TFrameConfig) =>
+    this.init({
+      ...config,
+      mode: SDKMode.Forms,
+      showMenu: config.showMenu ?? true,
+    });
 }
