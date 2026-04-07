@@ -270,6 +270,7 @@ describe("message handling", () => {
   const dispatchMessage = (data: object) => {
     const event = new MessageEvent("message", {
       data: JSON.stringify(data),
+      origin: BASE_SRC,
     });
     window.dispatchEvent(event);
   };
@@ -360,6 +361,132 @@ describe("message handling", () => {
     window.dispatchEvent(event);
 
     expect(onAppReady).not.toHaveBeenCalled();
+  });
+
+  test("ignores messages from a different origin", () => {
+    const onAppReady = vi.fn();
+    initConnectedInstance({
+      events: { ...defaultConfig.events, onAppReady },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onEventReturn",
+          commandName: "",
+          eventReturnData: { event: "onAppReady", data: {} },
+        }),
+        origin: "https://evil.example.com",
+      }),
+    );
+
+    expect(onAppReady).not.toHaveBeenCalled();
+  });
+
+  test("ignores messages with empty origin", () => {
+    const onAppReady = vi.fn();
+    initConnectedInstance({
+      events: { ...defaultConfig.events, onAppReady },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onEventReturn",
+          commandName: "",
+          eventReturnData: { event: "onAppReady", data: {} },
+        }),
+        origin: "",
+      }),
+    );
+
+    expect(onAppReady).not.toHaveBeenCalled();
+  });
+
+  test("accepts messages when src has a path (origin still matches)", () => {
+    const onAppReady = vi.fn();
+    initConnectedInstance({
+      src: "https://docspace.example.com/portal/room",
+      events: { ...defaultConfig.events, onAppReady },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onEventReturn",
+          commandName: "",
+          eventReturnData: { event: "onAppReady", data: { ok: true } },
+        }),
+        origin: "https://docspace.example.com",
+      }),
+    );
+
+    expect(onAppReady).toHaveBeenCalledWith({ ok: true });
+  });
+
+  test("accepts messages when src has a trailing slash", () => {
+    const onAppReady = vi.fn();
+    initConnectedInstance({
+      src: "https://docspace.example.com/",
+      events: { ...defaultConfig.events, onAppReady },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onEventReturn",
+          commandName: "",
+          eventReturnData: { event: "onAppReady", data: { ok: true } },
+        }),
+        origin: "https://docspace.example.com",
+      }),
+    );
+
+    expect(onAppReady).toHaveBeenCalledWith({ ok: true });
+  });
+
+  test("accepts messages with non-default port", () => {
+    const onAppReady = vi.fn();
+    initConnectedInstance({
+      src: "http://localhost:8080",
+      events: { ...defaultConfig.events, onAppReady },
+    });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onEventReturn",
+          commandName: "",
+          eventReturnData: { event: "onAppReady", data: { ok: true } },
+        }),
+        origin: "http://localhost:8080",
+      }),
+    );
+
+    expect(onAppReady).toHaveBeenCalledWith({ ok: true });
+  });
+
+  test("blocks onCallCommand from wrong origin (prevents remote method execution)", () => {
+    const { inst } = initConnectedInstance();
+    const spy = vi.spyOn(inst, "setIsLoaded");
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onCallCommand",
+          commandName: "setIsLoaded",
+        }),
+        origin: "https://attacker.example.com",
+      }),
+    );
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 

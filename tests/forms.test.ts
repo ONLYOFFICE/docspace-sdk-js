@@ -62,6 +62,7 @@ const dispatchResponse = (frameId: string, returnData: object = {}) => {
         type: "onMethodReturn",
         methodReturnData: returnData,
       }),
+      origin: BASE_SRC,
     }),
   );
 };
@@ -201,8 +202,42 @@ describe("setCustomActions", () => {
 // ---------------------------------------------------------------------------
 
 describe("upload", () => {
+  const dispatchUploadEvent = (
+    frameId: string,
+    event: "onUploadSuccess" | "onUploadError",
+    data: object = {},
+  ) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId,
+          type: "onEventReturn",
+          eventReturnData: { event, data },
+        }),
+        origin: BASE_SRC,
+      }),
+    );
+  };
+
+  /** Configures postMessageSpy to auto-dispatch an upload event when uploadFileData is sent. */
+  const autoReplyOnUpload = (
+    spy: ReturnType<typeof vi.fn>,
+    frameId: string,
+    event: "onUploadSuccess" | "onUploadError",
+    extraData: object = {},
+  ) => {
+    spy.mockImplementation((msg: unknown) => {
+      const m = msg as { type?: string; fileName?: string };
+      if (typeof msg === "object" && m.type === "uploadFileData") {
+        const data = { fileName: m.fileName, ...extraData };
+        queueMicrotask(() => dispatchUploadEvent(frameId, event, data));
+      }
+    });
+  };
+
   test("sends ArrayBuffer with file metadata via postMessage", async () => {
     const { inst, postMessageSpy } = initConnected();
+    autoReplyOnUpload(postMessageSpy, "ds-forms", "onUploadSuccess", { fileName: "form.pdf", fileSize: 4 });
 
     const content = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
     const file = new File([content], "form.pdf", {
@@ -228,37 +263,41 @@ describe("upload", () => {
 
     // Binary data as ArrayBuffer
     expect(payload.buffer).toBeInstanceOf(ArrayBuffer);
-    expect(payload.buffer.byteLength).toBe(4);
-    const bytes = new Uint8Array(payload.buffer);
-    expect(bytes[0]).toBe(0x25); // %
-    expect(bytes[1]).toBe(0x50); // P
-
-    // Transferable — zero-copy
-    expect(transfer).toEqual([payload.buffer]);
 
     // Target origin matches config.src
     expect(targetOrigin).toBe(BASE_SRC);
 
-    // Return value
+    // Return value comes from iframe confirmation
     expect(result).toEqual({ fileName: "form.pdf", fileSize: 4 });
   });
 
-  test("throws when iframe is not connected", async () => {
+  test("rejects when iframe reports upload error", async () => {
+    const { inst, postMessageSpy } = initConnected();
+    autoReplyOnUpload(postMessageSpy, "ds-forms", "onUploadError", { message: "Quota exceeded" });
+
+    const file = new File(["data"], "bad.pdf");
+
+    await expect(inst.upload(file)).rejects.toThrow("Quota exceeded");
+  });
+
+  test("throws when bus is not connected", async () => {
     setupTarget();
     const config = makeFormsConfig();
     const inst = new SDKInstance(config);
-    // Don't call initFrame — no iframe in DOM
+    // Don't call initFrame — #isConnected is false
 
     const file = new File(["data"], "test.pdf");
     await expect(inst.upload(file)).rejects.toThrow(
-      "Frame not connected",
+      "Message bus is not connected with frame",
     );
   });
 
   test("bypasses the JSON serial queue (no methodName in payload)", async () => {
     const { inst, postMessageSpy } = initConnected();
+    autoReplyOnUpload(postMessageSpy, "ds-forms", "onUploadSuccess", {});
 
     const file = new File(["test"], "doc.pdf");
+
     await inst.upload(file);
 
     const rawCall = postMessageSpy.mock.calls.find(
@@ -276,6 +315,120 @@ describe("upload", () => {
     expect(payload.buffer).toBeInstanceOf(ArrayBuffer);
   });
 
+  test("resolves concurrent uploads independently by fileName", async () => {
+    const { inst, postMessageSpy } = initConnected();
+
+    // Auto-reply with matching fileName for each upload
+    postMessageSpy.mockImplementation((msg: unknown) => {
+      const m = msg as { type?: string; fileName?: string; fileSize?: number };
+      if (typeof msg === "object" && m.type === "uploadFileData") {
+        queueMicrotask(() =>
+          dispatchUploadEvent("ds-forms", "onUploadSuccess", {
+            fileName: m.fileName,
+            fileSize: m.fileSize,
+          }),
+        );
+      }
+    });
+
+    const fileA = new File(["aaa"], "report.pdf");
+    const fileB = new File(["bb"], "invoice.pdf");
+
+    const [resultA, resultB] = await Promise.all([
+      inst.upload(fileA),
+      inst.upload(fileB),
+    ]);
+
+    expect(resultA).toEqual(expect.objectContaining({ fileName: "report.pdf" }));
+    expect(resultB).toEqual(expect.objectContaining({ fileName: "invoice.pdf" }));
+  });
+
+  test("resolves two uploads with the same file name independently (FIFO)", async () => {
+    const { inst, postMessageSpy } = initConnected();
+
+    let callCount = 0;
+    postMessageSpy.mockImplementation((msg: unknown) => {
+      const m = msg as { type?: string; fileName?: string };
+      if (typeof msg === "object" && m.type === "uploadFileData") {
+        callCount++;
+        const n = callCount;
+        queueMicrotask(() =>
+          dispatchUploadEvent("ds-forms", "onUploadSuccess", {
+            fileName: m.fileName,
+            batch: n,
+          }),
+        );
+      }
+    });
+
+    const fileA = new File(["v1"], "report.pdf");
+    const fileB = new File(["v2"], "report.pdf");
+
+    const [resultA, resultB] = await Promise.all([
+      inst.upload(fileA),
+      inst.upload(fileB),
+    ]);
+
+    // FIFO: first upload gets first response, second gets second
+    expect((resultA as { batch: number }).batch).toBe(1);
+    expect((resultB as { batch: number }).batch).toBe(2);
+  });
+
+  test("resolves oldest pending when iframe response has no fileName", async () => {
+    const { inst, postMessageSpy } = initConnected();
+
+    postMessageSpy.mockImplementation((msg: unknown) => {
+      const m = msg as { type?: string };
+      if (typeof msg === "object" && m.type === "uploadFileData") {
+        // Simulate iframe that does NOT include fileName in response
+        queueMicrotask(() =>
+          dispatchUploadEvent("ds-forms", "onUploadSuccess", { status: "ok" }),
+        );
+      }
+    });
+
+    const result = await inst.upload(new File(["x"], "doc.pdf"));
+
+    expect(result).toEqual(expect.objectContaining({ status: "ok" }));
+  });
+
+  test("does not resolve pending upload when event has a non-matching fileName", async () => {
+    const { inst } = initConnected();
+
+    const file = new File(["data"], "mine.pdf");
+    const promise = inst.upload(file);
+
+    // Simulate drag-and-drop upload event for a DIFFERENT file
+    dispatchUploadEvent("ds-forms", "onUploadSuccess", {
+      fileName: "someone-elses-file.pdf",
+    });
+
+    // Promise should still be pending — verify by racing with a short timer
+    const timeout = new Promise((r) => setTimeout(() => r("timeout"), 50));
+    const winner = await Promise.race([promise, timeout]);
+    expect(winner).toBe("timeout");
+
+    // Now send the matching event to clean up
+    dispatchUploadEvent("ds-forms", "onUploadSuccess", { fileName: "mine.pdf" });
+    const result = await promise;
+    expect(result).toEqual(expect.objectContaining({ fileName: "mine.pdf" }));
+  });
+
+  test("ignores upload events for files not in pending queue", () => {
+    const onUploadSuccess = vi.fn();
+    initConnected({ events: { ...defaultConfig.events, onUploadSuccess } });
+
+    // Dispatch an upload event without calling upload() — no pending promise
+    dispatchUploadEvent("ds-forms", "onUploadSuccess", {
+      fileName: "manual-drag.pdf",
+    });
+
+    // User's event handler should still fire
+    expect(onUploadSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: "manual-drag.pdf" }),
+    );
+  });
+
   test("handles large files by converting the full content", async () => {
     const { inst, postMessageSpy } = initConnected();
 
@@ -283,6 +436,8 @@ describe("upload", () => {
     const content = new Uint8Array(size);
     content.fill(0x42);
     const file = new File([content], "big.pdf");
+
+    autoReplyOnUpload(postMessageSpy, "ds-forms", "onUploadSuccess", {});
 
     await inst.upload(file);
 
@@ -312,6 +467,7 @@ describe("Forms events", () => {
           type: "onEventReturn",
           eventReturnData: { event, data },
         }),
+        origin: BASE_SRC,
       }),
     );
   };

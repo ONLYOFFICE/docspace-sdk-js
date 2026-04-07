@@ -63,6 +63,14 @@ export class SDKInstance {
   #callbacks: ((data: object) => void)[] = [];
   #tasks: TTask[] = [];
   #classNames: string = "";
+  #expectedOrigin: string = "";
+  #uploadIdCounter: number = 0;
+  #pendingUploads: Map<number, {
+    fileName: string;
+    resolve: (data: object) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }> = new Map();
   /** The iframe configuration options. */
   config: TFrameConfig;
 
@@ -335,6 +343,8 @@ export class SDKInstance {
     try {
       if (typeof e.data !== "string") return;
 
+      if (!this.#expectedOrigin || e.origin !== this.#expectedOrigin) return;
+
       const data = this.#parseMessageData(e.data);
 
       if (data.frameId !== this.config.frameId) return;
@@ -429,6 +439,42 @@ export class SDKInstance {
     if (!eventData?.event) return;
 
     const eventName = eventData.event as keyof TFrameEvents;
+
+    if (
+      this.#pendingUploads.size > 0 &&
+      (eventName === "onUploadSuccess" || eventName === "onUploadError")
+    ) {
+      const payload = eventData.data as { fileName?: string; message?: string } | undefined;
+      const fileName = payload?.fileName;
+
+      let matchedId: number | undefined;
+
+      if (fileName) {
+        // Match by fileName — exact match only, skip if no pending entry has this name.
+        for (const [id, entry] of this.#pendingUploads) {
+          if (entry.fileName === fileName) {
+            matchedId = id;
+            break;
+          }
+        }
+      } else if (this.#pendingUploads.size > 0) {
+        // No fileName in payload — resolve the oldest pending upload (FIFO).
+        matchedId = this.#pendingUploads.keys().next().value;
+      }
+
+      if (matchedId !== undefined) {
+        const pending = this.#pendingUploads.get(matchedId)!;
+        clearTimeout(pending.timer);
+        this.#pendingUploads.delete(matchedId);
+
+        if (eventName === "onUploadSuccess") {
+          pending.resolve(eventData.data || {});
+        } else {
+          pending.reject(new Error(payload?.message || "Upload failed"));
+        }
+      }
+    }
+
     const handler = this.config.events?.[eventName];
 
     if (typeof handler === "function") {
@@ -702,6 +748,12 @@ export class SDKInstance {
   initFrame(config: TFrameConfig): HTMLIFrameElement | null {
     this.config = this.#prepareFrameConfig(config);
 
+    try {
+      this.#expectedOrigin = new URL(this.config.src).origin;
+    } catch {
+      this.#expectedOrigin = "";
+    }
+
     const setupResult = this.#createContainer(this.config.frameId);
 
     if (!setupResult) return null;
@@ -769,6 +821,12 @@ export class SDKInstance {
     this.#callbacks = [];
     this.#tasks = [];
 
+    for (const [, pending] of this.#pendingUploads) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error("Frame destroyed"));
+    }
+    this.#pendingUploads.clear();
+
     const sdkFrames = window.DocSpace?.SDK?.frames;
     if (sdkFrames && frameId in sdkFrames) {
       delete sdkFrames[frameId];
@@ -825,6 +883,14 @@ export class SDKInstance {
     reload: boolean = false
   ): Promise<object> {
     this.config = { ...this.config, ...config };
+
+    if (config.src) {
+      try {
+        this.#expectedOrigin = new URL(this.config.src).origin;
+      } catch {
+        this.#expectedOrigin = "";
+      }
+    }
 
     return this.#getMethodPromise(InstanceMethods.SetConfig, this.config, reload);
   }
@@ -1473,16 +1539,26 @@ export class SDKInstance {
    * using the chunked upload API. The form list refreshes automatically when complete.
    *
    * @param file - The PDF file to upload.
-   * @returns A promise that resolves with file metadata once the transfer is initiated.
+   * @returns A promise that resolves with upload result from the iframe,
+   *   or rejects if the iframe reports an error via `onUploadError`.
+   *
+   * @remarks
+   * The ArrayBuffer is transferred to the iframe (zero-copy). After `upload()`
+   * returns, the buffer is neutered and cannot be reused.
    *
    * @example
    * ```typescript
    * const input = document.querySelector("input[type=file]");
    * const file = input.files[0];
-   * await instance.upload(file);
+   * const result = await instance.upload(file);
    * ```
    */
   async upload(file: File): Promise<object> {
+    if (!this.#isConnected) {
+      this.#handleError({ message: connectErrorText });
+      throw new Error(connectErrorText);
+    }
+
     const { frameId, src } = this.config;
     const iframe = document.getElementById(frameId) as HTMLIFrameElement | null;
 
@@ -1491,6 +1567,17 @@ export class SDKInstance {
     }
 
     const buffer = await file.arrayBuffer();
+
+    const uploadId = ++this.#uploadIdCounter;
+
+    const uploadPromise = new Promise<object>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.#pendingUploads.delete(uploadId);
+        reject(new Error(`Upload timed out: ${file.name}`));
+      }, 120_000);
+
+      this.#pendingUploads.set(uploadId, { fileName: file.name, resolve, reject, timer });
+    });
 
     iframe.contentWindow.postMessage(
       {
@@ -1505,6 +1592,6 @@ export class SDKInstance {
       [buffer],
     );
 
-    return { fileName: file.name, fileSize: file.size };
+    return uploadPromise;
   }
 }
