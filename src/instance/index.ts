@@ -330,7 +330,7 @@ export class SDKInstance {
       this.#iframe.contentWindow.postMessage(
         JSON.stringify(messageEnvelope, (_, value) => {
           if (typeof value !== "function") return value;
-          return isEditorExec ? value.toString() : undefined;
+          return isEditorExec ? value.toString() : true;
         }),
         src
       );
@@ -478,7 +478,7 @@ export class SDKInstance {
       entry.reject(new Error("Method call timed out"));
       this.#handleError({ message: "Method call timed out" });
       this.#drainNextTask();
-    }, 30000);
+    }, this.config.methodTimeout || 30000);
   }
 
   /**
@@ -910,7 +910,7 @@ export class SDKInstance {
     const replacementDiv = document.createElement("div");
     replacementDiv.id = frameId;
     replacementDiv.className = this.#classNames;
-    replacementDiv.textContent = this.config.destroyText || "";
+    replacementDiv.innerHTML = this.config.destroyText || "";
 
     if (containerElement) {
       if (containerElement.parentNode) {
@@ -973,7 +973,7 @@ export class SDKInstance {
     params: object | null = null,
     withReload: boolean = false
   ): Promise<object> => {
-    return new Promise((resolve, reject) => {
+    const promise = new Promise<object>((resolve, reject) => {
       if (withReload) {
         this.initFrame(this.config);
         resolve(this.config);
@@ -981,6 +981,12 @@ export class SDKInstance {
         this.#executeMethod(methodName, params, resolve, reject);
       }
     });
+
+    // Prevent unhandled rejection for integrators without .catch().
+    // Errors are still reported via onAppError.
+    promise.catch(() => {});
+
+    return promise;
   };
 
   /**

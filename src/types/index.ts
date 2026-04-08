@@ -305,6 +305,8 @@ export type TFrameConfig = {
   checkCSP?: boolean;
   /** HTML string inserted into the placeholder `div` after {@link SDKInstance.destroyFrame}. Default: `""`. */
   destroyText?: string;
+  /** Timeout in milliseconds for method calls to the iframe. If the iframe does not respond within this time, the call fails and {@link TFrameEvents.onAppError} fires. Default: `30000` (30 seconds). */
+  methodTimeout?: number;
   /** Hide the "Actions" button in {@link SDKMode.Manager}. Default: `false`. */
   disableActionButton?: boolean;
   /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly. Default: `false`. */
