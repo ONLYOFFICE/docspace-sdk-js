@@ -249,9 +249,11 @@ describe("executeMethod before connection", () => {
     const inst = new SDKInstance(config);
     inst.initFrame(config);
 
-    inst.getFiles();
+    const promise = inst.getFiles();
 
     expect(onAppError).toHaveBeenCalledWith("Message bus is not connected with frame");
+
+    return expect(promise).rejects.toThrow("Message bus is not connected with frame");
   });
 });
 

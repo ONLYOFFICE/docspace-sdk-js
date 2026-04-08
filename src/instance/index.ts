@@ -61,10 +61,15 @@ import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
  */
 export class SDKInstance {
   #isConnected: boolean = false;
-  #callbacks: ((data: object) => void)[] = [];
+  #callbacks: {
+    resolve: (data: object) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout> | null;
+  }[] = [];
   #tasks: TTask[] = [];
   #classNames: string = "";
   #expectedOrigin: string = "";
+  #iframe: HTMLIFrameElement | null = null;
   #uploadIdCounter: number = 0;
   #pendingUploads: Map<number, {
     fileName: string;
@@ -308,15 +313,11 @@ export class SDKInstance {
    *
    * @param message - The message object to send to the iframe.
    */
-  #sendMessage = (message: TTask) => {
+  #sendMessage = (message: TTask): boolean => {
     try {
       const { frameId, src } = this.config;
 
-      const iframe = document.getElementById(
-        frameId
-      ) as HTMLIFrameElement | null;
-
-      if (!iframe?.contentWindow) return;
+      if (!this.#iframe?.contentWindow) return false;
 
       const messageEnvelope = {
         frameId,
@@ -324,14 +325,20 @@ export class SDKInstance {
         data: message,
       };
 
-      iframe.contentWindow.postMessage(
-        JSON.stringify(messageEnvelope, (_, value) =>
-          typeof value === "function" ? value.toString() : value
-        ),
+      const isEditorExec = message.methodName === InstanceMethods.ExecuteInEditor;
+
+      this.#iframe.contentWindow.postMessage(
+        JSON.stringify(messageEnvelope, (_, value) => {
+          if (typeof value !== "function") return value;
+          return isEditorExec ? value.toString() : undefined;
+        }),
         src
       );
+
+      return true;
     } catch (error) {
       this.#handleError(error as { message: "Failed to send message" });
+      return false;
     }
   };
 
@@ -348,7 +355,16 @@ export class SDKInstance {
 
       const data = this.#parseMessageData(e.data);
 
+      if (data.frameId === "error" && data.error) {
+        this.#handleError(data.error);
+        return;
+      }
+
       if (data.frameId !== this.config.frameId) return;
+
+      if (!this.#isConnected) {
+        this.#isConnected = true;
+      }
 
       switch (data.type) {
         case MessageTypes.OnMethodReturn:
@@ -416,19 +432,71 @@ export class SDKInstance {
    * @param data - The message data containing the method response.
    */
   #handleMethodResponse(data: TMessageData) {
-    const callback = this.#callbacks.shift();
+    const entry = this.#callbacks.shift();
 
-    if (callback) {
+    if (entry) {
+      if (entry.timer) clearTimeout(entry.timer);
       try {
-        callback(data.methodReturnData || {});
+        entry.resolve(data.methodReturnData || {});
       } catch (error) {
         console.error("Error in callback execution:", error);
       }
     }
 
-    if (this.#tasks.length > 0) {
-      this.#sendMessage(this.#tasks.shift()!);
+    this.#drainNextTask();
+  }
+
+  /**
+   * Sends the next queued task and starts its timeout timer.
+   * @internal
+   */
+  #drainNextTask(): void {
+    if (this.#tasks.length === 0 || this.#callbacks.length === 0) return;
+
+    const nextTask = this.#tasks.shift()!;
+    const nextEntry = this.#callbacks[0];
+
+    if (nextEntry) {
+      nextEntry.timer = this.#createMethodTimer(nextEntry);
     }
+
+    if (!this.#sendMessage(nextTask)) {
+      this.#rejectAllPending("Frame disconnected");
+    }
+  }
+
+  /**
+   * Creates a timeout timer for an in-flight method call.
+   * @internal
+   */
+  #createMethodTimer(
+    entry: { resolve: (data: object) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> | null }
+  ): ReturnType<typeof setTimeout> {
+    return setTimeout(() => {
+      const idx = this.#callbacks.indexOf(entry);
+      if (idx !== -1) this.#callbacks.splice(idx, 1);
+      entry.reject(new Error("Method call timed out"));
+      this.#handleError({ message: "Method call timed out" });
+      this.#drainNextTask();
+    }, 30000);
+  }
+
+  /**
+   * Rejects all pending method callbacks and clears the queue.
+   * @internal
+   */
+  #rejectAllPending(reason: string): void {
+    const entries = [...this.#callbacks];
+    this.#callbacks = [];
+    this.#tasks = [];
+
+    for (const entry of entries) {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(new Error(reason));
+    }
+
+    this.#isConnected = false;
+    this.#handleError({ message: reason });
   }
 
   /**
@@ -537,20 +605,29 @@ export class SDKInstance {
   #executeMethod(
     methodName: string,
     params: object | null,
-    callback: (data: object) => void
+    resolve: (data: object) => void,
+    reject: (error: Error) => void
   ): void {
     if (!this.#isConnected && methodName !== InstanceMethods.SetConfig) {
       this.#handleError({ message: connectErrorText });
+      reject(new Error(connectErrorText));
       return;
     }
 
-    this.#callbacks.push(callback);
+    const entry = { resolve, reject, timer: null as ReturnType<typeof setTimeout> | null };
+    this.#callbacks.push(entry);
     const message = { type: "method", methodName, data: params };
 
     if (this.#callbacks.length > 1) {
       this.#tasks.push(message);
     } else {
-      this.#sendMessage(message);
+      entry.timer = this.#createMethodTimer(entry);
+      if (!this.#sendMessage(message)) {
+        this.#callbacks.pop();
+        if (entry.timer) clearTimeout(entry.timer);
+        this.#handleError({ message: connectErrorText });
+        reject(new Error(connectErrorText));
+      }
     }
   }
 
@@ -776,6 +853,15 @@ export class SDKInstance {
       this.#expectedOrigin = "";
     }
 
+    this.#isConnected = false;
+
+    for (const entry of this.#callbacks) {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(new Error("Frame reloaded"));
+    }
+    this.#callbacks = [];
+    this.#tasks = [];
+
     for (const [, pending] of this.#pendingUploads) {
       clearTimeout(pending.timer);
       pending.reject(new Error("Frame reloaded"));
@@ -790,6 +876,7 @@ export class SDKInstance {
 
     const iframe = this.#setupIframe();
 
+    this.#iframe = iframe;
     this.#setupFrameEventHandlers(iframe);
     this.#assembleFrame(container, target, iframe);
     this.#registerFrame();
@@ -823,7 +910,7 @@ export class SDKInstance {
     const replacementDiv = document.createElement("div");
     replacementDiv.id = frameId;
     replacementDiv.className = this.#classNames;
-    replacementDiv.innerHTML = this.config.destroyText || "";
+    replacementDiv.textContent = this.config.destroyText || "";
 
     if (containerElement) {
       if (containerElement.parentNode) {
@@ -844,8 +931,21 @@ export class SDKInstance {
     }
 
     window.removeEventListener("message", this.#onMessage);
+    this.#iframe = null;
+
+    const loaderClassName = `${frameId}-loader__element`;
+    const styleEl = SDKInstance._loaderCache.style.get(loaderClassName);
+    if (styleEl?.parentNode) {
+      styleEl.parentNode.removeChild(styleEl);
+    }
+    SDKInstance._loaderCache.style.delete(loaderClassName);
 
     this.#isConnected = false;
+
+    for (const entry of this.#callbacks) {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(new Error("Frame destroyed"));
+    }
     this.#callbacks = [];
     this.#tasks = [];
 
@@ -873,12 +973,12 @@ export class SDKInstance {
     params: object | null = null,
     withReload: boolean = false
   ): Promise<object> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (withReload) {
         this.initFrame(this.config);
         resolve(this.config);
       } else {
-        this.#executeMethod(methodName, params, (data) => resolve(data));
+        this.#executeMethod(methodName, params, resolve, reject);
       }
     });
   };
@@ -942,7 +1042,7 @@ export class SDKInstance {
    * ```
    */
   getConfig(): TFrameConfig {
-    return this.config;
+    return { ...this.config };
   }
 
   /**
@@ -1643,9 +1743,8 @@ export class SDKInstance {
     }
 
     const { frameId, src } = this.config;
-    const iframe = document.getElementById(frameId) as HTMLIFrameElement | null;
 
-    if (!iframe?.contentWindow) {
+    if (!this.#iframe?.contentWindow) {
       throw new Error("Frame not connected");
     }
 
@@ -1657,12 +1756,12 @@ export class SDKInstance {
       const timer = setTimeout(() => {
         this.#pendingUploads.delete(uploadId);
         reject(new Error(`Upload timed out: ${file.name}`));
-      }, 120_000);
+      }, 120000);
 
       this.#pendingUploads.set(uploadId, { fileName: file.name, resolve, reject, timer });
     });
 
-    iframe.contentWindow.postMessage(
+    this.#iframe!.contentWindow!.postMessage(
       {
         frameId,
         type: MessageTypes.UploadFileData,
