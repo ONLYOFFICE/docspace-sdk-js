@@ -97,11 +97,13 @@ describe("getFramePath — Forms mode", () => {
         providerName: "google",
         inviteKey: "abc",
         emplType: "user",
+        uid: "user-123",
       }),
     );
     expect(path).toContain("providerName=google");
     expect(path).toContain("inviteKey=abc");
     expect(path).toContain("emplType=user");
+    expect(path).toContain("uid=user-123");
   });
 
   test("includes showMenu param", () => {

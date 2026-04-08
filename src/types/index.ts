@@ -359,6 +359,8 @@ export type TFrameConfig = {
   inviteKey?: string;
   /** Employee type for signup via OAuth in {@link SDKMode.Forms}. */
   emplType?: string;
+  /** User identifier for {@link SDKMode.Forms}. */
+  uid?: string;
   /** Show "Cancel" button in selector modes. Default: `false`. */
   showSelectorCancel?: boolean;
   /** Show header bar in selector modes. Default: `false`. */

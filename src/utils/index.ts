@@ -390,6 +390,7 @@ export const getFramePath = (config: TFrameConfig) => {
         providerName: config.providerName,
         inviteKey: config.inviteKey,
         emplType: config.emplType,
+        uid: config.uid,
       };
 
       const urlParams = customUrlSearchParams(formsConfig);
