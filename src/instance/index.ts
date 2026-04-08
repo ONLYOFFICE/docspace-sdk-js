@@ -665,8 +665,10 @@ export class SDKInstance {
    * @param iframe - The `HTMLIFrameElement` to attach event handlers.
    */
   #setupFrameEventHandlers(iframe: HTMLIFrameElement): void {
+    window.removeEventListener("message", this.#onMessage);
+    window.addEventListener("message", this.#onMessage, false);
+
     const handleFrameLoad = () => {
-      window.addEventListener("message", this.#onMessage, false);
       this.#isConnected = true;
 
       if (this.config.noLoader) {
