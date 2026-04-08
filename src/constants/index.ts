@@ -209,6 +209,6 @@ export const cspErrorText =
 
 /**
  * Error message passed to {@link TFrameEvents.onAppError} when a method is called
- * before the iframe `load` event fires (i.e. before the postMessage channel is established).
+ * before the postMessage channel is established (i.e. before the first valid message from the iframe).
  */
 export const connectErrorText = "Message bus is not connected with frame" as const;

@@ -19,11 +19,11 @@ npx vitest run tests/utils.test.ts  # Run single test file
 
 ## Architecture
 
-**SDK** (`src/sdk/`) — factory and registry of instances. `frames: Record<string, SDKInstance>`. Every `init*` method (initManager, initEditor, initViewer, initRoomSelector, initFileSelector, initSystem, initUploader) is a thin wrapper over `init()` that forces `mode`. Reuses existing instance if `frameId` matches.
+**SDK** (`src/sdk/`) — factory and registry of instances. `frames: Record<string, SDKInstance>`. Every `init*` method (initManager, initEditor, initViewer, initRoomSelector, initFileSelector, initSystem, initUploader, initForms) is a thin wrapper over `init()` that forces `mode`. Reuses existing instance if `frameId` matches.
 
-**SDKInstance** (`src/instance/`) — manages one iframe. Creates DOM elements, handles postMessage protocol with serial callback queue (`#callbacks`/`#tasks`), exposes public methods that proxy calls into the iframe (getFiles, getUserInfo, login, createRoom, setConfig, etc.). Config merge order: `defaultConfig` → stored config → user config.
+**SDKInstance** (`src/instance/`) — manages one iframe. Creates DOM elements, handles postMessage protocol with callback queue (`#callbacks`/`#tasks`), exposes public methods that proxy calls into the iframe (getFiles, getUserInfo, login, createRoom, setConfig, navigateSection, upload, etc.). Config merge order: `defaultConfig` → stored config → user config. Each callback stores `{resolve, reject, timer}` — methods have a configurable timeout (`methodTimeout`, default 30 s). Cached iframe reference in `#iframe`.
 
-**postMessage protocol** — all messages flow iframe → host. Four types in `MessageTypes`: `onMethodReturn` (resolves promise), `onEventReturn` (fires event handler), `onCallCommand` (iframe asks host to call a method), `error` (fires onAppError).
+**postMessage protocol** — all messages flow iframe → host. Five types in `MessageTypes`: `onMethodReturn` (resolves promise), `onEventReturn` (fires event handler), `onCallCommand` (iframe asks host to call a method), `error` (fires onAppError), `uploadFileData` (host → iframe binary transfer for file uploads).
 
 ### Key modules
 
