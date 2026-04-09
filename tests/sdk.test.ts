@@ -63,6 +63,7 @@ describe("SDK class wrappers", () => {
     ["initSystem", SDKMode.System],
     ["initUploader", SDKMode.Uploader],
     ["initForms", SDKMode.Forms],
+    ["initChat", SDKMode.Chat],
   ])("%s sets mode to %s and calls initFrame", (methodName, mode) => {
     const instance = setMockReturn(mockInstanceFactory());
     const result = (sdk as any)[methodName]({ ...baseConfig, mode: "WRONG" });

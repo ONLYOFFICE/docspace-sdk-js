@@ -221,6 +221,7 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
  * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
  * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
+ * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `fileId`, `chatId`, `providerName` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
  * @param config - The frame configuration. At minimum, {@link TFrameConfig.mode} must be set.
@@ -396,6 +397,23 @@ export const getFramePath = (config: TFrameConfig) => {
       const urlParams = customUrlSearchParams(formsConfig);
 
       return `/sdk/forms/my-forms${urlParams ? `?${urlParams}` : ""}`;
+    }
+
+    case SDKMode.Chat: {
+      const chatConfig = {
+        ...baseFrameOptions,
+        agentId: config.agentId,
+        fileId: config.fileId || undefined,
+        chatId: config.chatId || undefined,
+        providerName: config.providerName || undefined,
+        inviteKey: config.inviteKey || undefined,
+        emplType: config.emplType || undefined,
+        uid: config.uid || undefined,
+      };
+
+      const urlParams = customUrlSearchParams(chatConfig);
+
+      return `/sdk/chat${urlParams ? `?${urlParams}` : ""}`;
     }
 
     default:

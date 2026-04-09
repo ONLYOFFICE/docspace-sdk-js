@@ -68,7 +68,7 @@ You can check the latest SDK version in the [released tags](https://github.com/O
 
 ## SDK Modes
 
-The SDK supports 9 modes, each rendering a different DocSpace UI inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
+The SDK supports 10 modes, each rendering a different DocSpace UI inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
 
 | Mode | Method | Description |
 |---|---|---|
@@ -81,6 +81,7 @@ The SDK supports 9 modes, each rendering a different DocSpace UI inside an ifram
 | `public-room` | [`init`](docs/classes/SDK.md#init) | Public room view with anonymous access to documents. Requires `requestToken`. Use `sdk.init({ mode: "public-room", ... })` |
 | `uploader` | [`initUploader`](docs/classes/SDK.md#inituploader) | File upload interface for a specific folder. Requires `id` (target folder identifier) |
 | `forms` | [`initForms`](docs/classes/SDK.md#initforms) | Forms gallery for a room. Requires `id` (room identifier). Supports `showMenu`, custom actions, and file upload |
+| `chat` | [`initChat`](docs/classes/SDK.md#initchat) | AI chat interface. Requires `agentId`. Supports `fileId` and `chatId` to attach files or resume conversations |
 
 ### Examples
 
@@ -158,30 +159,43 @@ const file = document.querySelector("input[type=file]").files[0];
 await forms.upload(file);
 ```
 
+**AI Chat:**
+
+```typescript
+const chat = sdk.initChat({
+  frameId: "ds-chat",
+  src: "https://your-docspace.com",
+  agentId: 123,
+  events: {
+    onAppReady: () => console.log("Chat ready"),
+  },
+});
+```
+
 ## Events
 
 All events are optional. Pass them via the `events` field in the configuration object. The table below shows which events are available in each mode:
 
-| Event | Manager | Editor | Viewer | Room Sel. | File Sel. | System | Public Room | Uploader | Forms |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `onAppReady` | + | + | + | + | + | + | + | + | + |
-| `onAppError` | + | + | + | + | + | + | + | + | + |
-| `onContentReady` | + | + | + | + | + | + | + | + | + |
-| `onAuthSuccess` | + | + | + | + | + | + | | + | + |
-| `onSignOut` | + | + | + | + | + | + | | + | + |
-| `onEditorOpen` | + | | | | | | + | | |
-| `onEditorCloseCallback` | | + | + | | | | | | |
-| `onFileManagerClick` | + | | | | | | + | | |
-| `onDownload` | + | + | + | | | | + | | |
-| `onNoAccess` | + | | | | | | + | | |
-| `onNotFound` | + | | | | | | + | | |
-| `onSelectCallback` | | | | + | + | | | | |
-| `onCloseCallback` | | | | + | + | | | | |
-| `onUploadSuccess` | | | | | | | | + | + |
-| `onUploadError` | | | | | | | | + | + |
-| `onUploadProgress` | | | | | | | | + | |
-| `onCustomAction` | | | | | | | | | + |
-| `onNavigate` | | | | | | | | | + |
+| Event | Manager | Editor | Viewer | Room Sel. | File Sel. | System | Public Room | Uploader | Forms | Chat |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `onAppReady` | + | + | + | + | + | + | + | + | + | + |
+| `onAppError` | + | + | + | + | + | + | + | + | + | + |
+| `onContentReady` | + | + | + | + | + | + | + | + | + | + |
+| `onAuthSuccess` | + | + | + | + | + | + | | + | + | + |
+| `onSignOut` | + | + | + | + | + | + | | + | + | + |
+| `onEditorOpen` | + | | | | | | + | | | |
+| `onEditorCloseCallback` | | + | + | | | | | | | |
+| `onFileManagerClick` | + | | | | | | + | | | |
+| `onDownload` | + | + | + | | | | + | | | |
+| `onNoAccess` | + | | | | | | + | | | |
+| `onNotFound` | + | | | | | | + | | | |
+| `onSelectCallback` | | | | + | + | | | | | |
+| `onCloseCallback` | | | | + | + | | | | | |
+| `onUploadSuccess` | | | | | | | | + | + | |
+| `onUploadError` | | | | | | | | + | + | |
+| `onUploadProgress` | | | | | | | | + | | |
+| `onCustomAction` | | | | | | | | | + | |
+| `onNavigate` | | | | | | | | | + | |
 
 ## Instance Methods
 

@@ -49,6 +49,8 @@ export enum SDKMode {
   Uploader = "uploader",
   /** Forms gallery. Displays forms for the room specified by {@link TFrameConfig.id}. Supports {@link TFrameConfig.showMenu} to toggle the side panel. */
   Forms = "forms",
+  /** AI chat interface. Full-page conversation UI for the agent specified by {@link TFrameConfig.agentId}. */
+  Chat = "chat",
 }
 
 /**

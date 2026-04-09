@@ -353,13 +353,13 @@ export type TFrameConfig = {
   showHeaderBanner?: TBannerDisplaying;
   /** Show left navigation menu in {@link SDKMode.Manager} and {@link SDKMode.Forms}. Default: `false`. */
   showMenu?: boolean;
-  /** OAuth provider name for automatic authentication in {@link SDKMode.Forms}. E.g. `"nextcloud"`. */
+  /** OAuth provider name for automatic authentication in {@link SDKMode.Forms} and {@link SDKMode.Chat}. E.g. `"nextcloud"`. */
   providerName?: string;
-  /** Invitation key for signup via OAuth in {@link SDKMode.Forms}. */
+  /** Invitation key for signup via OAuth in {@link SDKMode.Forms} and {@link SDKMode.Chat}. */
   inviteKey?: string;
-  /** Employee type for signup via OAuth in {@link SDKMode.Forms}. */
+  /** Employee type for signup via OAuth in {@link SDKMode.Forms} and {@link SDKMode.Chat}. */
   emplType?: string;
-  /** User identifier for {@link SDKMode.Forms}. */
+  /** User identifier for {@link SDKMode.Forms} and {@link SDKMode.Chat}. */
   uid?: string;
   /** Show "Cancel" button in selector modes. Default: `false`. */
   showSelectorCancel?: boolean;
@@ -409,6 +409,12 @@ export type TFrameConfig = {
   maxPerUploadSize?: string;
   /** Max total upload size in {@link SDKMode.Uploader}. */
   maxTotalUploadSize?: string;
+  /** AI agent room ID. Required in {@link SDKMode.Chat}. */
+  agentId?: string | number;
+  /** File ID from knowledge base to attach on chat init. Optional in {@link SDKMode.Chat}. */
+  fileId?: string | number;
+  /** Chat conversation ID to resume. Optional in {@link SDKMode.Chat}. */
+  chatId?: string;
 };
 
 /**

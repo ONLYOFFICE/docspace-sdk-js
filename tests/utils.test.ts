@@ -351,6 +351,35 @@ describe("getFramePath", () => {
       expect(path).toContain("acceptExtensions=.docx%2C.xlsx");
     });
 
+    test("Chat mode builds expected path with agentId and optional params", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Chat,
+        agentId: 42,
+        fileId: 99,
+        chatId: "conv-abc",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/chat");
+      expect(path).toContain("agentId=42");
+      expect(path).toContain("fileId=99");
+      expect(path).toContain("chatId=conv-abc");
+    });
+
+    test("Chat mode omits falsy optional params", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Chat,
+        agentId: 7,
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("agentId=7");
+      expect(path).not.toContain("fileId");
+      expect(path).not.toContain("chatId");
+    });
+
     test("handles all modes without throwing", () => {
       Object.values(SDKMode).forEach((mode) => {
         const conf: TFrameConfig = { src: "https://example.com", frameId: "ds-frame", mode } as any;

@@ -325,4 +325,30 @@ export class SDK {
    */
   initForms = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Forms, showMenu: config.showMenu ?? true });
+
+  /**
+   * Initializes a frame in {@link SDKMode.Chat} mode — a full-page AI chat interface
+   * for the agent specified by {@link TFrameConfig.agentId}.
+   * Forces `mode` to {@link SDKMode.Chat}. Requires {@link TFrameConfig.agentId}.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const chat = sdk.initChat({
+   *   frameId: 'ds-chat',
+   *   src: 'https://docspace.example.com',
+   *   agentId: 123,
+   *   events: {
+   *     onAppReady: () => console.log('chat ready'),
+   *   },
+   * });
+   * ```
+   */
+  initChat = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.Chat });
 }
