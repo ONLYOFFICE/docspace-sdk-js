@@ -419,7 +419,7 @@ export type TFrameConfig = {
   maxTotalUploadSize?: string;
   /** AI agent room ID. Required in {@link SDKMode.Chat}. */
   agentId?: string | number;
-  /** File ID from knowledge base to attach on chat init. Optional in {@link SDKMode.Chat}. */
+  /** File ID to attach on chat init. Optional in {@link SDKMode.Chat}. */
   fileId?: string | number;
   /** Chat conversation ID to resume. Optional in {@link SDKMode.Chat}. */
   chatId?: string;
