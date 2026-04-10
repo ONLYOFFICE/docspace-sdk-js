@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { SDKInstance } from "../src/instance";
 import { defaultConfig } from "../src/constants";
 import { SDKMode } from "../src/enums";
+import { SDKError, SDKErrorCode } from "../src/errors";
 import type { TFrameConfig } from "../src/types";
 import { getFramePath } from "../src/utils";
 
@@ -441,6 +442,7 @@ describe("upload", () => {
     );
   });
 
+
   test("handles large files by converting the full content", async () => {
     const { inst, postMessageSpy } = initConnected();
 
@@ -565,5 +567,65 @@ describe("Forms events", () => {
     dispatchEvent("wrong-frame", "onNavigate", { section: "library" });
 
     expect(onNavigate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ModeMismatch guards — navigateSection and setCustomActions outside Forms
+// ---------------------------------------------------------------------------
+
+describe("navigateSection — mode guard", () => {
+  test("throws SDKError with ModeMismatch when called outside Forms mode", () => {
+    const el = document.createElement("div");
+    el.id = "ds-manager";
+    document.body.appendChild(el);
+
+    const config: TFrameConfig = {
+      ...defaultConfig,
+      src: BASE_SRC,
+      frameId: "ds-manager",
+      mode: "manager",
+      checkCSP: false,
+    };
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    let caught: unknown;
+    try {
+      inst.navigateSection("library");
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(SDKError);
+    expect((caught as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
+  });
+});
+
+describe("setCustomActions — mode guard", () => {
+  test("throws SDKError with ModeMismatch when called outside Forms mode", () => {
+    const el = document.createElement("div");
+    el.id = "ds-editor";
+    document.body.appendChild(el);
+
+    const config: TFrameConfig = {
+      ...defaultConfig,
+      src: BASE_SRC,
+      frameId: "ds-editor",
+      mode: "editor",
+      checkCSP: false,
+    };
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    let caught: unknown;
+    try {
+      inst.setCustomActions({ contextMenu: {} });
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(SDKError);
+    expect((caught as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
   });
 });

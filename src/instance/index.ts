@@ -22,12 +22,22 @@
  */
 
 import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
+import { SDKError, SDKErrorCode } from "../errors";
 import type {
+  TCreateRoomOptions,
+  TFileInfo,
+  TFilesResponse,
+  TFolderInfo,
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
+  THashSettings,
+  TManagerViewMode,
   TMessageData,
+  TRoomInfo,
+  TRoomsResponse,
   TTask,
+  TUserInfo,
   TCustomActionsConfig,
   TFormsSection,
 } from "../types";
@@ -61,11 +71,12 @@ import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
  */
 export class SDKInstance {
   #isConnected: boolean = false;
-  #callbacks: {
+  #callIdCounter: number = 0;
+  #callbacks: Map<number, {
     resolve: (data: object) => void;
     reject: (error: Error) => void;
     timer: ReturnType<typeof setTimeout> | null;
-  }[] = [];
+  }> = new Map();
   #tasks: TTask[] = [];
   #classNames: string = "";
   #expectedOrigin: string = "";
@@ -77,16 +88,20 @@ export class SDKInstance {
     reject: (error: Error) => void;
     timer: ReturnType<typeof setTimeout>;
   }> = new Map();
-  /** The iframe configuration options. */
+  /** The iframe configuration options. See {@link TFrameConfig}. */
   config: TFrameConfig;
 
   constructor(config: TFrameConfig) {
     this.config = config;
   }
 
-  private static _loaderCache = {
+  private static _loaderCache: {
+    style: Map<string, HTMLStyleElement>;
+    container: HTMLDivElement | null;
+    templates: Map<string, HTMLElement>;
+  } = {
     style: new Map<string, HTMLStyleElement>(),
-    container: document.createElement("div"),
+    container: null,
     templates: new Map<string, HTMLElement>(),
   };
 
@@ -128,7 +143,9 @@ export class SDKInstance {
         .cloneNode(true) as HTMLElement;
       container.id = `${frameId}-loader`;
     } else {
-      container = SDKInstance._loaderCache.container.cloneNode() as HTMLElement;
+      const baseContainer = SDKInstance._loaderCache.container
+        ?? (SDKInstance._loaderCache.container = document.createElement("div"));
+      container = baseContainer.cloneNode() as HTMLElement;
 
       Object.assign(container.style, {
         width,
@@ -173,7 +190,7 @@ export class SDKInstance {
       };
     }
 
-    const { mode, id, frameId, type, width, height, src, events, checkCSP } =
+    const { mode, id, frameId, type, width, height, src, checkCSP } =
       config;
     const isMobile = type === "mobile";
 
@@ -226,7 +243,7 @@ export class SDKInstance {
     }
 
     if (checkCSP) {
-      this.#setupCSPValidation(iframe, src, events);
+      this.#setupCSPValidation(iframe, src);
     }
 
     return iframe;
@@ -237,16 +254,14 @@ export class SDKInstance {
    *
    * @param iframe - The iframe element to validate.
    * @param src - The source URL to validate.
-   * @param events - Optional event handlers triggered on validation errors.
    */
   #setupCSPValidation(
     iframe: HTMLIFrameElement,
-    src: string,
-    events?: TFrameEvents
+    src: string
   ): void {
     requestAnimationFrame(() => {
       validateCSP(src).catch((e: Error) => {
-        events?.onAppError?.(e.message);
+        this.#handleError(e, SDKErrorCode.CSPViolation);
         iframe.srcdoc = getCSPErrorBody(src);
         this.setIsLoaded();
       });
@@ -257,6 +272,7 @@ export class SDKInstance {
    * Called by the DocSpace iframe (via `onCallCommand`) when the app has finished loading.
    * Fades out the loader spinner, fades in the iframe, and fires {@link TFrameEvents.onContentReady}.
    *
+   * @internal
    * @see {@link TFrameEvents.onContentReady}
    */
   setIsLoaded(): void {
@@ -322,6 +338,7 @@ export class SDKInstance {
       const messageEnvelope = {
         frameId,
         type: "",
+        callId: message.callId,
         data: message,
       };
 
@@ -387,7 +404,7 @@ export class SDKInstance {
           console.warn("Unrecognized message type:", data.type);
       }
     } catch (error) {
-      this.#handleError(error as { message: "Failed to process message" });
+      this.#handleError(error as { message: string }, SDKErrorCode.ParseError);
     }
   };
 
@@ -432,9 +449,21 @@ export class SDKInstance {
    * @param data - The message data containing the method response.
    */
   #handleMethodResponse(data: TMessageData) {
-    const entry = this.#callbacks.shift();
+    let matchedId: number | undefined;
 
-    if (entry) {
+    if (data.callId !== undefined && this.#callbacks.has(data.callId)) {
+      matchedId = data.callId;
+    } else {
+      // Fallback: oldest entry (FIFO) for backward compatibility
+      const first = this.#callbacks.keys().next();
+      if (!first.done) {
+        matchedId = first.value;
+      }
+    }
+
+    if (matchedId !== undefined) {
+      const entry = this.#callbacks.get(matchedId)!;
+      this.#callbacks.delete(matchedId);
       if (entry.timer) clearTimeout(entry.timer);
       try {
         entry.resolve(data.methodReturnData || {});
@@ -451,13 +480,15 @@ export class SDKInstance {
    * @internal
    */
   #drainNextTask(): void {
-    if (this.#tasks.length === 0 || this.#callbacks.length === 0) return;
+    if (this.#tasks.length === 0 || this.#callbacks.size === 0) return;
 
     const nextTask = this.#tasks.shift()!;
-    const nextEntry = this.#callbacks[0];
+    const nextEntry = nextTask.callId !== undefined
+      ? this.#callbacks.get(nextTask.callId)
+      : undefined;
 
-    if (nextEntry) {
-      nextEntry.timer = this.#createMethodTimer(nextEntry);
+    if (nextEntry && nextTask.callId !== undefined) {
+      nextEntry.timer = this.#createMethodTimer(nextTask.callId, nextEntry);
     }
 
     if (!this.#sendMessage(nextTask)) {
@@ -470,13 +501,14 @@ export class SDKInstance {
    * @internal
    */
   #createMethodTimer(
+    callId: number,
     entry: { resolve: (data: object) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> | null }
   ): ReturnType<typeof setTimeout> {
     return setTimeout(() => {
-      const idx = this.#callbacks.indexOf(entry);
-      if (idx !== -1) this.#callbacks.splice(idx, 1);
-      entry.reject(new Error("Method call timed out"));
-      this.#handleError({ message: "Method call timed out" });
+      this.#callbacks.delete(callId);
+      const err = new SDKError(SDKErrorCode.Timeout, "Method call timed out");
+      entry.reject(err);
+      this.#handleError(err);
       this.#drainNextTask();
     }, this.config.methodTimeout || 30000);
   }
@@ -486,17 +518,18 @@ export class SDKInstance {
    * @internal
    */
   #rejectAllPending(reason: string): void {
-    const entries = [...this.#callbacks];
-    this.#callbacks = [];
+    const entries = [...this.#callbacks.values()];
+    this.#callbacks.clear();
     this.#tasks = [];
 
+    const err = new SDKError(SDKErrorCode.Disconnected, reason);
     for (const entry of entries) {
       if (entry.timer) clearTimeout(entry.timer);
-      entry.reject(new Error(reason));
+      entry.reject(err);
     }
 
     this.#isConnected = false;
-    this.#handleError({ message: reason });
+    this.#handleError(err);
   }
 
   /**
@@ -539,7 +572,7 @@ export class SDKInstance {
         if (eventName === "onUploadSuccess") {
           pending.resolve(eventData.data || {});
         } else {
-          pending.reject(new Error(payload?.message || "Upload failed"));
+          pending.reject(new SDKError(SDKErrorCode.UploadFailed, payload?.message || "Upload failed"));
         }
       }
     }
@@ -548,7 +581,7 @@ export class SDKInstance {
 
     if (typeof handler === "function") {
       try {
-        handler(eventData.data || {});
+        (handler as (data: unknown) => void)(eventData.data || {});
       } catch (error) {
         console.error("Event handler failed:", eventName, error);
       }
@@ -587,12 +620,15 @@ export class SDKInstance {
    *
    * @param error - The error object containing error information.
    */
-  #handleError(error: { message: string }) {
-    console.error("SDK Error:", error);
+  #handleError(error: { message: string }, code?: SDKErrorCode) {
+    const sdkError =
+      error instanceof SDKError
+        ? error
+        : new SDKError(code || SDKErrorCode.Disconnected, error.message || "Unknown error occurred");
 
-    this.config.events?.onAppError?.(
-      error.message || "Unknown error occurred"
-    );
+    console.error("SDK Error:", sdkError);
+
+    this.config.events?.onAppError?.(sdkError.message || "Unknown error occurred");
   }
 
   /**
@@ -609,24 +645,27 @@ export class SDKInstance {
     reject: (error: Error) => void
   ): void {
     if (!this.#isConnected && methodName !== InstanceMethods.SetConfig) {
-      this.#handleError({ message: connectErrorText });
-      reject(new Error(connectErrorText));
+      const err = new SDKError(SDKErrorCode.Disconnected, connectErrorText);
+      this.#handleError(err);
+      reject(err);
       return;
     }
 
+    const callId = ++this.#callIdCounter;
     const entry = { resolve, reject, timer: null as ReturnType<typeof setTimeout> | null };
-    this.#callbacks.push(entry);
-    const message = { type: "method", methodName, data: params };
+    this.#callbacks.set(callId, entry);
+    const message: TTask = { type: "method", methodName, data: params, callId };
 
-    if (this.#callbacks.length > 1) {
+    if (this.#callbacks.size > 1) {
       this.#tasks.push(message);
     } else {
-      entry.timer = this.#createMethodTimer(entry);
+      entry.timer = this.#createMethodTimer(callId, entry);
       if (!this.#sendMessage(message)) {
-        this.#callbacks.pop();
+        this.#callbacks.delete(callId);
         if (entry.timer) clearTimeout(entry.timer);
-        this.#handleError({ message: connectErrorText });
-        reject(new Error(connectErrorText));
+        const err = new SDKError(SDKErrorCode.Disconnected, connectErrorText);
+        this.#handleError(err);
+        reject(err);
       }
     }
   }
@@ -640,7 +679,7 @@ export class SDKInstance {
   #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
     const mergedConfig = { ...defaultConfig, ...this.config, ...config };
 
-    if (mergedConfig.mode === "manager" || mergedConfig.mode === "system") {
+    if (mergedConfig.mode === SDKMode.Manager || mergedConfig.mode === SDKMode.System) {
       mergedConfig.noLoader = false;
     }
 
@@ -773,7 +812,7 @@ export class SDKInstance {
   ): HTMLIFrameElement {
     const fragment = document.createDocumentFragment();
 
-    if (!this.config.waiting || this.config.mode === "system") {
+    if (!this.config.waiting || this.config.mode === SDKMode.System) {
       fragment.appendChild(iframe);
     }
 
@@ -855,16 +894,17 @@ export class SDKInstance {
 
     this.#isConnected = false;
 
-    for (const entry of this.#callbacks) {
+    const reloadError = new SDKError(SDKErrorCode.Disconnected, "Frame reloaded");
+    for (const entry of this.#callbacks.values()) {
       if (entry.timer) clearTimeout(entry.timer);
-      entry.reject(new Error("Frame reloaded"));
+      entry.reject(reloadError);
     }
-    this.#callbacks = [];
+    this.#callbacks.clear();
     this.#tasks = [];
 
     for (const [, pending] of this.#pendingUploads) {
       clearTimeout(pending.timer);
-      pending.reject(new Error("Frame reloaded"));
+      pending.reject(reloadError);
     }
     this.#pendingUploads.clear();
 
@@ -910,7 +950,7 @@ export class SDKInstance {
     const replacementDiv = document.createElement("div");
     replacementDiv.id = frameId;
     replacementDiv.className = this.#classNames;
-    replacementDiv.innerHTML = this.config.destroyText || "";
+    replacementDiv.textContent = this.config.destroyText || "";
 
     if (containerElement) {
       if (containerElement.parentNode) {
@@ -942,16 +982,17 @@ export class SDKInstance {
 
     this.#isConnected = false;
 
-    for (const entry of this.#callbacks) {
+    const destroyError = new SDKError(SDKErrorCode.Disconnected, "Frame destroyed");
+    for (const entry of this.#callbacks.values()) {
       if (entry.timer) clearTimeout(entry.timer);
-      entry.reject(new Error("Frame destroyed"));
+      entry.reject(destroyError);
     }
-    this.#callbacks = [];
+    this.#callbacks.clear();
     this.#tasks = [];
 
     for (const [, pending] of this.#pendingUploads) {
       clearTimeout(pending.timer);
-      pending.reject(new Error("Frame destroyed"));
+      pending.reject(destroyError);
     }
     this.#pendingUploads.clear();
 
@@ -1054,7 +1095,7 @@ export class SDKInstance {
   /**
    * Returns metadata about the folder currently open in the frame.
    *
-   * @returns A promise that resolves with folder metadata.
+   * @returns A promise that resolves with {@link TFolderInfo}.
    *
    * @example
    * ```typescript
@@ -1071,14 +1112,14 @@ export class SDKInstance {
    * }
    * ```
    */
-  getFolderInfo(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetFolderInfo);
+  getFolderInfo(): Promise<TFolderInfo> {
+    return this.#getMethodPromise(InstanceMethods.GetFolderInfo) as Promise<TFolderInfo>;
   }
 
   /**
    * Returns the items currently selected in the frame.
    *
-   * @returns A promise that resolves with the selection data.
+   * @returns A promise that resolves with an array of {@link TFileInfo}.
    *
    * @example
    * ```typescript
@@ -1095,14 +1136,14 @@ export class SDKInstance {
    * }
    * ```
    */
-  getSelection(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetSelection);
+  getSelection(): Promise<TFileInfo[]> {
+    return this.#getMethodPromise(InstanceMethods.GetSelection) as Promise<TFileInfo[]>;
   }
 
   /**
    * Returns the files in the folder currently open in the frame.
    *
-   * @returns A promise that resolves with file list data.
+   * @returns A promise that resolves with {@link TFilesResponse}.
    *
    * @example
    * ```typescript
@@ -1114,19 +1155,19 @@ export class SDKInstance {
    * Open the first file in viewer mode via {@link SDKInstance.setConfig}.
    * ```typescript
    * const files = await instance.getFiles();
-   * if (files[0]) {
-   *   await instance.setConfig({ id: files[0].id, mode: SDKMode.Viewer }, true);
+   * if (files.files[0]) {
+   *   await instance.setConfig({ id: files.files[0].id, mode: SDKMode.Viewer }, true);
    * }
    * ```
    */
-  getFiles(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetFiles);
+  getFiles(): Promise<TFilesResponse> {
+    return this.#getMethodPromise(InstanceMethods.GetFiles) as Promise<TFilesResponse>;
   }
 
   /**
    * Returns the subfolders of the folder currently open in the frame.
    *
-   * @returns A promise that resolves with folder list data.
+   * @returns A promise that resolves with {@link TFilesResponse}.
    *
    * @example
    * ```typescript
@@ -1138,13 +1179,13 @@ export class SDKInstance {
    * Navigate into the first subfolder via {@link SDKInstance.setConfig}.
    * ```typescript
    * const folders = await instance.getFolders();
-   * if (folders[0]) {
-   *   await instance.setConfig({ id: folders[0].id }, true);
+   * if (folders.folders[0]) {
+   *   await instance.setConfig({ id: folders.folders[0].id }, true);
    * }
    * ```
    */
-  getFolders(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetFolders);
+  getFolders(): Promise<TFilesResponse> {
+    return this.#getMethodPromise(InstanceMethods.GetFolders) as Promise<TFilesResponse>;
   }
 
   /**
@@ -1153,7 +1194,7 @@ export class SDKInstance {
    * Use {@link SDKInstance.getFiles} or {@link SDKInstance.getFolders}
    * when you need only one content type.
    *
-   * @returns A promise that resolves with combined file and folder list data.
+   * @returns A promise that resolves with {@link TFilesResponse}.
    *
    * @example
    * ```typescript
@@ -1163,22 +1204,19 @@ export class SDKInstance {
    *
    * @example
    * ```typescript
-   * // Separate files from folders by type
    * const list = await instance.getList();
-   * const files = list.filter((item) => item.type === 'file');
-   * const folders = list.filter((item) => item.type === 'folder');
-   * console.log(`${files.length} files, ${folders.length} folders`);
+   * console.log('Files:', list.files.length, 'Folders:', list.folders.length);
    * ```
    */
-  getList(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetList);
+  getList(): Promise<TFilesResponse> {
+    return this.#getMethodPromise(InstanceMethods.GetList) as Promise<TFilesResponse>;
   }
 
   /**
    * Returns a list of rooms, filtered by `filter`.
    *
    * @param filter - Filter and sort criteria. See {@link TFrameFilter}.
-   * @returns A promise that resolves with room list data.
+   * @returns A promise that resolves with {@link TRoomsResponse}.
    *
    * @example
    * ```typescript
@@ -1194,19 +1232,19 @@ export class SDKInstance {
    * Find rooms and remove an outdated tag from each using {@link SDKInstance.removeTagsFromRoom}.
    * ```typescript
    * const rooms = await instance.getRooms({ search: 'sprint-22' });
-   * for (const room of rooms) {
+   * for (const room of rooms.folders) {
    *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
    * }
    * ```
    */
-  getRooms(filter: TFrameFilter): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetRooms, filter);
+  getRooms(filter: TFrameFilter): Promise<TRoomsResponse> {
+    return this.#getMethodPromise(InstanceMethods.GetRooms, filter) as Promise<TRoomsResponse>;
   }
 
   /**
    * Returns information about the currently authenticated user.
    *
-   * @returns A promise that resolves with user profile data.
+   * @returns A promise that resolves with {@link TUserInfo}.
    *
    * @example
    * ```typescript
@@ -1223,14 +1261,14 @@ export class SDKInstance {
    * }
    * ```
    */
-  getUserInfo(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetUserInfo);
+  getUserInfo(): Promise<TUserInfo> {
+    return this.#getMethodPromise(InstanceMethods.GetUserInfo) as Promise<TUserInfo>;
   }
 
   /**
    * Returns the server's password hash settings needed by {@link SDKInstance.createHash}.
    *
-   * @returns A promise that resolves with hash algorithm settings.
+   * @returns A promise that resolves with {@link THashSettings}.
    *
    * @example
    * ```typescript
@@ -1246,8 +1284,8 @@ export class SDKInstance {
    * await instance.login('user@example.com', hash);
    * ```
    */
-  getHashSettings(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetHashSettings);
+  getHashSettings(): Promise<THashSettings> {
+    return this.#getMethodPromise(InstanceMethods.GetHashSettings) as Promise<THashSettings>;
   }
   
   /**
@@ -1283,7 +1321,7 @@ export class SDKInstance {
    * @param title - The file title (without extension).
    * @param templateId - The ID of the template to use for the new file.
    * @param formId - The ID of the associated form, or an empty string if none.
-   * @returns A promise that resolves with the created file data.
+   * @returns A promise that resolves with {@link TFileInfo}.
    *
    * @example
    * ```typescript
@@ -1303,13 +1341,13 @@ export class SDKInstance {
     title: string,
     templateId: string,
     formId: string
-  ): Promise<object> {
+  ): Promise<TFileInfo> {
     return this.#getMethodPromise(InstanceMethods.CreateFile, {
       folderId,
       title,
       templateId,
       formId,
-    });
+    }) as Promise<TFileInfo>;
   }
   
   /**
@@ -1317,7 +1355,7 @@ export class SDKInstance {
    *
    * @param parentFolderId - The ID of the parent folder.
    * @param title - The folder title.
-   * @returns A promise that resolves with the created folder data.
+   * @returns A promise that resolves with {@link TFolderInfo}.
    *
    * @example
    * ```typescript
@@ -1332,29 +1370,24 @@ export class SDKInstance {
    * await instance.createFile(folder.id, 'Summary', 'template-456', '');
    * ```
    */
-  createFolder(parentFolderId: string, title: string): Promise<object> {
+  createFolder(parentFolderId: string, title: string): Promise<TFolderInfo> {
     return this.#getMethodPromise(InstanceMethods.CreateFolder, {
       parentFolderId,
       title,
-    });
+    }) as Promise<TFolderInfo>;
   }
 
   /**
    * Creates a new room with the given type and optional settings.
    *
    * @param title - The room display name.
-   * @param roomType - The room type (e.g. `'collaboration'`, `'public'`).
-   * @param quota - Optional storage quota in bytes.
-   * @param tags - Optional tag names to assign.
-   * @param color - Optional accent color (hex).
-   * @param cover - Optional cover image URL.
-   * @param indexing - Optional VDR indexing flag.
-   * @param denyDownload - Optional VDR download restriction flag.
-   * @returns A promise that resolves with the created room data.
+   * @param roomType - The room type (e.g. `1` for custom, `2` for filling forms).
+   * @param options - Optional room settings. See {@link TCreateRoomOptions}.
+   * @returns A promise that resolves with {@link TRoomInfo}.
    *
    * @example
    * ```typescript
-   * const room = await instance.createRoom('Design Team', 'collaboration', undefined, ['design']);
+   * const room = await instance.createRoom('Design Team', 1, { tags: ['design'] });
    * console.log(room);
    * ```
    *
@@ -1362,7 +1395,7 @@ export class SDKInstance {
    * Create a room, then create a new tag and apply it using {@link SDKInstance.createTag}
    * and {@link SDKInstance.addTagsToRoom}.
    * ```typescript
-   * const room = await instance.createRoom('Marketing', 'collaboration');
+   * const room = await instance.createRoom('Marketing', 1);
    * await instance.createTag('campaigns');
    * await instance.addTagsToRoom(room.id, ['campaigns']);
    * ```
@@ -1370,23 +1403,13 @@ export class SDKInstance {
   createRoom(
     title: string,
     roomType: string | number,
-    quota?: number,
-    tags?: string[],
-    color?: string,
-    cover?: string,
-    indexing?: boolean,
-    denyDownload?: boolean
-  ): Promise<object> {
+    options?: TCreateRoomOptions
+  ): Promise<TRoomInfo> {
     return this.#getMethodPromise(InstanceMethods.CreateRoom, {
       title,
       roomType,
-      ...(quota !== undefined && { quota }),
-      ...(denyDownload !== undefined && { denyDownload }),
-      ...(tags !== undefined && { tags }),
-      ...(color !== undefined && { color }),
-      ...(cover !== undefined && { cover }),
-      ...(indexing !== undefined && { indexing }),
-    });
+      ...options,
+    }) as Promise<TRoomInfo>;
   }  
   
   /**
@@ -1409,7 +1432,7 @@ export class SDKInstance {
    * }
    * ```
    */
-  setListView(viewType: string): Promise<object> {
+  setListView(viewType: TManagerViewMode): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.SetListView, { viewType });
   }
 
@@ -1576,7 +1599,7 @@ export class SDKInstance {
    * Find rooms by name and clean up a tag from each using {@link SDKInstance.getRooms}.
    * ```typescript
    * const rooms = await instance.getRooms({ search: 'sprint-22' });
-   * for (const room of rooms) {
+   * for (const room of rooms.folders) {
    *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
    * }
    * ```
@@ -1651,7 +1674,7 @@ export class SDKInstance {
    */
   navigateSection(section: TFormsSection): Promise<object> {
     if (this.config.mode !== SDKMode.Forms) {
-      throw new Error("navigateSection is only available in Forms mode");
+      throw new SDKError(SDKErrorCode.ModeMismatch, "navigateSection is only available in Forms mode");
     }
 
     return this.#getMethodPromise(InstanceMethods.NavigateSection, { section });
@@ -1695,7 +1718,7 @@ export class SDKInstance {
    */
   setCustomActions(config: TCustomActionsConfig): Promise<object> {
     if (this.config.mode !== SDKMode.Forms) {
-      throw new Error("setCustomActions is only available in Forms mode");
+      throw new SDKError(SDKErrorCode.ModeMismatch, "setCustomActions is only available in Forms mode");
     }
 
     return this.#getMethodPromise(InstanceMethods.SetCustomActions, config);
@@ -1740,18 +1763,19 @@ export class SDKInstance {
    */
   async upload(file: File): Promise<object> {
     if (this.config.mode !== SDKMode.Forms) {
-      throw new Error("upload is only available in Forms mode");
+      throw new SDKError(SDKErrorCode.ModeMismatch, "upload is only available in Forms mode");
     }
 
     if (!this.#isConnected) {
-      this.#handleError({ message: connectErrorText });
-      throw new Error(connectErrorText);
+      const err = new SDKError(SDKErrorCode.Disconnected, connectErrorText);
+      this.#handleError(err);
+      throw err;
     }
 
     const { frameId, src } = this.config;
 
     if (!this.#iframe?.contentWindow) {
-      throw new Error("Frame not connected");
+      throw new SDKError(SDKErrorCode.Disconnected, "Frame not connected");
     }
 
     const buffer = await file.arrayBuffer();
@@ -1761,7 +1785,7 @@ export class SDKInstance {
     const uploadPromise = new Promise<object>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.#pendingUploads.delete(uploadId);
-        reject(new Error(`Upload timed out: ${file.name}`));
+        reject(new SDKError(SDKErrorCode.UploadFailed, `Upload timed out: ${file.name}`));
       }, 120000);
 
       this.#pendingUploads.set(uploadId, { fileName: file.name, resolve, reject, timer });

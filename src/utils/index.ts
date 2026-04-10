@@ -47,11 +47,11 @@ export const customUrlSearchParams = (
 ) => {
   if (!data) return "";
 
-  Object.keys(data).forEach(
-    (key) => (data[key] === undefined || data[key] === null) && delete data[key]
+  const cleaned = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined && v !== null)
   );
 
-  return new URLSearchParams(data as Record<string, string>).toString();
+  return new URLSearchParams(cleaned as Record<string, string>).toString();
 };
 
 /**
@@ -77,7 +77,7 @@ export const customUrlSearchParams = (
 export const validateCSP = async (targetSrc: string) => {
   const { origin, host } = window.location;
 
-  if (origin.includes(targetSrc)) return;
+  if (origin === new URL(targetSrc).origin) return;
 
   const response = await fetch(`${targetSrc}${CSPApiUrl}`);
 
@@ -198,7 +198,7 @@ export const getConfigFromParams = (): TFrameConfig | null => {
   });
 
   // Ensure default values for mode and src
-  configTemplate.mode = searchParams.get("mode") || "manager";
+  configTemplate.mode = (searchParams.get("mode") || "manager") as TFrameConfig["mode"];
   configTemplate.src = searchParams.get("src") || "";
 
   return configTemplate;
@@ -270,17 +270,18 @@ export const getFramePath = (config: TFrameConfig) => {
 
   switch (config.mode) {
     case SDKMode.Manager: {
-      if (config.id) config.filter!.folder = config.id as string;
+      const filter = { ...config.filter };
+      if (config.id) filter.folder = config.id as string;
 
       const params = config.requestToken
-        ? { key: config.requestToken, ...config.filter }
-        : config.filter;
+        ? { key: config.requestToken, ...filter }
+        : filter;
 
       if (!params?.withSubfolders) {
         delete params?.withSubfolders;
       }
 
-      const urlParams = customUrlSearchParams(params!);
+      const urlParams = customUrlSearchParams(params);
 
       return `${config.rootPath}${
         config.requestToken

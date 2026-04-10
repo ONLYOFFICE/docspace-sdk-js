@@ -161,11 +161,11 @@ export type TEditorCustomization = {
   /** Hide rulers. Available for document and presentation editors. Default: `false` (documents), `true` (presentations). */
   hideRulers?: boolean;
   /** Integration mode. Set to `"embed"` to prevent auto-scroll to the editor frame on load. */
-  integrationMode?: string;
+  integrationMode?: "embed";
   /** Enable macros auto-run. `false` disables macros entirely (since v9.0.3). Default: `true`. */
   macros?: boolean;
-  /** Macros auto-run policy: `"disable"` | `"warn"` | `"enable"`. Default: `"warn"`. */
-  macrosMode?: string;
+  /** Macros auto-run policy. Default: `"warn"`. */
+  macrosMode?: "disable" | "warn" | "enable";
   /** Mention hint behavior. `true` = user gets notification + access; `false` = notification only. Default: `true`. */
   mentionShare?: boolean;
   /** Open mobile editor in view/edit mode on launch. Default: `true`. */
@@ -176,10 +176,18 @@ export type TEditorCustomization = {
   toolbarHideFileName?: boolean;
   /** Use flat (highlighted) toolbar tabs instead of distinct tabs. Default: `false`. */
   toolbarNoTabs?: boolean;
-  /** Editor theme ID or preset. IDs: `"theme-light"`, `"theme-classic-light"`, `"theme-dark"`, `"theme-contrast-dark"`, `"theme-white"`, `"theme-night"`. Presets: `"default-dark"`, `"default-light"`. Default: `"theme-classic-light"`. */
-  uiTheme?: string;
-  /** Ruler/dialog measurement units: `"cm"` | `"pt"` | `"inch"`. Default: `"cm"`. */
-  unit?: string;
+  /** Editor theme ID or preset. Default: `"theme-classic-light"`. */
+  uiTheme?:
+    | "theme-light"
+    | "theme-classic-light"
+    | "theme-dark"
+    | "theme-contrast-dark"
+    | "theme-white"
+    | "theme-night"
+    | "default-dark"
+    | "default-light";
+  /** Ruler/dialog measurement units. Default: `"cm"`. */
+  unit?: "cm" | "pt" | "inch";
   /** Zoom percentage. `> 0` for explicit zoom, `-1` = fit to page, `-2` = fit to width. Default: `100`. */
   zoom?: number;
 };
@@ -234,41 +242,41 @@ export type TFrameFilter = {
  */
 export type TFrameEvents = {
   /** Fired when the DocSpace app encounters an initialization or runtime error. Receives the error message string. */
-  onAppError?: null | ((e?: Event | object | string) => void);
+  onAppError?: null | ((message: string) => void);
   /** Fired once when the DocSpace app inside the iframe is fully initialized and ready. */
-  onAppReady?: null | ((e?: Event | object | string) => void);
+  onAppReady?: null | ((data: { frameId: string }) => void);
   /** Fired after successful user authorization inside the iframe. */
-  onAuthSuccess?: null | ((e?: Event | object | string) => void);
+  onAuthSuccess?: null | ((data: object) => void);
   /** Fired in selector modes ({@link SDKMode.RoomSelector}, {@link SDKMode.FileSelector}) when the dialog is closed or canceled. */
-  onCloseCallback?: null | ((e?: Event | object | string) => void);
+  onCloseCallback?: null | (() => void);
   /** Fired when the iframe content is fully loaded and visible. Triggered internally by {@link SDKInstance.setIsLoaded}. */
-  onContentReady?: null | ((e?: Event | object | string) => void);
+  onContentReady?: null | (() => void);
   /** Fired on file download when {@link TFrameConfig.downloadToEvent} is `true`. Receives the download URL. */
-  onDownload?: null | ((e?: Event | object | string) => void);
+  onDownload?: null | ((url: string) => void);
   /** Fired when the document editor is closed (via UI button, hotkey, or programmatically). */
-  onEditorCloseCallback?: null | ((e?: Event | object | string) => void);
+  onEditorCloseCallback?: null | (() => void);
   /** Fired when navigating to an inaccessible or deleted room/folder. */
-  onNoAccess?: null | ((e?: Event | object | string) => void);
+  onNoAccess?: null | (() => void);
   /** Fired when navigating to a non-existent room/folder (404). */
-  onNotFound?: null | ((e?: Event | object | string) => void);
+  onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. Receives the selected item data. */
-  onSelectCallback?: null | ((e?: Event | object | string) => void);
+  onSelectCallback?: null | ((item: object) => void);
   /** Fired when the user signs out from the DocSpace account. */
-  onSignOut?: null | ((e?: Event | object | string) => void);
+  onSignOut?: null | (() => void);
   /** Fired when the editor is opened from the manager (context menu, hotkeys, modal, panel). */
-  onEditorOpen?: null | ((e?: Event | object | string) => void);
+  onEditorOpen?: null | ((data: object) => void);
   /** Fired when a file row is clicked in the manager file list. */
-  onFileManagerClick?: null | ((e?: Event | object | string) => void);
+  onFileManagerClick?: null | ((item: object) => void);
   /** Fired when a file upload completes successfully. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
-  onUploadSuccess?: null | ((e?: Event | object | string) => void);
+  onUploadSuccess?: null | ((data: { fileName: string; fileSize: number; uploadId?: number }) => void);
   /** Fired when a file upload fails. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
-  onUploadError?: null | ((e?: Event | object | string) => void);
+  onUploadError?: null | ((data: { fileName: string; message: string; uploadId?: number }) => void);
   /** Fired on file upload progress update. {@link SDKMode.Uploader} mode only. */
-  onUploadProgress?: null | ((e?: Event | object | string) => void);
+  onUploadProgress?: null | ((data: object) => void);
   /** Fired when a custom context menu action is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
-  onCustomAction?: null | ((e?: Event | object | string) => void);
-  /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. Receives `{ section: string }` with the active {@link TFormsSection} value. */
-  onNavigate?: null | ((e?: Event | object | string) => void);
+  onCustomAction?: null | ((data: { action: string; type: string; item: object }) => void);
+  /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. Receives the active section. */
+  onNavigate?: null | ((data: { section: TFormsSection }) => void);
 };
 
 /**
@@ -312,9 +320,9 @@ export type TFrameConfig = {
   /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly. Default: `false`. */
   downloadToEvent?: boolean;
   /** Editor UI customization. See {@link TEditorCustomization}. Default: `{}`. */
-  editorCustomization?: TEditorCustomization | object;
+  editorCustomization?: TEditorCustomization;
   /** Show "Open file location" in editor. `true` = show button, `"event"` = trigger {@link TFrameEvents.onEditorCloseCallback}. Default: `true`. */
-  editorGoBack?: boolean | string;
+  editorGoBack?: boolean | "event";
   /** Editor UI layout sent to the backend. See {@link EditorType}. Default: `"desktop"`. */
   editorType?: TEditorType;
   /** Event handlers. See {@link TFrameEvents}. */
@@ -336,7 +344,7 @@ export type TFrameConfig = {
   /** UI locale as a BCP 47 code (e.g. `"en-US"`). `null` = DocSpace server default. */
   locale?: string | null;
   /** **Required.** SDK mode. Determines UI and available methods. See {@link SDKMode}. */
-  mode: TFrameMode | string;
+  mode: TFrameMode;
   /** Iframe `name` attribute prefix. Default: {@link FRAME_NAME}. */
   name?: string;
   /** Auth token for public rooms ({@link SDKMode.PublicRoom}) and shared files. Default: `null`. */
@@ -374,7 +382,7 @@ export type TFrameConfig = {
   /** **Required.** DocSpace server URL. Used as the iframe `src` origin. */
   src: string;
   /** Color theme. See {@link Theme}. Default: `"System"`. */
-  theme?: TTheme | string;
+  theme?: TTheme;
   /** Platform layout. Affects iframe CSS (e.g. `"mobile"` sets `position: fixed`). See {@link EditorType}. Default: `"desktop"`. */
   type?: TEditorType;
   /** Item layout in {@link SDKMode.Manager}. See {@link ManagerViewMode}. Default: `"row"`. */
@@ -417,6 +425,372 @@ export type TFrameConfig = {
   chatId?: string;
 };
 
+/** User reference in file/folder/room metadata. */
+export type TCreatedBy = {
+  /** User ID. */
+  id?: string;
+  /** Display name. */
+  displayName?: string;
+  /** Profile page URL. */
+  profileUrl?: string;
+  /** Whether the user has a custom avatar. */
+  hasAvatar?: boolean;
+  /** Default avatar URL. */
+  avatar?: string;
+  /** Small avatar URL. */
+  avatarSmall?: string;
+  /** Medium avatar URL. */
+  avatarMedium?: string;
+  /** Whether the user is anonymous. */
+  isAnonim?: boolean;
+};
+
+/** File information returned by SDK methods. */
+export type TFileInfo = {
+  /** File ID. */
+  id: number;
+  /** File display name with extension. */
+  title: string;
+  /** File extension (e.g. `".docx"`). */
+  fileExst: string;
+  /** Numeric file type. */
+  fileType: number;
+  /** Parent folder ID. */
+  folderId: number;
+  /** File version number. */
+  version: number;
+  /** Formatted file size string. */
+  contentLength: string;
+  /** ISO 8601 creation date. */
+  created: string;
+  /** ISO 8601 last update date. */
+  updated: string;
+  /** Whether the file is shared. */
+  shared: boolean;
+  /** Numeric access level. */
+  access: number;
+  /** Permission flags. */
+  security: Record<string, boolean>;
+  /** View capability flags. */
+  viewAccessibility: Record<string, boolean>;
+  /** Creator reference. */
+  createdBy: TCreatedBy;
+  /** Last editor reference. */
+  updatedBy: TCreatedBy;
+  /** Root folder ID. */
+  rootFolderId: number;
+  /** Root folder type. */
+  rootFolderType: number;
+  /** Whether the file can be shared. */
+  canShare: boolean;
+  /** Web view URL. */
+  webUrl: string;
+  /** Numeric file status flags. */
+  fileStatus: number;
+  /** Thumbnail generation status. */
+  thumbnailStatus: number;
+  /** Notifications muted. */
+  mute: boolean;
+  /** Parent folder ID. */
+  parentId?: number;
+  /** File comment text. */
+  comment?: string;
+  /** Raw file size in bytes. */
+  pureContentLength?: number;
+  /** Direct view URL. */
+  viewUrl?: string;
+  /** Short sharing URL. */
+  shortWebUrl?: string;
+  /** Whether the file is a form template. */
+  isForm?: boolean;
+  /** Whether this entry is a folder. */
+  isFolder?: boolean;
+  /** Whether the file is marked as favorite. */
+  isFavorite?: boolean;
+  /** Whether downloads are denied. */
+  denyDownload?: boolean;
+  /** Whether sharing is denied. */
+  denySharing?: boolean;
+  /** Thumbnail image URL. */
+  thumbnailUrl?: string;
+  /** Whether the file has an unsaved draft. */
+  hasDraft?: boolean;
+  /** Whether the file is locked for editing. */
+  locked?: boolean;
+  /** ID of the user who locked the file. */
+  lockedBy?: string;
+  /** Version group number. */
+  versionGroup?: number;
+  /** Parent room type number. */
+  parentRoomType?: number;
+};
+
+/** Folder information returned by SDK methods. */
+export type TFolderInfo = {
+  /** Folder ID. */
+  id: number;
+  /** Folder display name. */
+  title: string;
+  /** Parent folder ID. */
+  parentId: number;
+  /** Number of files inside. */
+  filesCount: number;
+  /** Number of sub-folders inside. */
+  foldersCount: number;
+  /** Count of new/unread items. */
+  new: number;
+  /** Numeric access level. */
+  access: number;
+  /** Permission flags. */
+  security: Record<string, boolean>;
+  /** ISO 8601 creation date. */
+  created: string;
+  /** ISO 8601 last update date. */
+  updated: string;
+  /** Creator reference. */
+  createdBy: TCreatedBy;
+  /** Last editor reference. */
+  updatedBy: TCreatedBy;
+  /** Root folder ID. */
+  rootFolderId: number;
+  /** Root folder type. */
+  rootFolderType: number;
+  /** Whether the folder is shared. */
+  shared: boolean;
+  /** Whether the folder can be shared. */
+  canShare: boolean;
+  /** Whether notifications are muted. */
+  mute: boolean;
+  /** Whether the folder is pinned. */
+  pinned: boolean;
+  /** Whether folder indexing is enabled. */
+  indexing: boolean;
+  /** Whether downloads are denied. */
+  denyDownload: boolean;
+  /** Room type number. */
+  roomType?: number;
+  /** Folder type number. */
+  type?: number;
+  /** Whether the folder is private. */
+  private?: boolean;
+  /** Whether the folder is archived. */
+  isArchive?: boolean;
+  /** Parent room type number. */
+  parentRoomType?: number;
+  /** Whether the parent is shared. */
+  parentShared?: boolean;
+  /** User who shared the folder. */
+  sharedBy?: TCreatedBy;
+  /** Folder owner reference. */
+  ownedBy?: TCreatedBy;
+};
+
+/** Room logo information. */
+export type TLogo = {
+  /** Original logo URL. */
+  original?: string | null;
+  /** Large logo URL. */
+  large?: string | null;
+  /** Medium logo URL. */
+  medium?: string | null;
+  /** Small logo URL. */
+  small?: string | null;
+  /** Logo accent color (hex). */
+  color?: string | null;
+  /** Cover image data. */
+  cover?: object;
+};
+
+/** Room information returned by SDK methods. */
+export type TRoomInfo = {
+  /** Room ID. */
+  id: number;
+  /** Room display name. */
+  title: string;
+  /** Numeric room type. */
+  roomType: number;
+  /** Number of files inside. */
+  filesCount: number;
+  /** Number of sub-folders inside. */
+  foldersCount: number;
+  /** Count of new/unread items. */
+  new: number;
+  /** Numeric access level. */
+  access: number;
+  /** Permission flags. */
+  security: Record<string, boolean>;
+  /** ISO 8601 creation date. */
+  created: string;
+  /** ISO 8601 last update date. */
+  updated: string;
+  /** Creator reference. */
+  createdBy: TCreatedBy;
+  /** Last editor reference. */
+  updatedBy: TCreatedBy;
+  /** Whether the room is shared. */
+  shared: boolean;
+  /** Whether the room can be shared. */
+  canShare: boolean;
+  /** Tag names assigned to the room. */
+  tags: string[];
+  /** Room logo. */
+  logo: TLogo;
+  /** Whether the room is pinned. */
+  pinned: boolean;
+  /** Whether the room is private. */
+  private: boolean;
+  /** Whether notifications are muted. */
+  mute: boolean;
+  /** Whether the current user is in the room. */
+  inRoom: boolean;
+  /** Parent folder ID. */
+  parentId?: number;
+  /** Root folder ID. */
+  rootFolderId?: number;
+  /** Root folder type number. */
+  rootFolderType?: number;
+  /** Used storage space in bytes. */
+  usedSpace?: number;
+  /** Storage quota in bytes. */
+  quotaLimit?: number;
+  /** Whether VDR indexing is enabled. */
+  indexing?: boolean;
+  /** Whether downloads are denied. */
+  denyDownload?: boolean;
+  /** Whether the room is archived. */
+  isArchive?: boolean;
+  /** Whether the room is accessible. */
+  isAvailable?: boolean;
+  /** Whether the room is a template. */
+  isTemplate?: boolean;
+  /** Whether the room requires a password. */
+  passwordProtected?: boolean;
+  /** Watermark settings. */
+  watermark?: object;
+  /** Auto-deletion settings. */
+  lifetime?: object;
+};
+
+/** User information returned by {@link SDKInstance.getUserInfo}. */
+export type TUserInfo = {
+  /** User UUID. */
+  id: string;
+  /** Login email. */
+  email: string;
+  /** Login username. */
+  userName: string;
+  /** Full display name. */
+  displayName: string;
+  /** First name. */
+  firstName: string;
+  /** Last name. */
+  lastName: string;
+  /** Portal admin flag. */
+  isAdmin: boolean;
+  /** Room admin flag. */
+  isRoomAdmin: boolean;
+  /** Portal owner flag. */
+  isOwner: boolean;
+  /** Guest/visitor flag. */
+  isVisitor: boolean;
+  /** Collaborator flag. */
+  isCollaborator: boolean;
+  /** LDAP-sourced account. */
+  isLDAP: boolean;
+  /** SSO-sourced account. */
+  isSSO: boolean;
+  /** Whether user has an avatar. */
+  hasAvatar: boolean;
+  /** Default avatar URL. */
+  avatar: string;
+  /** Small avatar URL. */
+  avatarSmall: string;
+  /** Medium avatar URL. */
+  avatarMedium?: string;
+  /** Max avatar URL. */
+  avatarMax?: string;
+  /** Original avatar URL. */
+  avatarOriginal?: string;
+  /** Profile page URL. */
+  profileUrl: string;
+  /** Employee status. */
+  status?: number;
+  /** Activation status. */
+  activationStatus?: number;
+  /** UI culture/locale (e.g. `"en-US"`). */
+  cultureName?: string;
+  /** User groups. */
+  groups?: { id: string; name: string; manager: string }[];
+  /** Job title. */
+  title?: string;
+  /** Department. */
+  department?: string;
+  /** Registered admin modules. */
+  listAdminModules?: string[];
+  /** Anonymous flag. */
+  isAnonim?: boolean;
+};
+
+/** Breadcrumb path segment in file/room listing responses. */
+export type TPathParts = {
+  /** Folder/room ID. */
+  id: number;
+  /** Folder/room title. */
+  title: string;
+  /** Room type (only for room segments). */
+  roomType?: number;
+};
+
+/** Response wrapper for file/folder listing methods. */
+export type TFilesResponse = {
+  /** File entries. */
+  files: TFileInfo[];
+  /** Folder entries. */
+  folders: TFolderInfo[];
+  /** Current folder info. */
+  current: TFolderInfo;
+  /** Breadcrumb path. */
+  pathParts: TPathParts[];
+  /** Pagination start index. */
+  startIndex?: number;
+  /** Number of items returned. */
+  count?: number;
+  /** Total items available. */
+  total?: number;
+  /** Count of new items. */
+  new?: number;
+};
+
+/** Response wrapper for room listing methods. */
+export type TRoomsResponse = {
+  /** File entries. */
+  files: TFileInfo[];
+  /** Room entries. */
+  folders: TRoomInfo[];
+  /** Current folder info. */
+  current: TFolderInfo;
+  /** Breadcrumb path. */
+  pathParts: TPathParts[];
+  /** Pagination start index. */
+  startIndex?: number;
+  /** Number of items returned. */
+  count?: number;
+  /** Total items available. */
+  total?: number;
+  /** Count of new items. */
+  new?: number;
+};
+
+/** Password hash settings returned by {@link SDKInstance.getHashSettings}. */
+export type THashSettings = {
+  /** Hash size in bits. */
+  size: number;
+  /** PBKDF2 iteration count. */
+  iterations: number;
+  /** Base64-encoded salt. */
+  salt: string;
+};
+
 /**
  * String union of {@link MessageTypes} values. Used in {@link TMessageData.type}.
  * @internal
@@ -431,6 +805,8 @@ export type TMessageTypes = `${MessageTypes}`;
  * @see {@link MessageTypes} — possible `type` values and their handling logic.
  */
 export type TMessageData = {
+  /** Correlation identifier for matching method responses to their requests. */
+  callId?: number;
   /** Payload for {@link MessageTypes.OnCallCommand}. Passed as the argument to the called method. */
   commandData?: object;
   /** Method or command name. Used by {@link MessageTypes.OnCallCommand} to invoke a public method on the instance. */
@@ -472,12 +848,32 @@ export type TEventReturnData = {
  * @internal
  */
 export type TTask = {
+  /** Correlation identifier for matching responses to requests. */
+  callId?: number;
   /** Method parameters. `null` for parameterless methods. */
   data?: object | null;
   /** Method name matching an {@link InstanceMethods} value. */
   methodName: string;
   /** Always `"method"` for method calls. */
   type: string;
+};
+
+/**
+ * Optional settings for {@link SDKInstance.createRoom}.
+ */
+export type TCreateRoomOptions = {
+  /** Storage quota in bytes. */
+  quota?: number;
+  /** Tag names to assign to the room. */
+  tags?: string[];
+  /** Accent color (hex). */
+  color?: string;
+  /** Cover image URL. */
+  cover?: string;
+  /** Enable VDR file indexing. */
+  indexing?: boolean;
+  /** Restrict file downloads (VDR). */
+  denyDownload?: boolean;
 };
 
 /**

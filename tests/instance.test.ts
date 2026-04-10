@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { SDKInstance } from "../src/instance";
 import { defaultConfig, FRAME_NAME } from "../src/constants";
+import { SDKError, SDKErrorCode } from "../src/errors";
 import type { TFrameConfig } from "../src/types";
 
 const BASE_SRC = "https://docspace.example.com";
@@ -550,5 +551,167 @@ describe("method wrappers — postMessage verification", () => {
     expect(postMessageSpy).toHaveBeenCalledTimes(1);
     const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
     expect(sent.data.methodName).toBe("getUserInfo");
+  });
+});
+
+describe("callId correlation", () => {
+  const initWithPostMessage = () => {
+    setupTarget();
+    const config = makeConfig();
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+
+    iframe.dispatchEvent(new Event("load"));
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    return { inst, iframe, postMessageSpy };
+  };
+
+  const dispatchMessage = (data: object) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify(data),
+        origin: BASE_SRC,
+      }),
+    );
+  };
+
+  test("includes callId in postMessage envelope", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.getFiles();
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(typeof sent.callId).toBe("number");
+    expect(sent.data.callId).toBe(sent.callId);
+  });
+
+  test("resolves correct promise when response includes matching callId", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.getFiles();
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    const callId = sent.callId;
+
+    dispatchMessage({
+      frameId: "ds-frame",
+      type: "onMethodReturn",
+      callId,
+      methodReturnData: { files: ["matched"] },
+      commandName: "getFiles",
+    });
+
+    const result = await promise;
+    expect(result).toEqual({ files: ["matched"] });
+  });
+
+  test("FIFO fallback resolves oldest pending when response has no callId", async () => {
+    const { inst } = initWithPostMessage();
+
+    const promise = inst.getFiles();
+
+    dispatchMessage({
+      frameId: "ds-frame",
+      type: "onMethodReturn",
+      methodReturnData: { files: ["fallback"] },
+      commandName: "getFiles",
+    });
+
+    const result = await promise;
+    expect(result).toEqual({ files: ["fallback"] });
+  });
+});
+
+describe("executeMethod before connection — SDKError rejection", () => {
+  test("rejected promise is SDKError with Disconnected code", async () => {
+    const onAppError = vi.fn();
+    setupTarget();
+    const config = makeConfig({
+      events: { ...defaultConfig.events, onAppError },
+    });
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    let caught: unknown;
+    try {
+      await inst.getFiles();
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(SDKError);
+    expect((caught as SDKError).code).toBe(SDKErrorCode.Disconnected);
+  });
+});
+
+describe("destroyFrame — destroyText safety", () => {
+  test("destroyText with HTML is rendered as plain text, not parsed", () => {
+    setupTarget();
+    const config = makeConfig({ destroyText: "<b>removed</b>" });
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    inst.destroyFrame();
+
+    const restored = document.getElementById("ds-frame");
+    expect(restored!.textContent).toBe("<b>removed</b>");
+    expect(restored!.querySelector("b")).toBeNull();
+  });
+});
+
+describe("getConfig — immutability", () => {
+  test("mutation of returned object does not affect internal state", () => {
+    setupTarget();
+    const config = makeConfig({ theme: "Base" });
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    const returned = inst.getConfig();
+    returned.theme = "Dark";
+
+    expect(inst.getConfig().theme).toBe("Base");
+  });
+});
+
+describe("createRoom", () => {
+  const initWithPostMessage = () => {
+    setupTarget();
+    const config = makeConfig();
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+
+    iframe.dispatchEvent(new Event("load"));
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    return { inst, postMessageSpy };
+  };
+
+  test("spreads options as flat fields in postMessage payload", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.createRoom("Team", 1, { tags: ["x"], quota: 100 });
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.data).toEqual({ title: "Team", roomType: 1, tags: ["x"], quota: 100 });
+  });
+
+  test("sends only title and roomType when no options given", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.createRoom("Room", 2);
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.data).toEqual({ title: "Room", roomType: 2 });
   });
 });
