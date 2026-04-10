@@ -69,25 +69,31 @@ import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
  * instance.getUserInfo().then((user) => console.log(user));
  * ```
  */
+/** @internal */
+type TCallbackEntry = {
+  resolve: (data: object) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout> | null;
+};
+
+/** @internal */
+type TPendingUploadEntry = {
+  fileName: string;
+  resolve: (data: object) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
 export class SDKInstance {
   #isConnected: boolean = false;
   #callIdCounter: number = 0;
-  #callbacks: Map<number, {
-    resolve: (data: object) => void;
-    reject: (error: Error) => void;
-    timer: ReturnType<typeof setTimeout> | null;
-  }> = new Map();
+  #callbacks: Map<number, TCallbackEntry> = new Map();
   #tasks: TTask[] = [];
   #classNames: string = "";
   #expectedOrigin: string = "";
   #iframe: HTMLIFrameElement | null = null;
   #uploadIdCounter: number = 0;
-  #pendingUploads: Map<number, {
-    fileName: string;
-    resolve: (data: object) => void;
-    reject: (error: Error) => void;
-    timer: ReturnType<typeof setTimeout>;
-  }> = new Map();
+  #pendingUploads: Map<number, TPendingUploadEntry> = new Map();
   /** The iframe configuration options. See {@link TFrameConfig}. */
   config: TFrameConfig;
 
@@ -105,11 +111,7 @@ export class SDKInstance {
     templates: new Map<string, HTMLElement>(),
   };
 
-  private static _iframeCache: {
-    template: HTMLIFrameElement;
-    pathCache: Map<string, string>;
-    styleCache: Map<string, Partial<CSSStyleDeclaration>>;
-  };
+  private static _iframeTemplate: HTMLIFrameElement;
 
   /**
    * Creates a loading indicator for the DocSpace frame.
@@ -128,9 +130,7 @@ export class SDKInstance {
       const style = document.createElement("style");
       style.textContent = getLoaderStyle(loaderClassName);
 
-      const fragment = document.createDocumentFragment();
-      fragment.appendChild(style);
-      document.head.appendChild(fragment);
+      document.head.appendChild(style);
 
       styleCache.set(loaderClassName, style);
     }
@@ -178,59 +178,36 @@ export class SDKInstance {
    * @returns A configured `HTMLIFrameElement`, ready for DOM insertion.
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
-    if (!SDKInstance._iframeCache) {
+    if (!SDKInstance._iframeTemplate) {
       const template = document.createElement("iframe");
       template.allowFullscreen = true;
       template.setAttribute("allow", "storage-access *");
-
-      SDKInstance._iframeCache = {
-        template,
-        pathCache: new Map<string, string>(),
-        styleCache: new Map<string, Partial<CSSStyleDeclaration>>(),
-      };
+      SDKInstance._iframeTemplate = template;
     }
 
-    const { mode, id, frameId, type, width, height, src, checkCSP } =
-      config;
+    const { frameId, type, width, height, src, checkCSP } = config;
     const isMobile = type === "mobile";
 
     const iframe =
-      SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
+      SDKInstance._iframeTemplate.cloneNode() as HTMLIFrameElement;
 
-    const cacheKey = `${mode}_${id || ""}_${frameId}`;
-    const styleCacheKey = `${width}_${height}_${
-      isMobile ? "mobile" : "desktop"
-    }`;
-
-    let path = SDKInstance._iframeCache.pathCache.get(cacheKey);
-    if (!path) {
-      path = getFramePath(config);
-      SDKInstance._iframeCache.pathCache.set(cacheKey, path);
-    }
+    const path = getFramePath(config);
 
     iframe.id = frameId;
     iframe.name = `${FRAME_NAME}__#${frameId}`;
     iframe.src = src + path;
 
-    let styleObj = SDKInstance._iframeCache.styleCache.get(styleCacheKey);
-
-    if (!styleObj) {
-      styleObj = {
-        width: width!,
-        height: height!,
-        border: "0px",
-        opacity: "0",
-        ...(isMobile && {
-          position: "fixed",
-          overflow: "hidden",
-          webkitOverflowScrolling: "touch",
-        }),
-      };
-      
-      SDKInstance._iframeCache.styleCache.set(styleCacheKey, styleObj);
-    }
-
-    Object.assign(iframe.style, styleObj);
+    Object.assign(iframe.style, {
+      width: width!,
+      height: height!,
+      border: "0px",
+      opacity: "0",
+      ...(isMobile && {
+        position: "fixed",
+        overflow: "hidden",
+        webkitOverflowScrolling: "touch",
+      }),
+    });
 
     if (isMobile) {
       if (document.body.style.overscrollBehaviorY !== "contain") {
@@ -292,30 +269,25 @@ export class SDKInstance {
 
         if (loader) {
           loader.style.opacity = "0";
-
-          requestAnimationFrame(() => {
-            try {
-              if (loader.parentNode) {
-                loader.parentNode.removeChild(loader);
-              }
-
-              events?.onContentReady?.();
-            } catch (error) {
-              console.error("Error removing loader:", error);
-              events?.onContentReady?.();
-            }
-          });
-        } else {
-          events?.onContentReady?.();
         }
 
         requestAnimationFrame(() => {
-          Object.assign(targetFrame.style, {
-            opacity: "1",
-            position: "relative",
-            width: width!,
-            height: height!,
-          });
+          try {
+            if (loader?.parentNode) {
+              loader.parentNode.removeChild(loader);
+            }
+
+            Object.assign(targetFrame.style, {
+              opacity: "1",
+              position: "relative",
+              width: width!,
+              height: height!,
+            });
+          } catch (error) {
+            console.error("Error in setIsLoaded:", error);
+          }
+
+          events?.onContentReady?.();
         });
       } catch (error) {
         console.error("Error in setIsLoaded:", error);
@@ -502,7 +474,7 @@ export class SDKInstance {
    */
   #createMethodTimer(
     callId: number,
-    entry: { resolve: (data: object) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> | null }
+    entry: TCallbackEntry
   ): ReturnType<typeof setTimeout> {
     return setTimeout(() => {
       this.#callbacks.delete(callId);
@@ -514,19 +486,39 @@ export class SDKInstance {
   }
 
   /**
-   * Rejects all pending method callbacks and clears the queue.
+   * Rejects all pending callbacks and uploads, then clears every queue.
    * @internal
    */
-  #rejectAllPending(reason: string): void {
-    const entries = [...this.#callbacks.values()];
+  #clearAllPending(error: SDKError): void {
+    for (const entry of this.#callbacks.values()) {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(error);
+    }
     this.#callbacks.clear();
     this.#tasks = [];
 
+    for (const [, pending] of this.#pendingUploads) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.#pendingUploads.clear();
+  }
+
+  /**
+   * Rejects all pending method callbacks and clears the queue.
+   * Does not touch {@link #pendingUploads} — uploads are resolved
+   * separately via event handlers.
+   * @internal
+   */
+  #rejectAllPending(reason: string): void {
     const err = new SDKError(SDKErrorCode.Disconnected, reason);
-    for (const entry of entries) {
+
+    for (const entry of this.#callbacks.values()) {
       if (entry.timer) clearTimeout(entry.timer);
       entry.reject(err);
     }
+    this.#callbacks.clear();
+    this.#tasks = [];
 
     this.#isConnected = false;
     this.#handleError(err);
@@ -702,7 +694,7 @@ export class SDKInstance {
   #createContainer(
     targetId: string
   ): { container: HTMLElement; target: HTMLElement | null } | null {
-    const target = document.getElementById(targetId);
+    let target: HTMLElement | null = document.getElementById(targetId);
     if (!target) return null;
 
     const existingContainer = document.getElementById(`${targetId}-container`);
@@ -715,43 +707,23 @@ export class SDKInstance {
         restoredTarget.id = targetId;
 
         parentNode.replaceChild(restoredTarget, existingContainer);
-
-        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
-          this.config.frameId
-        }`;
-
-        SDKInstance._iframeCache.pathCache.delete(cacheKey);
-
-        return this.#setupContainer(restoredTarget);
+        target = restoredTarget;
       }
+    } else {
+      this.#classNames = target.className;
     }
 
-    this.#classNames = target.className;
-    return this.#setupContainer(target);
-  }
+    const container = document.createElement("div");
+    container.id = target.id + "-container";
+    container.className = "frame-container";
 
-  /**
-   * Configures and styles the container element for frame presentation.
-   *
-   * @param target - The DOM element to be replaced by the container.
-   * @returns An object containing the configured container and the target element.
-   */
-  #setupContainer(target: HTMLElement): {
-    container: HTMLElement;
-    target: HTMLElement | null;
-  } {
-    const renderContainer = document.createElement("div");
-
-    renderContainer.id = target.id + "-container";
-    renderContainer.className = "frame-container";
-
-    Object.assign(renderContainer.style, {
+    Object.assign(container.style, {
       position: "relative",
       width: this.config.width,
       height: this.config.height,
     });
 
-    return { container: renderContainer, target };
+    return { container, target };
   }
 
   /**
@@ -837,14 +809,6 @@ export class SDKInstance {
   }
 
   /**
-   * Registers the current frame instance in the global DocSpace SDK registry.
-   */
-  #registerFrame(): void {
-    window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
-    window.DocSpace.SDK.frames[this.config.frameId] = this;
-  }
-
-  /**
    * Inserts the DocSpace iframe into the DOM element identified by {@link TFrameConfig.frameId}.
    *
    * Merges `config` with {@link defaultConfig} and the instance's stored config,
@@ -894,19 +858,7 @@ export class SDKInstance {
 
     this.#isConnected = false;
 
-    const reloadError = new SDKError(SDKErrorCode.Disconnected, "Frame reloaded");
-    for (const entry of this.#callbacks.values()) {
-      if (entry.timer) clearTimeout(entry.timer);
-      entry.reject(reloadError);
-    }
-    this.#callbacks.clear();
-    this.#tasks = [];
-
-    for (const [, pending] of this.#pendingUploads) {
-      clearTimeout(pending.timer);
-      pending.reject(reloadError);
-    }
-    this.#pendingUploads.clear();
+    this.#clearAllPending(new SDKError(SDKErrorCode.Disconnected, "Frame reloaded"));
 
     const setupResult = this.#createContainer(this.config.frameId);
 
@@ -919,7 +871,9 @@ export class SDKInstance {
     this.#iframe = iframe;
     this.#setupFrameEventHandlers(iframe);
     this.#assembleFrame(container, target, iframe);
-    this.#registerFrame();
+
+    window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
+    window.DocSpace.SDK.frames[this.config.frameId] = this;
 
     return iframe;
   }
@@ -962,12 +916,6 @@ export class SDKInstance {
         document.body.appendChild(replacementDiv);
       }
 
-      if (SDKInstance._iframeCache) {
-        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
-          this.config.frameId
-        }`;
-        SDKInstance._iframeCache.pathCache.delete(cacheKey);
-      }
     }
 
     window.removeEventListener("message", this.#onMessage);
@@ -982,19 +930,7 @@ export class SDKInstance {
 
     this.#isConnected = false;
 
-    const destroyError = new SDKError(SDKErrorCode.Disconnected, "Frame destroyed");
-    for (const entry of this.#callbacks.values()) {
-      if (entry.timer) clearTimeout(entry.timer);
-      entry.reject(destroyError);
-    }
-    this.#callbacks.clear();
-    this.#tasks = [];
-
-    for (const [, pending] of this.#pendingUploads) {
-      clearTimeout(pending.timer);
-      pending.reject(destroyError);
-    }
-    this.#pendingUploads.clear();
+    this.#clearAllPending(new SDKError(SDKErrorCode.Disconnected, "Frame destroyed"));
 
     const sdkFrames = window.DocSpace?.SDK?.frames;
     if (sdkFrames && frameId in sdkFrames) {
@@ -1007,20 +943,14 @@ export class SDKInstance {
    *
    * @param methodName - The name of the method to execute.
    * @param params - The parameters to pass to the method. Defaults to null.
-   * @returns A promise that resolves to an object containing the result of the method execution, or the current configuration if reloaded.
+   * @returns A promise that resolves to an object containing the result of the method execution.
    */
-  #getMethodPromise = (
+  #getMethodPromise = <T extends object>(
     methodName: string,
     params: object | null = null,
-    withReload: boolean = false
-  ): Promise<object> => {
-    const promise = new Promise<object>((resolve, reject) => {
-      if (withReload) {
-        this.initFrame(this.config);
-        resolve(this.config);
-      } else {
-        this.#executeMethod(methodName, params, resolve, reject);
-      }
+  ): Promise<T> => {
+    const promise = new Promise<T>((resolve, reject) => {
+      this.#executeMethod(methodName, params, resolve as (data: object) => void, reject);
     });
 
     // Prevent unhandled rejection for integrators without .catch().
@@ -1067,7 +997,12 @@ export class SDKInstance {
       }
     }
 
-    return this.#getMethodPromise(InstanceMethods.SetConfig, this.config, reload);
+    if (reload) {
+      this.initFrame(this.config);
+      return Promise.resolve(this.config);
+    }
+
+    return this.#getMethodPromise(InstanceMethods.SetConfig, this.config);
   }
 
   /**
@@ -1113,7 +1048,7 @@ export class SDKInstance {
    * ```
    */
   getFolderInfo(): Promise<TFolderInfo> {
-    return this.#getMethodPromise(InstanceMethods.GetFolderInfo) as Promise<TFolderInfo>;
+    return this.#getMethodPromise<TFolderInfo>(InstanceMethods.GetFolderInfo);
   }
 
   /**
@@ -1137,7 +1072,7 @@ export class SDKInstance {
    * ```
    */
   getSelection(): Promise<TFileInfo[]> {
-    return this.#getMethodPromise(InstanceMethods.GetSelection) as Promise<TFileInfo[]>;
+    return this.#getMethodPromise<TFileInfo[]>(InstanceMethods.GetSelection);
   }
 
   /**
@@ -1161,7 +1096,7 @@ export class SDKInstance {
    * ```
    */
   getFiles(): Promise<TFilesResponse> {
-    return this.#getMethodPromise(InstanceMethods.GetFiles) as Promise<TFilesResponse>;
+    return this.#getMethodPromise<TFilesResponse>(InstanceMethods.GetFiles);
   }
 
   /**
@@ -1185,7 +1120,7 @@ export class SDKInstance {
    * ```
    */
   getFolders(): Promise<TFilesResponse> {
-    return this.#getMethodPromise(InstanceMethods.GetFolders) as Promise<TFilesResponse>;
+    return this.#getMethodPromise<TFilesResponse>(InstanceMethods.GetFolders);
   }
 
   /**
@@ -1209,7 +1144,7 @@ export class SDKInstance {
    * ```
    */
   getList(): Promise<TFilesResponse> {
-    return this.#getMethodPromise(InstanceMethods.GetList) as Promise<TFilesResponse>;
+    return this.#getMethodPromise<TFilesResponse>(InstanceMethods.GetList);
   }
 
   /**
@@ -1238,7 +1173,7 @@ export class SDKInstance {
    * ```
    */
   getRooms(filter: TFrameFilter): Promise<TRoomsResponse> {
-    return this.#getMethodPromise(InstanceMethods.GetRooms, filter) as Promise<TRoomsResponse>;
+    return this.#getMethodPromise<TRoomsResponse>(InstanceMethods.GetRooms, filter);
   }
 
   /**
@@ -1262,7 +1197,7 @@ export class SDKInstance {
    * ```
    */
   getUserInfo(): Promise<TUserInfo> {
-    return this.#getMethodPromise(InstanceMethods.GetUserInfo) as Promise<TUserInfo>;
+    return this.#getMethodPromise<TUserInfo>(InstanceMethods.GetUserInfo);
   }
 
   /**
@@ -1285,7 +1220,7 @@ export class SDKInstance {
    * ```
    */
   getHashSettings(): Promise<THashSettings> {
-    return this.#getMethodPromise(InstanceMethods.GetHashSettings) as Promise<THashSettings>;
+    return this.#getMethodPromise<THashSettings>(InstanceMethods.GetHashSettings);
   }
   
   /**
@@ -1342,12 +1277,12 @@ export class SDKInstance {
     templateId: string,
     formId: string
   ): Promise<TFileInfo> {
-    return this.#getMethodPromise(InstanceMethods.CreateFile, {
+    return this.#getMethodPromise<TFileInfo>(InstanceMethods.CreateFile, {
       folderId,
       title,
       templateId,
       formId,
-    }) as Promise<TFileInfo>;
+    });
   }
   
   /**
@@ -1371,10 +1306,10 @@ export class SDKInstance {
    * ```
    */
   createFolder(parentFolderId: string, title: string): Promise<TFolderInfo> {
-    return this.#getMethodPromise(InstanceMethods.CreateFolder, {
+    return this.#getMethodPromise<TFolderInfo>(InstanceMethods.CreateFolder, {
       parentFolderId,
       title,
-    }) as Promise<TFolderInfo>;
+    });
   }
 
   /**
@@ -1405,11 +1340,11 @@ export class SDKInstance {
     roomType: string | number,
     options?: TCreateRoomOptions
   ): Promise<TRoomInfo> {
-    return this.#getMethodPromise(InstanceMethods.CreateRoom, {
+    return this.#getMethodPromise<TRoomInfo>(InstanceMethods.CreateRoom, {
       title,
       roomType,
       ...options,
-    }) as Promise<TRoomInfo>;
+    });
   }  
   
   /**

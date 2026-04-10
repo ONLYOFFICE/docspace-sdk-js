@@ -446,11 +446,36 @@ export type TCreatedBy = {
 };
 
 /** File information returned by SDK methods. */
-export type TFileInfo = {
-  /** File ID. */
+/**
+ * Common fields shared by file, folder, and room metadata.
+ * @internal
+ */
+type TEntityBase = {
+  /** Entity ID. */
   id: number;
-  /** File display name with extension. */
+  /** Display name. */
   title: string;
+  /** ISO 8601 creation date. */
+  created: string;
+  /** ISO 8601 last update date. */
+  updated: string;
+  /** Creator reference. */
+  createdBy: TCreatedBy;
+  /** Last editor reference. */
+  updatedBy: TCreatedBy;
+  /** Numeric access level. */
+  access: number;
+  /** Permission flags. */
+  security: Record<string, boolean>;
+  /** Whether the entity is shared. */
+  shared: boolean;
+  /** Whether the entity can be shared. */
+  canShare: boolean;
+  /** Whether notifications are muted. */
+  mute: boolean;
+};
+
+export type TFileInfo = TEntityBase & {
   /** File extension (e.g. `".docx"`). */
   fileExst: string;
   /** Numeric file type. */
@@ -461,36 +486,18 @@ export type TFileInfo = {
   version: number;
   /** Formatted file size string. */
   contentLength: string;
-  /** ISO 8601 creation date. */
-  created: string;
-  /** ISO 8601 last update date. */
-  updated: string;
-  /** Whether the file is shared. */
-  shared: boolean;
-  /** Numeric access level. */
-  access: number;
-  /** Permission flags. */
-  security: Record<string, boolean>;
   /** View capability flags. */
   viewAccessibility: Record<string, boolean>;
-  /** Creator reference. */
-  createdBy: TCreatedBy;
-  /** Last editor reference. */
-  updatedBy: TCreatedBy;
   /** Root folder ID. */
   rootFolderId: number;
   /** Root folder type. */
   rootFolderType: number;
-  /** Whether the file can be shared. */
-  canShare: boolean;
   /** Web view URL. */
   webUrl: string;
   /** Numeric file status flags. */
   fileStatus: number;
   /** Thumbnail generation status. */
   thumbnailStatus: number;
-  /** Notifications muted. */
-  mute: boolean;
   /** Parent folder ID. */
   parentId?: number;
   /** File comment text. */
@@ -526,11 +533,7 @@ export type TFileInfo = {
 };
 
 /** Folder information returned by SDK methods. */
-export type TFolderInfo = {
-  /** Folder ID. */
-  id: number;
-  /** Folder display name. */
-  title: string;
+export type TFolderInfo = TEntityBase & {
   /** Parent folder ID. */
   parentId: number;
   /** Number of files inside. */
@@ -539,28 +542,10 @@ export type TFolderInfo = {
   foldersCount: number;
   /** Count of new/unread items. */
   new: number;
-  /** Numeric access level. */
-  access: number;
-  /** Permission flags. */
-  security: Record<string, boolean>;
-  /** ISO 8601 creation date. */
-  created: string;
-  /** ISO 8601 last update date. */
-  updated: string;
-  /** Creator reference. */
-  createdBy: TCreatedBy;
-  /** Last editor reference. */
-  updatedBy: TCreatedBy;
   /** Root folder ID. */
   rootFolderId: number;
   /** Root folder type. */
   rootFolderType: number;
-  /** Whether the folder is shared. */
-  shared: boolean;
-  /** Whether the folder can be shared. */
-  canShare: boolean;
-  /** Whether notifications are muted. */
-  mute: boolean;
   /** Whether the folder is pinned. */
   pinned: boolean;
   /** Whether folder indexing is enabled. */
@@ -602,11 +587,7 @@ export type TLogo = {
 };
 
 /** Room information returned by SDK methods. */
-export type TRoomInfo = {
-  /** Room ID. */
-  id: number;
-  /** Room display name. */
-  title: string;
+export type TRoomInfo = TEntityBase & {
   /** Numeric room type. */
   roomType: number;
   /** Number of files inside. */
@@ -615,22 +596,6 @@ export type TRoomInfo = {
   foldersCount: number;
   /** Count of new/unread items. */
   new: number;
-  /** Numeric access level. */
-  access: number;
-  /** Permission flags. */
-  security: Record<string, boolean>;
-  /** ISO 8601 creation date. */
-  created: string;
-  /** ISO 8601 last update date. */
-  updated: string;
-  /** Creator reference. */
-  createdBy: TCreatedBy;
-  /** Last editor reference. */
-  updatedBy: TCreatedBy;
-  /** Whether the room is shared. */
-  shared: boolean;
-  /** Whether the room can be shared. */
-  canShare: boolean;
   /** Tag names assigned to the room. */
   tags: string[];
   /** Room logo. */
@@ -639,8 +604,6 @@ export type TRoomInfo = {
   pinned: boolean;
   /** Whether the room is private. */
   private: boolean;
-  /** Whether notifications are muted. */
-  mute: boolean;
   /** Whether the current user is in the room. */
   inRoom: boolean;
   /** Parent folder ID. */
@@ -741,12 +704,12 @@ export type TPathParts = {
   roomType?: number;
 };
 
-/** Response wrapper for file/folder listing methods. */
-export type TFilesResponse = {
+/** Response wrapper for paginated listing methods. */
+type TListResponse<TFolder> = {
   /** File entries. */
   files: TFileInfo[];
-  /** Folder entries. */
-  folders: TFolderInfo[];
+  /** Folder or room entries. */
+  folders: TFolder[];
   /** Current folder info. */
   current: TFolderInfo;
   /** Breadcrumb path. */
@@ -761,25 +724,11 @@ export type TFilesResponse = {
   new?: number;
 };
 
+/** Response wrapper for file/folder listing methods. */
+export type TFilesResponse = TListResponse<TFolderInfo>;
+
 /** Response wrapper for room listing methods. */
-export type TRoomsResponse = {
-  /** File entries. */
-  files: TFileInfo[];
-  /** Room entries. */
-  folders: TRoomInfo[];
-  /** Current folder info. */
-  current: TFolderInfo;
-  /** Breadcrumb path. */
-  pathParts: TPathParts[];
-  /** Pagination start index. */
-  startIndex?: number;
-  /** Number of items returned. */
-  count?: number;
-  /** Total items available. */
-  total?: number;
-  /** Count of new items. */
-  new?: number;
-};
+export type TRoomsResponse = TListResponse<TRoomInfo>;
 
 /** Password hash settings returned by {@link SDKInstance.getHashSettings}. */
 export type THashSettings = {
@@ -855,7 +804,7 @@ export type TTask = {
   /** Method name matching an {@link InstanceMethods} value. */
   methodName: string;
   /** Always `"method"` for method calls. */
-  type: string;
+  type: "method";
 };
 
 /**

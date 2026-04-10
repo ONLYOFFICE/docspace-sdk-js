@@ -96,7 +96,7 @@ export class SDK {
   };
 
   /**
-   * Alias for {@link SDK.init}. Prefer the mode-specific wrappers instead.
+   * @deprecated Use {@link SDK.init} or a mode-specific wrapper instead.
    *
    * @param config - Frame configuration. See {@link TFrameConfig}.
    * @returns The created or reinitialized {@link SDKInstance}.
