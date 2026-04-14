@@ -374,7 +374,7 @@ export const getFramePath = (config: TFrameConfig) => {
       });
 
     case SDKMode.Forms:
-      return buildPath("/sdk/forms/my-forms", {
+      return buildPath(`/sdk/forms/${config.destination}`, {
         ...baseFrameOptions,
         roomId: config.id,
         libraryId: config.libraryId,

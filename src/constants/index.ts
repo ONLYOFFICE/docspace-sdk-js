@@ -103,6 +103,7 @@ export const defaultConfig: TFrameConfig = {
   filterParam: "ALL",
   buttonColor: "#5299E0",
   infoPanelVisible: true,
+  destination: "my-forms",
   downloadToEvent: false,
   filter: {
     count: "100",

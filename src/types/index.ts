@@ -399,6 +399,8 @@ export type TFrameConfig = {
   withSearch?: boolean;
   /** Show subtitle with folder description in selector modes. Default: `true`. */
   withSubtitle?: boolean;
+  /** Initial section to display in {@link SDKMode.Forms}. Determines which page loads when the frame is created, avoiding an extra {@link SDKInstance.navigateSection} call. See {@link TFormsSection}. Default: `"my-forms"`. */
+  destination?: TFormsSection;
   /** Library ID for {@link SDKMode.Forms} to display only items from a forms library. */
   libraryId?: string;
   /** Link main text in {@link SDKMode.Uploader}. */
