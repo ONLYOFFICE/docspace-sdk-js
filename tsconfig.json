@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "es2022",
     "module": "es2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "emitDeclarationOnly": true,
     "declaration": true,
     "strict": true,
@@ -13,18 +13,13 @@
     "noUnusedParameters": true /* Report errors on unused parameters. */,
     "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
     "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
-    "importHelpers": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
     "sourceMap": true,
     "outDir": "./dist/",
     "types": ["node"],
     "lib": ["es2022", "dom"],
-    "paths": {
-      "tslib": ["./node_modules/tslib/tslib.d.ts"]
-    },
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "**/*.test.ts"]

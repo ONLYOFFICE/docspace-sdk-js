@@ -61,5 +61,12 @@ export type {
   TPathParts,
   TCreatedBy,
   TLogo,
+  TFrameMode,
   TManagerViewMode,
+  TTheme,
+  TEditorType,
+  TSelectorType,
+  TBannerDisplaying,
+  TFilterSortBy,
+  TFilterSortOrder,
 } from "./types";

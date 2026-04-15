@@ -447,7 +447,6 @@ export type TCreatedBy = {
   isAnonim?: boolean;
 };
 
-/** File information returned by SDK methods. */
 /**
  * Common fields shared by file, folder, and room metadata.
  * @internal
@@ -477,6 +476,7 @@ type TEntityBase = {
   mute: boolean;
 };
 
+/** File information returned by SDK methods. */
 export type TFileInfo = TEntityBase & {
   /** File extension (e.g. `".docx"`). */
   fileExst: string;
@@ -881,6 +881,7 @@ export type TCustomContextMenuAction = {
  * ```
  */
 export type TCustomActionsConfig = {
+  /** Context menu actions grouped by entity type. */
   contextMenu?: {
     /** Custom actions for file context menus. */
     file?: TCustomContextMenuAction[];

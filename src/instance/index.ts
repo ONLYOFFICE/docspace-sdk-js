@@ -49,6 +49,21 @@ import {
 } from "../utils";
 import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
 
+/** @internal */
+type TCallbackEntry = {
+  resolve: (data: object) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout> | null;
+};
+
+/** @internal */
+type TPendingUploadEntry = {
+  fileName: string;
+  resolve: (data: object) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
 /**
  * Manages a single DocSpace iframe, handles postMessage communication,
  * and exposes methods for operating on the embedded DocSpace UI.
@@ -69,21 +84,6 @@ import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
  * instance.getUserInfo().then((user) => console.log(user));
  * ```
  */
-/** @internal */
-type TCallbackEntry = {
-  resolve: (data: object) => void;
-  reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout> | null;
-};
-
-/** @internal */
-type TPendingUploadEntry = {
-  fileName: string;
-  resolve: (data: object) => void;
-  reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
-};
-
 export class SDKInstance {
   #isConnected: boolean = false;
   #callIdCounter: number = 0;
@@ -97,6 +97,7 @@ export class SDKInstance {
   /** The iframe configuration options. See {@link TFrameConfig}. */
   config: TFrameConfig;
 
+  /** @param config - Initial frame configuration. See {@link TFrameConfig}. */
   constructor(config: TFrameConfig) {
     this.config = config;
   }
@@ -850,10 +851,21 @@ export class SDKInstance {
   initFrame(config: TFrameConfig): HTMLIFrameElement | null {
     this.config = this.#prepareFrameConfig(config);
 
+    if (!this.config.frameId) {
+      console.warn("SDK Warning: frameId is empty. The frame may not initialize correctly.");
+    }
+
+    if (!this.config.src) {
+      console.warn("SDK Warning: src is empty. The iframe will not load any content.");
+    }
+
     try {
       this.#expectedOrigin = new URL(this.config.src).origin;
     } catch {
       this.#expectedOrigin = "";
+      if (this.config.src) {
+        console.warn(`SDK Warning: src "${this.config.src}" is not a valid URL.`);
+      }
     }
 
     this.#isConnected = false;
@@ -1024,7 +1036,11 @@ export class SDKInstance {
    * ```
    */
   getConfig(): TFrameConfig {
-    return { ...this.config };
+    const config = { ...this.config };
+    if (config.filter) config.filter = { ...config.filter };
+    if (config.events) config.events = { ...config.events };
+    if (config.editorCustomization) config.editorCustomization = { ...config.editorCustomization };
+    return config;
   }
 
   /**
@@ -1578,8 +1594,8 @@ export class SDKInstance {
    * });
    * ```
    */
-  executeInEditor(callback: (instance:object, data?: object) => void, data?: object): void {
-    void this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
+  executeInEditor(callback: (instance:object, data?: object) => void, data?: object): Promise<object> {
+    return this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
       callback, data
     });
   }

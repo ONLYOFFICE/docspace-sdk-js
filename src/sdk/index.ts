@@ -272,6 +272,44 @@ export class SDK {
     this.init({ ...config, mode: SDKMode.System });
 
   /**
+   * Initializes a frame in {@link SDKMode.PublicRoom} mode — anonymous access to view,
+   * edit, comment on, and review documents in a public room.
+   * Forces `mode` to {@link SDKMode.PublicRoom}. Requires {@link TFrameConfig.requestToken}.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const instance = sdk.initPublicRoom({
+   *   frameId: 'ds-frame',
+   *   src: 'https://docspace.example.com',
+   *   requestToken: 'public-room-token',
+   *   events: {
+   *     onAppReady: () => console.log('ready'),
+   *   },
+   * });
+   * ```
+   *
+   * @example
+   * With filter and header options.
+   * ```typescript
+   * const instance = sdk.initPublicRoom({
+   *   frameId: 'ds-frame',
+   *   src: 'https://docspace.example.com',
+   *   requestToken: 'public-room-token',
+   *   showFilter: true,
+   *   showHeader: true,
+   * });
+   * ```
+   */
+  initPublicRoom = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.PublicRoom });
+
+  /**
    * Initializes a frame in {@link SDKMode.Uploader} mode — a file upload interface.
    * Forces `mode` to {@link SDKMode.Uploader}. Requires {@link TFrameConfig.id}
    * (the target folder ID).
