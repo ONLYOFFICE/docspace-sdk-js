@@ -696,9 +696,9 @@ export class SDKInstance {
     targetId: string
   ): { container: HTMLElement; target: HTMLElement | null } | null {
     let target: HTMLElement | null = document.getElementById(targetId);
-    if (!target) return null;
-
     const existingContainer = document.getElementById(`${targetId}-container`);
+
+    if (!target && !existingContainer) return null;
 
     if (existingContainer) {
       const parentNode = existingContainer.parentNode;
@@ -711,7 +711,7 @@ export class SDKInstance {
         target = restoredTarget;
       }
     } else {
-      this.#classNames = target.className;
+      this.#classNames = target!.className;
     }
 
     const container = document.createElement("div");
