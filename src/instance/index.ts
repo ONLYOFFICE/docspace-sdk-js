@@ -714,8 +714,10 @@ export class SDKInstance {
       this.#classNames = target!.className;
     }
 
+    if (!target) return null;
+
     const container = document.createElement("div");
-    container.id = target.id + "-container";
+    container.id = `${targetId}-container`;
     container.className = "frame-container";
 
     Object.assign(container.style, {
