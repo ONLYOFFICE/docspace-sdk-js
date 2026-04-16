@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import { SDKInstance } from "../src/instance";
 import { defaultConfig, FRAME_NAME } from "../src/constants";
 import { SDKError, SDKErrorCode } from "../src/errors";
-import type { TFrameConfig } from "../src/types";
+import type { TExternalData, TFrameConfig } from "../src/types";
 
 const BASE_SRC = "https://docspace.example.com";
 
@@ -713,5 +713,102 @@ describe("createRoom", () => {
 
     const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
     expect(sent.data.data).toEqual({ title: "Room", roomType: 2 });
+  });
+});
+
+describe("external data events", () => {
+  const initConnectedInstance = (configOverrides: Partial<TFrameConfig> = {}) => {
+    setupTarget();
+    const config = makeConfig(configOverrides);
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+    iframe.dispatchEvent(new Event("load"));
+    return { inst, iframe, config };
+  };
+
+  const dispatchMessage = (data: object) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify(data),
+        origin: BASE_SRC,
+      }),
+    );
+  };
+
+  test("onGetExternalData is called with commandData when getExternalData command arrives", () => {
+    const onGetExternalData = vi.fn();
+    const payload: TExternalData = { key: "theme", value: "dark" };
+    initConnectedInstance({ events: { ...defaultConfig.events, onGetExternalData } });
+
+    dispatchMessage({
+      frameId: "ds-frame",
+      type: "onCallCommand",
+      commandName: "getExternalData",
+      commandData: payload,
+    });
+
+    expect(onGetExternalData).toHaveBeenCalledOnce();
+    expect(onGetExternalData).toHaveBeenCalledWith(payload);
+  });
+
+  test("onSetExternalData is called with commandData when setExternalData command arrives", () => {
+    const onSetExternalData = vi.fn();
+    const payload: TExternalData = { key: "token", value: "abc123" };
+    initConnectedInstance({ events: { ...defaultConfig.events, onSetExternalData } });
+
+    dispatchMessage({
+      frameId: "ds-frame",
+      type: "onCallCommand",
+      commandName: "setExternalData",
+      commandData: payload,
+    });
+
+    expect(onSetExternalData).toHaveBeenCalledOnce();
+    expect(onSetExternalData).toHaveBeenCalledWith(payload);
+  });
+
+  test("getExternalData command is a no-op when handler is not set", () => {
+    initConnectedInstance();
+
+    expect(() =>
+      dispatchMessage({
+        frameId: "ds-frame",
+        type: "onCallCommand",
+        commandName: "getExternalData",
+        commandData: { key: "x" },
+      }),
+    ).not.toThrow();
+  });
+
+  test("setExternalData command is a no-op when handler is not set", () => {
+    initConnectedInstance();
+
+    expect(() =>
+      dispatchMessage({
+        frameId: "ds-frame",
+        type: "onCallCommand",
+        commandName: "setExternalData",
+        commandData: { key: "x" },
+      }),
+    ).not.toThrow();
+  });
+
+  test("external data commands are blocked from a different origin", () => {
+    const onGetExternalData = vi.fn();
+    initConnectedInstance({ events: { ...defaultConfig.events, onGetExternalData } });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onCallCommand",
+          commandName: "getExternalData",
+          commandData: { key: "x" },
+        }),
+        origin: "https://attacker.example.com",
+      }),
+    );
+
+    expect(onGetExternalData).not.toHaveBeenCalled();
   });
 });

@@ -240,6 +240,28 @@ export type TFrameFilter = {
  * });
  * ```
  */
+/**
+ * Data object passed to and received from the DocSpace iframe via the external storage event handlers
+ * ({@link TFrameEvents.onGetExternalData} and {@link TFrameEvents.onSetExternalData}).
+ *
+ * Carries arbitrary key-value pairs whose shape is defined by the integrator and the DocSpace
+ * application together. The SDK treats the contents as opaque and forwards them as-is.
+ *
+ * @example
+ * ```typescript
+ * const config: TFrameConfig = {
+ *   frameId: "ds-frame",
+ *   src: "https://docspace.example.com",
+ *   mode: SDKMode.Manager,
+ *   events: {
+ *     onGetExternalData: (data) => console.log("get", data),
+ *     onSetExternalData: (data) => console.log("set", data),
+ *   },
+ * };
+ * ```
+ */
+export type TExternalData = Record<string, unknown>;
+
 export type TFrameEvents = {
   /** Fired when the DocSpace app encounters an initialization or runtime error. Receives the error message string. */
   onAppError?: null | ((message: string) => void);
@@ -277,6 +299,10 @@ export type TFrameEvents = {
   onCustomAction?: null | ((data: { action: string; type: string; item: object }) => void);
   /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. Receives the active section. */
   onNavigate?: null | ((data: { section: TFormsSection }) => void);
+  /** Fired when the DocSpace iframe requests data from the integrator's external storage. Receives the request payload. */
+  onGetExternalData?: null | ((data: TExternalData) => void);
+  /** Fired when the DocSpace iframe asks the integrator to persist data in external storage. Receives the payload to store. */
+  onSetExternalData?: null | ((data: TExternalData) => void);
 };
 
 /**

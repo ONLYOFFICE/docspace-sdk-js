@@ -43,6 +43,7 @@ export {
   HeaderBannerDisplaying,
 } from "./enums";
 export type {
+  TExternalData,
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,

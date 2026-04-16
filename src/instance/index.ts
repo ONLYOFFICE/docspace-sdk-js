@@ -25,6 +25,7 @@ import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
 import { SDKError, SDKErrorCode } from "../errors";
 import type {
   TCreateRoomOptions,
+  TExternalData,
   TFileInfo,
   TFilesResponse,
   TFolderInfo,
@@ -585,6 +586,8 @@ export class SDKInstance {
   static #allowedCommands: ReadonlySet<string> = new Set([
     "setIsLoaded",
     "setConfig",
+    "getExternalData",
+    "setExternalData",
   ]);
 
   /**
@@ -598,6 +601,16 @@ export class SDKInstance {
 
     if (!SDKInstance.#allowedCommands.has(data.commandName)) {
       console.warn("Blocked iframe command not in allowlist:", data.commandName);
+      return;
+    }
+
+    if (data.commandName === "getExternalData") {
+      this.config.events?.onGetExternalData?.(data.commandData as TExternalData);
+      return;
+    }
+
+    if (data.commandName === "setExternalData") {
+      this.config.events?.onSetExternalData?.(data.commandData as TExternalData);
       return;
     }
 
