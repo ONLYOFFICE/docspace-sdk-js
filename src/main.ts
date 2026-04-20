@@ -43,6 +43,7 @@ export {
   HeaderBannerDisplaying,
 } from "./enums";
 export type {
+  TExternalData,
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
@@ -61,5 +62,12 @@ export type {
   TPathParts,
   TCreatedBy,
   TLogo,
+  TFrameMode,
   TManagerViewMode,
+  TTheme,
+  TEditorType,
+  TSelectorType,
+  TBannerDisplaying,
+  TFilterSortBy,
+  TFilterSortOrder,
 } from "./types";

@@ -186,7 +186,7 @@ export const getLoaderStyle = (className: string) => {
  * Parameters whose keys match {@link TFrameConfig.filter | filter} fields
  * (e.g. `sortBy`, `sortOrder`, `count`) are placed inside `config.filter`.
  *
- * @returns A complete {@link TFrameConfig} with parsed overrides, or `null` if no `src` parameter is present.
+ * @returns A complete {@link TFrameConfig} with parsed overrides.
  *
  * @example
  * ```html
@@ -201,7 +201,7 @@ export const getLoaderStyle = (className: string) => {
  * // config.showMenu → true
  * ```
  */
-export const getConfigFromParams = (): TFrameConfig | null => {
+export const getConfigFromParams = (): TFrameConfig => {
   const scriptElement = document.currentScript as HTMLScriptElement;
   const searchParams = new URL(decodeURIComponent(scriptElement.src))
     .searchParams;
@@ -374,7 +374,7 @@ export const getFramePath = (config: TFrameConfig) => {
       });
 
     case SDKMode.Forms:
-      return buildPath("/sdk/forms/my-forms", {
+      return buildPath(`/sdk/forms/${config.destination}`, {
         ...baseFrameOptions,
         roomId: config.id,
         libraryId: config.libraryId,

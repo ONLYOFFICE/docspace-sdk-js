@@ -351,6 +351,46 @@ describe("getFramePath", () => {
       expect(path).toContain("acceptExtensions=.docx%2C.xlsx");
     });
 
+    test("Forms mode uses default destination (my-forms)", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Forms,
+        id: "room-1",
+        destination: "my-forms",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/forms/my-forms");
+      expect(path).toContain("roomId=room-1");
+    });
+
+    test("Forms mode respects custom destination", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Forms,
+        id: "room-1",
+        destination: "completed-forms",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/forms/completed-forms");
+      expect(path).toContain("roomId=room-1");
+    });
+
+    test("Forms mode builds path for each section", () => {
+      const sections = ["my-forms", "in-progress", "completed-forms", "library", "settings"] as const;
+      for (const section of sections) {
+        const config: TFrameConfig = {
+          src: "https://example.com",
+          frameId: "ds-frame",
+          mode: SDKMode.Forms,
+          destination: section,
+        } as any;
+        const path = getFramePath(config);
+        expect(path).toContain(`/sdk/forms/${section}`);
+      }
+    });
+
     test("Chat mode builds expected path with agentId and optional params", () => {
       const config: TFrameConfig = {
         src: "https://example.com",

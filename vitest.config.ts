@@ -14,7 +14,7 @@ export default defineConfig({
     coverage: {
       reportsDirectory: "coverage",
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.d.ts", "src/**/index.ts"],
+      exclude: ["src/**/*.d.ts"],
     },
   },
   resolve: {

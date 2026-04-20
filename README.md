@@ -78,7 +78,7 @@ The SDK supports 10 modes, each rendering a different DocSpace UI inside an ifra
 | `room-selector` | [`initRoomSelector`](docs/classes/SDK.md#initroomselector) | Dialog for selecting a room. Returns result via `onSelectCallback` event |
 | `file-selector` | [`initFileSelector`](docs/classes/SDK.md#initfileselector) | Dialog for selecting a file. Returns result via `onSelectCallback` event |
 | `system` | [`initSystem`](docs/classes/SDK.md#initsystem) | Headless mode without visible UI — used for API calls like `login`, `logout`, and `getUserInfo` |
-| `public-room` | [`init`](docs/classes/SDK.md#init) | Public room view with anonymous access to documents. Requires `requestToken`. Use `sdk.init({ mode: "public-room", ... })` |
+| `public-room` | [`initPublicRoom`](docs/classes/SDK.md#initpublicroom) | Public room view with anonymous access to documents. Requires `requestToken` |
 | `uploader` | [`initUploader`](docs/classes/SDK.md#inituploader) | File upload interface for a specific folder. Requires `id` (target folder identifier) |
 | `forms` | [`initForms`](docs/classes/SDK.md#initforms) | Forms gallery for a room. Requires `id` (room identifier). Supports `showMenu`, custom actions, and file upload |
 | `chat` | [`initChat`](docs/classes/SDK.md#initchat) | AI chat interface. Requires `agentId`. Supports `fileId` and `chatId` to attach files or resume conversations |
