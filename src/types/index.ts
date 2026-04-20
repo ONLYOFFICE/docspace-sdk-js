@@ -423,6 +423,8 @@ export type TFrameConfig = {
   fileId?: string | number;
   /** Chat conversation ID to resume. Optional in {@link SDKMode.Chat}. */
   chatId?: string;
+  /** URL to a custom stylesheet to inject into the frame in {@link SDKMode.Forms}. */
+  srcStyles?: string;
 };
 
 /** User reference in file/folder/room metadata. */

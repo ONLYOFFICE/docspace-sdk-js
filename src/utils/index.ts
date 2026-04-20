@@ -383,6 +383,7 @@ export const getFramePath = (config: TFrameConfig) => {
         inviteKey: config.inviteKey,
         emplType: config.emplType,
         uid: config.uid,
+        srcStyles: config.srcStyles,
       });
 
     case SDKMode.Chat:
