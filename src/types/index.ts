@@ -367,6 +367,8 @@ export type TFrameConfig = {
   infoPanelVisible?: boolean;
   /** Reserved. Controls whether the frame should auto-initialize. */
   init?: boolean | null;
+  /** URL of the integration page. Read from config to return the user back after navigating to external resources (e.g. billing). */
+  integrationUrl?: string;
   /** UI locale as a BCP 47 code (e.g. `"en-US"`). `null` = DocSpace server default. */
   locale?: string | null;
   /** **Required.** SDK mode. Determines UI and available methods. See {@link SDKMode}. */
