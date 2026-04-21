@@ -262,6 +262,7 @@ export const getFramePath = (config: TFrameConfig) => {
   const baseFrameOptions = {
     theme: config.theme,
     locale: config.locale,
+    stylesUrl: config.stylesUrl,
   };
 
   const baseSelectorOptions = {
@@ -383,7 +384,6 @@ export const getFramePath = (config: TFrameConfig) => {
         inviteKey: config.inviteKey,
         emplType: config.emplType,
         uid: config.uid,
-        srcStyles: config.srcStyles,
       });
 
     case SDKMode.Chat:

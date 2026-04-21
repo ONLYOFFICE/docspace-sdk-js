@@ -420,6 +420,30 @@ describe("getFramePath", () => {
       expect(path).not.toContain("chatId");
     });
 
+    test("stylesUrl is a base param — included across modes", () => {
+      const modes = [
+        SDKMode.RoomSelector,
+        SDKMode.FileSelector,
+        SDKMode.PublicRoom,
+        SDKMode.System,
+        SDKMode.Editor,
+        SDKMode.Viewer,
+        SDKMode.Uploader,
+        SDKMode.Forms,
+        SDKMode.Chat,
+      ];
+      for (const mode of modes) {
+        const config: TFrameConfig = {
+          src: "https://example.com",
+          frameId: "ds-frame",
+          mode,
+          stylesUrl: "https://cdn.example.com/theme.css",
+        } as any;
+        const path = getFramePath(config);
+        expect(path).toContain("stylesUrl=https%3A%2F%2Fcdn.example.com%2Ftheme.css");
+      }
+    });
+
     test("handles all modes without throwing", () => {
       Object.values(SDKMode).forEach((mode) => {
         const conf: TFrameConfig = { src: "https://example.com", frameId: "ds-frame", mode } as any;

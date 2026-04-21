@@ -136,14 +136,14 @@ describe("getFramePath — Forms mode", () => {
     expect(path).not.toContain("libraryId");
   });
 
-  test("includes srcStyles when set", () => {
-    const path = getFramePath(makeFormsConfig({ srcStyles: "https://example.com/styles.css" }));
-    expect(path).toContain("srcStyles=https%3A%2F%2Fexample.com%2Fstyles.css");
+  test("includes stylesUrl when set", () => {
+    const path = getFramePath(makeFormsConfig({ stylesUrl: "https://example.com/styles.css" }));
+    expect(path).toContain("stylesUrl=https%3A%2F%2Fexample.com%2Fstyles.css");
   });
 
-  test("omits srcStyles when undefined", () => {
-    const path = getFramePath(makeFormsConfig({ srcStyles: undefined }));
-    expect(path).not.toContain("srcStyles");
+  test("omits stylesUrl when undefined", () => {
+    const path = getFramePath(makeFormsConfig({ stylesUrl: undefined }));
+    expect(path).not.toContain("stylesUrl");
   });
 });
 

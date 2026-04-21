@@ -407,6 +407,8 @@ export type TFrameConfig = {
   showTitle?: boolean;
   /** **Required.** DocSpace server URL. Used as the iframe `src` origin. */
   src: string;
+  /** URL to a custom stylesheet applied inside the frame. */
+  stylesUrl?: string;
   /** Color theme. See {@link Theme}. Default: `"System"`. */
   theme?: TTheme;
   /** Platform layout. Affects iframe CSS (e.g. `"mobile"` sets `position: fixed`). See {@link EditorType}. Default: `"desktop"`. */
@@ -451,8 +453,6 @@ export type TFrameConfig = {
   fileId?: string | number;
   /** Chat conversation ID to resume. Optional in {@link SDKMode.Chat}. */
   chatId?: string;
-  /** URL to a custom stylesheet to inject into the frame in {@link SDKMode.Forms}. */
-  srcStyles?: string;
 };
 
 /** User reference in file/folder/room metadata. */
