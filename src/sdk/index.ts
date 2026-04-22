@@ -389,4 +389,39 @@ export class SDK {
    */
   initChat = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Chat });
+
+  /**
+   * Initializes a frame in {@link SDKMode.Personal} mode — a file/folder manager for the
+   * user's personal space: My Documents, Favorites, Recent, and Trash. The initial
+   * section is controlled by {@link TFrameConfig.personalDestination}.
+   *
+   * Forces `mode` to {@link SDKMode.Personal}. Defaults `showMenu` and `infoPanelVisible` to `true`.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const personal = sdk.initPersonal({
+   *   frameId: 'ds-personal',
+   *   src: 'https://docspace.example.com',
+   *   personalDestination: 'favorites',
+   *   events: {
+   *     onAppReady: () => console.log('ready'),
+   *     onNavigate: (data) => console.log('section:', data.section),
+   *     onFileManagerClick: (file) => console.log('opened file:', file),
+   *   },
+   * });
+   * ```
+   */
+  initPersonal = (config: TFrameConfig) =>
+    this.init({
+      ...config,
+      mode: SDKMode.Personal,
+      showMenu: config.showMenu ?? true,
+      infoPanelVisible: config.infoPanelVisible ?? true,
+    });
 }

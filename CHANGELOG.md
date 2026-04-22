@@ -6,6 +6,7 @@
 - Added Uploader mode
 - Added Forms mode
 - Added Chat mode
+- Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection`); `navigateSection` now also works in Personal mode
 - Added `SDKError` and `SDKErrorCode`
 - Added `methodTimeout` config field
 - Added `stylesUrl` and `integrationUrl` config fields

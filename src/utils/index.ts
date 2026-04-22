@@ -244,6 +244,7 @@ export const getConfigFromParams = (): TFrameConfig => {
  * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
  * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
  * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
+ * | {@link SDKMode.Personal} | `/sdk/personal-files/my-documents` | `id`, `showMenu`, `infoPanelVisible`, `disableActionButton` |
  * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `fileId`, `chatId`, `providerName` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
@@ -258,6 +259,66 @@ export const getConfigFromParams = (): TFrameConfig => {
  *
  * @internal
  */
+/**
+ * Builds the iframe URL path for {@link SDKMode.Personal} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param baseFrameOptions - Theme/locale/stylesUrl options shared across modes.
+ * @returns A URL path string (e.g. `"/sdk/personal-files/my-documents?id=folder-42"`).
+ *
+ * @internal
+ */
+/**
+ * Builds the iframe URL path for {@link SDKMode.Chat} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param baseFrameOptions - Theme/locale/stylesUrl options shared across modes.
+ * @returns A URL path string (e.g. `"/sdk/chat?agentId=123"`).
+ *
+ * @internal
+ */
+const getChatPath = (
+  config: TFrameConfig,
+  baseFrameOptions: Record<string, string | number | boolean | undefined | null>,
+): string => {
+  const qs = customUrlSearchParams({
+    ...baseFrameOptions,
+    agentId: config.agentId,
+    fileId: config.fileId ?? undefined,
+    chatId: config.chatId || undefined,
+    providerName: config.providerName || undefined,
+    inviteKey: config.inviteKey || undefined,
+    emplType: config.emplType || undefined,
+    uid: config.uid || undefined,
+  });
+
+  return qs ? `/sdk/chat?${qs}` : "/sdk/chat";
+};
+
+const getPersonalPath = (
+  config: TFrameConfig,
+  baseFrameOptions: Record<string, string | number | boolean | undefined | null>,
+): string => {
+  const qs = customUrlSearchParams({
+    ...baseFrameOptions,
+    id: config.id,
+    showMenu: config.showMenu,
+    infoPanelVisible: config.infoPanelVisible,
+    disableActionButton: config.disableActionButton,
+    downloadToEvent: config.downloadToEvent,
+    sortBy: config.filter?.sortBy,
+    sortOrder: config.filter?.sortOrder,
+    search: config.filter?.search,
+    count: config.filter?.count,
+    page: config.filter?.page,
+  });
+
+  const base = `/sdk/personal-files/${config.personalDestination}`;
+  return qs ? `${base}?${qs}` : base;
+};
+
 export const getFramePath = (config: TFrameConfig) => {
   const baseFrameOptions = {
     theme: config.theme,
@@ -386,17 +447,11 @@ export const getFramePath = (config: TFrameConfig) => {
         uid: config.uid,
       });
 
+    case SDKMode.Personal:
+      return getPersonalPath(config, baseFrameOptions);
+
     case SDKMode.Chat:
-      return buildPath("/sdk/chat", {
-        ...baseFrameOptions,
-        agentId: config.agentId,
-        fileId: config.fileId ?? undefined,
-        chatId: config.chatId || undefined,
-        providerName: config.providerName || undefined,
-        inviteKey: config.inviteKey || undefined,
-        emplType: config.emplType || undefined,
-        uid: config.uid || undefined,
-      });
+      return getChatPath(config, baseFrameOptions);
 
     default:
       return config.rootPath || "/";

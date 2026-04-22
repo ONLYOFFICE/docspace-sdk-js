@@ -104,6 +104,7 @@ export const defaultConfig: TFrameConfig = {
   buttonColor: "#5299E0",
   infoPanelVisible: true,
   destination: "my-forms",
+  personalDestination: "my-documents",
   downloadToEvent: false,
   filter: {
     count: "100",

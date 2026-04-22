@@ -41,6 +41,7 @@ import type {
   TUserInfo,
   TCustomActionsConfig,
   TFormsSection,
+  TPersonalSection,
 } from "../types";
 import {
   getCSPErrorBody,
@@ -692,6 +693,16 @@ export class SDKInstance {
     if (mergedConfig.mode === SDKMode.Forms) {
       if (mergedConfig.showMenu === undefined) {
         mergedConfig.showMenu = true;
+      }
+      mergedConfig.noLoader = true;
+    }
+
+    if (mergedConfig.mode === SDKMode.Personal) {
+      if (mergedConfig.showMenu === undefined) {
+        mergedConfig.showMenu = true;
+      }
+      if (mergedConfig.infoPanelVisible === undefined) {
+        mergedConfig.infoPanelVisible = true;
       }
       mergedConfig.noLoader = true;
     }
@@ -1616,31 +1627,35 @@ export class SDKInstance {
   }
 
   /**
-   * Navigates the Forms frame to a specific section.
-   * Only works in {@link SDKMode.Forms} mode.
+   * Navigates the frame to a specific section.
+   * Works in {@link SDKMode.Forms} and {@link SDKMode.Personal} modes.
    *
-   * @param section - Target section: `"my-forms"`, `"in-progress"`, `"completed-forms"`, `"library"`, or `"settings"`.
+   * @param section - Target section. For {@link SDKMode.Forms} — {@link TFormsSection};
+   *   for {@link SDKMode.Personal} — {@link TPersonalSection}.
    * @returns A promise that resolves when the navigation is complete.
    *
    * @example
+   * Forms mode.
    * ```typescript
    * await instance.navigateSection("completed-forms");
    * ```
    *
    * @example
-   * Initialize Forms and navigate to the library section.
+   * Personal mode.
    * ```typescript
-   * const forms = sdk.initForms({
-   *   frameId: 'ds-forms',
+   * const personal = sdk.initPersonal({
+   *   frameId: 'ds-personal',
    *   src: 'https://docspace.example.com',
-   *   id: 'room-42',
    * });
-   * await forms.navigateSection("library");
+   * await personal.navigateSection("trash");
    * ```
    */
-  navigateSection(section: TFormsSection): Promise<object> {
-    if (this.config.mode !== SDKMode.Forms) {
-      throw new SDKError(SDKErrorCode.ModeMismatch, "navigateSection is only available in Forms mode");
+  navigateSection(section: TFormsSection | TPersonalSection): Promise<object> {
+    if (this.config.mode !== SDKMode.Forms && this.config.mode !== SDKMode.Personal) {
+      throw new SDKError(
+        SDKErrorCode.ModeMismatch,
+        "navigateSection is only available in Forms or Personal mode",
+      );
     }
 
     return this.#getMethodPromise(InstanceMethods.NavigateSection, { section });

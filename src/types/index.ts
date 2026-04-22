@@ -297,8 +297,8 @@ export type TFrameEvents = {
   onUploadProgress?: null | ((data: object) => void);
   /** Fired when a custom context menu action is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
   onCustomAction?: null | ((data: { action: string; type: string; item: object }) => void);
-  /** Fired when the user navigates to a different section in {@link SDKMode.Forms}. Receives the active section. */
-  onNavigate?: null | ((data: { section: TFormsSection }) => void);
+  /** Fired when the user navigates to a different section in {@link SDKMode.Forms} or {@link SDKMode.Personal}. Receives the active section. */
+  onNavigate?: null | ((data: { section: TFormsSection | TPersonalSection }) => void);
   /** Fired when the DocSpace iframe requests data from the integrator's external storage. Receives the request payload. */
   onGetExternalData?: null | ((data: TExternalData) => void);
   /** Fired when the DocSpace iframe asks the integrator to persist data in external storage. Receives the payload to store. */
@@ -431,6 +431,8 @@ export type TFrameConfig = {
   withSubtitle?: boolean;
   /** Initial section to display in {@link SDKMode.Forms}. Determines which page loads when the frame is created, avoiding an extra {@link SDKInstance.navigateSection} call. See {@link TFormsSection}. Default: `"my-forms"`. */
   destination?: TFormsSection;
+  /** Initial section to display in {@link SDKMode.Personal}. Determines which page loads when the frame is created, avoiding an extra {@link SDKInstance.navigateSection} call. See {@link TPersonalSection}. Default: `"my-documents"`. */
+  personalDestination?: TPersonalSection;
   /** Library ID for {@link SDKMode.Forms} to display only items from a forms library. */
   libraryId?: string;
   /** Link main text in {@link SDKMode.Uploader}. */
@@ -867,6 +869,23 @@ export type TCreateRoomOptions = {
  * ```
  */
 export type TFormsSection = "my-forms" | "in-progress" | "completed-forms" | "library" | "settings";
+
+/**
+ * Navigation sections available in {@link SDKMode.Personal} mode.
+ * Used as {@link TFrameConfig.personalDestination} for the initial section and by
+ * {@link SDKInstance.navigateSection} to switch sections at runtime.
+ *
+ * @example
+ * ```typescript
+ * const personal = sdk.initPersonal({
+ *   frameId: "ds-personal",
+ *   src: "https://docspace.example.com",
+ *   personalDestination: "favorites",
+ * });
+ * await personal.navigateSection("trash");
+ * ```
+ */
+export type TPersonalSection = "my-documents" | "favorites" | "recent" | "trash" | "settings";
 
 /**
  * A custom context menu action registered via {@link SDKInstance.setCustomActions}.
