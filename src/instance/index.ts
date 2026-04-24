@@ -25,18 +25,19 @@ import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
 import { SDKError, SDKErrorCode } from "../errors";
 import type {
   TCreateRoomOptions,
-  TExternalData,
   TFileInfo,
   TFilesResponse,
   TFolderInfo,
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
+  TGetExternalDataRequest,
   THashSettings,
   TManagerViewMode,
   TMessageData,
   TRoomInfo,
   TRoomsResponse,
+  TSetExternalDataPayload,
   TTask,
   TUserInfo,
   TCustomActionsConfig,
@@ -335,6 +336,32 @@ export class SDKInstance {
   };
 
   /**
+   * Posts the resolved value of an `onGetExternalData` call back to the iframe.
+   *
+   * @param callId - Correlation ID copied from the incoming request.
+   * @param data - Value returned by the handler. Forwarded as-is.
+   */
+  #sendExternalDataReturn = (callId: number, data: unknown): void => {
+    try {
+      const { frameId, src } = this.config;
+
+      if (!this.#iframe?.contentWindow) return;
+
+      this.#iframe.contentWindow.postMessage(
+        JSON.stringify({
+          frameId,
+          type: MessageTypes.ExternalDataReturn,
+          callId,
+          data,
+        }),
+        src,
+      );
+    } catch (error) {
+      this.#handleError(error as { message: string });
+    }
+  };
+
+  /**
    * Handles incoming messages from the DocSpace iframe.
    *
    * @param e - The MessageEvent containing the message data.
@@ -606,12 +633,27 @@ export class SDKInstance {
     }
 
     if (data.commandName === "getExternalData") {
-      this.config.events?.onGetExternalData?.(data.commandData as TExternalData);
+      const handler = this.config.events?.onGetExternalData;
+      if (!handler) return;
+
+      const req = data.commandData as TGetExternalDataRequest;
+
+      Promise.resolve()
+        .then(() => handler(req))
+        .then((result) => this.#sendExternalDataReturn(req.callId, result))
+        .catch((error) => this.#handleError(error as { message: string }));
       return;
     }
 
     if (data.commandName === "setExternalData") {
-      this.config.events?.onSetExternalData?.(data.commandData as TExternalData);
+      const handler = this.config.events?.onSetExternalData;
+      if (!handler) return;
+
+      const payload = data.commandData as TSetExternalDataPayload;
+
+      Promise.resolve()
+        .then(() => handler(payload))
+        .catch((error) => this.#handleError(error as { message: string }));
       return;
     }
 

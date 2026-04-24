@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import { SDKInstance } from "../src/instance";
 import { defaultConfig, FRAME_NAME } from "../src/constants";
 import { SDKError, SDKErrorCode } from "../src/errors";
-import type { TExternalData, TFrameConfig } from "../src/types";
+import type { TFrameConfig } from "../src/types";
 
 const BASE_SRC = "https://docspace.example.com";
 
@@ -717,13 +717,22 @@ describe("createRoom", () => {
 });
 
 describe("external data events", () => {
+  const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
   const initConnectedInstance = (configOverrides: Partial<TFrameConfig> = {}) => {
     setupTarget();
     const config = makeConfig(configOverrides);
     const inst = new SDKInstance(config);
     const iframe = inst.initFrame(config)!;
     iframe.dispatchEvent(new Event("load"));
-    return { inst, iframe, config };
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    return { inst, iframe, config, postMessageSpy };
   };
 
   const dispatchMessage = (data: object) => {
@@ -735,67 +744,173 @@ describe("external data events", () => {
     );
   };
 
-  test("onGetExternalData is called with commandData when getExternalData command arrives", () => {
-    const onGetExternalData = vi.fn();
-    const payload: TExternalData = { key: "theme", value: "dark" };
-    initConnectedInstance({ events: { ...defaultConfig.events, onGetExternalData } });
-
+  const dispatchGet = (commandData: object) =>
     dispatchMessage({
       frameId: "ds-frame",
       type: "onCallCommand",
       commandName: "getExternalData",
-      commandData: payload,
+      commandData,
     });
 
-    expect(onGetExternalData).toHaveBeenCalledOnce();
-    expect(onGetExternalData).toHaveBeenCalledWith(payload);
-  });
-
-  test("onSetExternalData is called with commandData when setExternalData command arrives", () => {
-    const onSetExternalData = vi.fn();
-    const payload: TExternalData = { key: "token", value: "abc123" };
-    initConnectedInstance({ events: { ...defaultConfig.events, onSetExternalData } });
-
+  const dispatchSet = (commandData: object) =>
     dispatchMessage({
       frameId: "ds-frame",
       type: "onCallCommand",
       commandName: "setExternalData",
-      commandData: payload,
+      commandData,
     });
 
-    expect(onSetExternalData).toHaveBeenCalledOnce();
-    expect(onSetExternalData).toHaveBeenCalledWith(payload);
+  test("onGetExternalData receives the request and its return value is posted back", async () => {
+    const onGetExternalData = vi.fn().mockReturnValue("dark");
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onGetExternalData },
+    });
+
+    dispatchGet({ key: "theme", callId: 7 });
+    await flushPromises();
+
+    expect(onGetExternalData).toHaveBeenCalledOnce();
+    expect(onGetExternalData).toHaveBeenCalledWith({ key: "theme", callId: 7 });
+
+    expect(postMessageSpy).toHaveBeenCalledOnce();
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent).toEqual({
+      frameId: "ds-frame",
+      type: "onExternalDataReturn",
+      callId: 7,
+      data: "dark",
+    });
   });
 
-  test("getExternalData command is a no-op when handler is not set", () => {
-    initConnectedInstance();
+  test("async onGetExternalData is awaited before the reply is posted", async () => {
+    const onGetExternalData = vi.fn().mockResolvedValue({ value: 42 });
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onGetExternalData },
+    });
 
-    expect(() =>
-      dispatchMessage({
-        frameId: "ds-frame",
-        type: "onCallCommand",
-        commandName: "getExternalData",
-        commandData: { key: "x" },
-      }),
-    ).not.toThrow();
+    dispatchGet({ key: "count", callId: 11 });
+
+    expect(postMessageSpy).not.toHaveBeenCalled();
+
+    await flushPromises();
+
+    expect(postMessageSpy).toHaveBeenCalledOnce();
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.callId).toBe(11);
+    expect(sent.data).toEqual({ value: 42 });
+  });
+
+  test("onGetExternalData handler that throws routes the error to onAppError and posts nothing", async () => {
+    const onAppError = vi.fn();
+    const onGetExternalData = vi.fn().mockImplementation(() => {
+      throw new Error("storage unavailable");
+    });
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onGetExternalData, onAppError },
+    });
+
+    dispatchGet({ key: "theme", callId: 1 });
+    await flushPromises();
+
+    expect(onAppError).toHaveBeenCalledWith("storage unavailable");
+    expect(postMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("onGetExternalData promise rejection routes the error to onAppError", async () => {
+    const onAppError = vi.fn();
+    const onGetExternalData = vi.fn().mockRejectedValue(new Error("backend down"));
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onGetExternalData, onAppError },
+    });
+
+    dispatchGet({ key: "theme", callId: 1 });
+    await flushPromises();
+
+    expect(onAppError).toHaveBeenCalledWith("backend down");
+    expect(postMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("parallel getExternalData requests are answered with their own callIds", async () => {
+    const resolvers: Record<string, (value: unknown) => void> = {};
+    const onGetExternalData = vi.fn(
+      (req: { key: string }) =>
+        new Promise((resolve) => {
+          resolvers[req.key] = resolve;
+        }),
+    );
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onGetExternalData },
+    });
+
+    dispatchGet({ key: "theme", callId: 100 });
+    dispatchGet({ key: "locale", callId: 200 });
+
+    await flushPromises();
+
+    resolvers.locale("fr-FR");
+    resolvers.theme("dark");
+
+    await flushPromises();
+
+    expect(postMessageSpy).toHaveBeenCalledTimes(2);
+    const envelopes = postMessageSpy.mock.calls.map((call) => JSON.parse(call[0]));
+
+    const themeReply = envelopes.find((e) => e.callId === 100);
+    const localeReply = envelopes.find((e) => e.callId === 200);
+
+    expect(themeReply).toMatchObject({ type: "onExternalDataReturn", callId: 100, data: "dark" });
+    expect(localeReply).toMatchObject({ type: "onExternalDataReturn", callId: 200, data: "fr-FR" });
+  });
+
+  test("getExternalData command is a no-op when handler is not set", async () => {
+    const { postMessageSpy } = initConnectedInstance();
+
+    dispatchGet({ key: "x", callId: 1 });
+    await flushPromises();
+
+    expect(postMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("onSetExternalData receives {key, value} and nothing is posted back", async () => {
+    const onSetExternalData = vi.fn();
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onSetExternalData },
+    });
+
+    dispatchSet({ key: "token", value: "abc123" });
+    await flushPromises();
+
+    expect(onSetExternalData).toHaveBeenCalledOnce();
+    expect(onSetExternalData).toHaveBeenCalledWith({ key: "token", value: "abc123" });
+    expect(postMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("async onSetExternalData is awaited and rejections reach onAppError", async () => {
+    const onAppError = vi.fn();
+    const onSetExternalData = vi.fn().mockRejectedValue(new Error("write failed"));
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onSetExternalData, onAppError },
+    });
+
+    dispatchSet({ key: "token", value: "abc" });
+    await flushPromises();
+
+    expect(onAppError).toHaveBeenCalledWith("write failed");
+    expect(postMessageSpy).not.toHaveBeenCalled();
   });
 
   test("setExternalData command is a no-op when handler is not set", () => {
-    initConnectedInstance();
+    const { postMessageSpy } = initConnectedInstance();
 
-    expect(() =>
-      dispatchMessage({
-        frameId: "ds-frame",
-        type: "onCallCommand",
-        commandName: "setExternalData",
-        commandData: { key: "x" },
-      }),
-    ).not.toThrow();
+    expect(() => dispatchSet({ key: "x", value: 1 })).not.toThrow();
+    expect(postMessageSpy).not.toHaveBeenCalled();
   });
 
-  test("external data commands are blocked from a different origin", () => {
+  test("external data commands are blocked from a different origin", async () => {
     const onGetExternalData = vi.fn();
-    initConnectedInstance({ events: { ...defaultConfig.events, onGetExternalData } });
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onGetExternalData },
+    });
 
     window.dispatchEvent(
       new MessageEvent("message", {
@@ -803,12 +918,15 @@ describe("external data events", () => {
           frameId: "ds-frame",
           type: "onCallCommand",
           commandName: "getExternalData",
-          commandData: { key: "x" },
+          commandData: { key: "x", callId: 1 },
         }),
         origin: "https://attacker.example.com",
       }),
     );
 
+    await flushPromises();
+
     expect(onGetExternalData).not.toHaveBeenCalled();
+    expect(postMessageSpy).not.toHaveBeenCalled();
   });
 });

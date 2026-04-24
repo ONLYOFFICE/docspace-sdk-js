@@ -245,8 +245,10 @@ export const enum InstanceMethods {
 
 /**
  * The `postMessage` message types in the iframe ↔ host protocol.
- * Direction: all messages are sent **from the DocSpace iframe to the host page**.
- * The host processes them in `SDKInstance.#onMessage`.
+ * Most messages flow **from the DocSpace iframe to the host page** and are processed
+ * in `SDKInstance.#onMessage`. The {@link MessageTypes.UploadFileData} and
+ * {@link MessageTypes.ExternalDataReturn} types travel in the opposite direction —
+ * the host posts them into the iframe.
  *
  * @internal
  */
@@ -261,4 +263,6 @@ export const enum MessageTypes {
   Error = "error",
   /** Binary file upload from the host to the iframe. Used by {@link SDKInstance.upload}. */
   UploadFileData = "uploadFileData",
+  /** Host reply to the iframe's `getExternalData` command. Carries the value resolved by {@link TFrameEvents.onGetExternalData} along with the original `callId`. */
+  ExternalDataReturn = "onExternalDataReturn",
 }
