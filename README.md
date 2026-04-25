@@ -68,7 +68,7 @@ You can check the latest SDK version in the [released tags](https://github.com/O
 
 ## SDK Modes
 
-The SDK supports 8 modes, each rendering a different DocSpace UI inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
+The SDK supports 10 modes, each rendering a different DocSpace UI inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
 
 | Mode | Method | Description |
 |---|---|---|
@@ -80,6 +80,8 @@ The SDK supports 8 modes, each rendering a different DocSpace UI inside an ifram
 | `system` | [`initSystem`](docs/classes/SDK.md#initsystem) | Headless mode without visible UI — used for API calls like `login`, `logout`, and `getUserInfo` |
 | `public-room` | [`initPublicRoom`](docs/classes/SDK.md#initpublicroom) | Public room view with anonymous access to documents. Requires `requestToken` |
 | `uploader` | [`initUploader`](docs/classes/SDK.md#inituploader) | File upload interface for a specific folder. Requires `id` (target folder identifier) |
+| `forms` | [`initForms`](docs/classes/SDK.md#initforms) | Forms gallery for a room. Requires `id` (room identifier). Supports `showMenu`, custom actions, and file upload |
+| `chat` | [`initChat`](docs/classes/SDK.md#initchat) | AI chat interface. Requires `agentId`. Supports `fileId` and `chatId` to attach files or resume conversations |
 
 ### Examples
 
@@ -128,28 +130,72 @@ const uploader = sdk.initUploader({
 });
 ```
 
+**Forms:**
+
+```typescript
+const forms = sdk.initForms({
+  frameId: "ds-forms",
+  src: "https://your-docspace.com",
+  id: "room-id",
+  events: {
+    onNavigate: (data) => console.log("Navigated:", data),
+    onCustomAction: (data) => console.log("Action:", data),
+    onUploadSuccess: (file) => console.log("Uploaded:", file),
+  },
+});
+
+// Navigate to a section
+await forms.navigateSection("completed-forms");
+
+// Register custom context menu actions
+await forms.setCustomActions({
+  contextMenu: {
+    file: [{ key: "export", label: "Export to CRM" }],
+  },
+});
+
+// Upload a file
+const file = document.querySelector("input[type=file]").files[0];
+await forms.upload(file);
+```
+
+**AI Chat:**
+
+```typescript
+const chat = sdk.initChat({
+  frameId: "ds-chat",
+  src: "https://your-docspace.com",
+  agentId: 123,
+  events: {
+    onAppReady: () => console.log("Chat ready"),
+  },
+});
+```
+
 ## Events
 
 All events are optional. Pass them via the `events` field in the configuration object. The table below shows which events are available in each mode:
 
-| Event | Manager | Editor | Viewer | Room Sel. | File Sel. | System | Public Room | Uploader |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `onAppReady` | + | + | + | + | + | + | + | + |
-| `onAppError` | + | + | + | + | + | + | + | + |
-| `onContentReady` | + | + | + | + | + | + | + | + |
-| `onAuthSuccess` | + | + | + | + | + | + | | + |
-| `onSignOut` | + | + | + | + | + | + | | + |
-| `onEditorOpen` | + | | | | | | + | |
-| `onEditorCloseCallback` | | + | + | | | | | |
-| `onFileManagerClick` | + | | | | | | + | |
-| `onDownload` | + | + | + | | | | + | |
-| `onNoAccess` | + | | | | | | + | |
-| `onNotFound` | + | | | | | | + | |
-| `onSelectCallback` | | | | + | + | | | |
-| `onCloseCallback` | | | | + | + | | | |
-| `onUploadSuccess` | | | | | | | | + |
-| `onUploadError` | | | | | | | | + |
-| `onUploadProgress` | | | | | | | | + |
+| Event | Manager | Editor | Viewer | Room Sel. | File Sel. | System | Public Room | Uploader | Forms | Chat |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `onAppReady` | + | + | + | + | + | + | + | + | + | + |
+| `onAppError` | + | + | + | + | + | + | + | + | + | + |
+| `onContentReady` | + | + | + | + | + | + | + | + | + | + |
+| `onAuthSuccess` | + | + | + | + | + | + | | + | + | + |
+| `onSignOut` | + | + | + | + | + | + | | + | + | + |
+| `onEditorOpen` | + | | | | | | + | | | |
+| `onEditorCloseCallback` | | + | + | | | | | | | |
+| `onFileManagerClick` | + | | | | | | + | | | |
+| `onDownload` | + | + | + | | | | + | | | |
+| `onNoAccess` | + | | | | | | + | | | |
+| `onNotFound` | + | | | | | | + | | | |
+| `onSelectCallback` | | | | + | + | | | | | |
+| `onCloseCallback` | | | | + | + | | | | | |
+| `onUploadSuccess` | | | | | | | | + | + | |
+| `onUploadError` | | | | | | | | + | + | |
+| `onUploadProgress` | | | | | | | | + | | |
+| `onCustomAction` | | | | | | | | | + | |
+| `onNavigate` | | | | | | | | | + | |
 
 ## Instance Methods
 
@@ -181,6 +227,11 @@ await system.createRoom(title, roomType);
 // Frame control
 system.setConfig({ theme: "Dark" });
 system.destroyFrame();
+
+// Forms mode (via initForms)
+await forms.navigateSection("library");
+await forms.setCustomActions({ contextMenu: { file: [...] } });
+await forms.upload(file);
 ```
 
 All active instances are accessible via `sdk.frames`:

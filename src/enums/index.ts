@@ -47,6 +47,12 @@ export enum SDKMode {
   PublicRoom = "public-room",
   /** File upload interface. Uploads files to the folder specified by `id`. */
   Uploader = "uploader",
+  /** Forms gallery. Displays forms for the room specified by {@link TFrameConfig.id}. Supports {@link TFrameConfig.showMenu} to toggle the side panel. */
+  Forms = "forms",
+  /** AI chat interface. Full-page conversation UI for the agent specified by {@link TFrameConfig.agentId}. */
+  Chat = "chat",
+  /** Personal files browser. File/folder manager for the user's personal space (My Documents, Favorites, Recent, Trash). Uses {@link TFrameConfig.personalDestination} to pick the initial section. */
+  Personal = "personal",
 }
 
 /**
@@ -231,12 +237,18 @@ export const enum InstanceMethods {
   SetListView = "setListView",
   /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a callback inside the editor context. */
   ExecuteInEditor = "executeInEditor",
+  /** Calls `SDKInstance.navigateSection(section)`. Navigates Forms to a specific section. */
+  NavigateSection = "navigateSection",
+  /** Calls `SDKInstance.setCustomActions(config)`. Registers custom context menu actions. */
+  SetCustomActions = "setCustomActions",
 }
 
 /**
  * The `postMessage` message types in the iframe ↔ host protocol.
- * Direction: all messages are sent **from the DocSpace iframe to the host page**.
- * The host processes them in `SDKInstance.#onMessage`.
+ * Most messages flow **from the DocSpace iframe to the host page** and are processed
+ * in `SDKInstance.#onMessage`. The {@link MessageTypes.UploadFileData} and
+ * {@link MessageTypes.ExternalDataReturn} types travel in the opposite direction —
+ * the host posts them into the iframe.
  *
  * @internal
  */
@@ -249,4 +261,8 @@ export const enum MessageTypes {
   OnCallCommand = "onCallCommand",
   /** The iframe reports an error. The host passes it to `config.events.onAppError`. */
   Error = "error",
+  /** Binary file upload from the host to the iframe. Used by {@link SDKInstance.upload}. */
+  UploadFileData = "uploadFileData",
+  /** Host reply to the iframe's `getExternalData` command. Carries the value resolved by {@link TFrameEvents.onGetExternalData} along with the original `callId`. */
+  ExternalDataReturn = "onExternalDataReturn",
 }

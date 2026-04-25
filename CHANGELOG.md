@@ -3,27 +3,36 @@
 ## 2.2.0
 
 ### Added
-- Added Uploader mode with `uploaderConfig` for file upload integration
-- Added `onUploadProgress` event for tracking upload progress
-- Added `acceptExtensions` parameter for filtering allowed file types in uploader
-- Added fields to limit the size of uploaded items in uploader mode
-- Added new events and properties for uploader customization
+- Added Uploader mode
+- Added Forms mode
+- Added Chat mode
+- Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection`); `navigateSection` now also works in Personal mode
+- Added `SDKError` and `SDKErrorCode`
+- Added `methodTimeout` config field
+- Added `stylesUrl` and `integrationUrl` config fields
+- Added new events: `onNavigate`, `onUploadSuccess`, `onUploadError`, `onCustomAction`, `onContentReady`, `onNoAccess`, `onNotFound`, `onEditorOpen`, `onGetExternalData`, `onSetExternalData`
+- Added round-trip delivery for `onGetExternalData`: the handler's return value (sync or `Promise`) is posted back to the iframe via the new `MessageTypes.ExternalDataReturn` envelope and correlated by `callId`
+- Added new types: `TGetExternalDataRequest`, `TSetExternalDataPayload`
+- Added new instance methods: `navigateSection`, `setCustomActions`, `upload`
 - Added unit tests for SDK instance class
-- Added edge case tests for utils and uploader
+- Added edge case tests for utils and new modes
 
 ### Changed
 - Migrated from Jest to Vitest for testing
-- Updated packages to latest versions
-- Updated pnpm version
+- Updated packages and pnpm version
 - Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
-- Improved documentation generation: fixed links processing, generation format, and sidebar sorting
+- Improved documentation generation
+- Refactored `SDKInstance` internals
+- Refactored `getFramePath`
 
 ### Fixed
-- Fixed wrong config merge in `setConfig` method
+- Fixed wrong config merge in `setConfig`
 - Fixed wrong error message in SDK instance
 - Restored missing `withReload` option for `setConfig`
-- Fixed links processing for generated documentation
-- Fixed examples in documentation
+- Fixed links processing and examples in documentation
+- Fixed container reinit and target check in `init*`
+- Fixed `isConnected` state handling
+- Fixed method rejection cleanup and mode-guard validation
 
 ## 2.1.0
 ## Added

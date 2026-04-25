@@ -16,10 +16,59 @@
  * @license
  */
 
+/**
+ * @module
+ * @mergeModuleWith <project>
+ */
+
 import { SDK } from "./sdk";
+import { SDKError, SDKErrorCode } from "./errors";
 
-window.DocSpace = window.DocSpace || {};
+if (typeof window !== "undefined") {
+  window.DocSpace = window.DocSpace || {};
+  window.DocSpace.SDK = window.DocSpace.SDK || new SDK();
+}
 
-window.DocSpace.SDK = window.DocSpace.SDK || new SDK();
-
+export { SDKError, SDKErrorCode };
 export default SDK;
+export { SDKInstance } from "./instance";
+export {
+  SDKMode,
+  SelectorFilterType,
+  EditorType,
+  ManagerViewMode,
+  Theme,
+  FilterSortOrder,
+  FilterSortBy,
+  HeaderBannerDisplaying,
+} from "./enums";
+export type {
+  TGetExternalDataRequest,
+  TSetExternalDataPayload,
+  TFrameConfig,
+  TFrameEvents,
+  TFrameFilter,
+  TEditorCustomization,
+  TCreateRoomOptions,
+  TFormsSection,
+  TCustomActionsConfig,
+  TCustomContextMenuAction,
+  TFileInfo,
+  TFolderInfo,
+  TRoomInfo,
+  TUserInfo,
+  TFilesResponse,
+  TRoomsResponse,
+  THashSettings,
+  TPathParts,
+  TCreatedBy,
+  TLogo,
+  TFrameMode,
+  TManagerViewMode,
+  TTheme,
+  TEditorType,
+  TSelectorType,
+  TBannerDisplaying,
+  TFilterSortBy,
+  TFilterSortOrder,
+} from "./types";

@@ -47,11 +47,11 @@ export const customUrlSearchParams = (
 ) => {
   if (!data) return "";
 
-  Object.keys(data).forEach(
-    (key) => (data[key] === undefined || data[key] === null) && delete data[key]
+  const cleaned = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined && v !== null)
   );
 
-  return new URLSearchParams(data as Record<string, string>).toString();
+  return new URLSearchParams(cleaned as Record<string, string>).toString();
 };
 
 /**
@@ -77,7 +77,7 @@ export const customUrlSearchParams = (
 export const validateCSP = async (targetSrc: string) => {
   const { origin, host } = window.location;
 
-  if (origin.includes(targetSrc)) return;
+  if (origin === new URL(targetSrc).origin) return;
 
   const response = await fetch(`${targetSrc}${CSPApiUrl}`);
 
@@ -122,7 +122,36 @@ export const validateCSP = async (targetSrc: string) => {
  * @internal
  */
 export const getCSPErrorBody = (src: string) => {
-  return `<body style=background:#f3f4f4><link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300"rel=stylesheet><div style="display:flex;flex-direction:column;gap:80px;align-items:center;justify-content:flex-start;margin-top:60px;padding:0 30px"><div style=flex-shrink:0;position:relative><img src=${src}/static/images/logo/lightsmall.svg></div><div style=display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:flex-start;flex-shrink:0;position:relative><div style=flex-shrink:0;width:120px;height:100px;position:relative><img src=${src}/static/images/frame-error.svg></div><span style="color:#a3a9ae;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px">${cspErrorText} Please add it via <a href=${src}/developer-tools/javascript-sdk style="color:#4781d1;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px;text-decoration-line:underline"target=_blank>the Developer Tools section</a>.</span></div></div></body>`;
+  const safeSrc = src
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  return [
+    `<body style="background:#f3f4f4">`,
+    `<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet">`,
+    `<div style="display:flex;flex-direction:column;gap:80px;align-items:center;`,
+    `justify-content:flex-start;margin-top:60px;padding:0 30px">`,
+    `<div style="flex-shrink:0;position:relative">`,
+    `<img src="${safeSrc}/static/images/logo/lightsmall.svg">`,
+    `</div>`,
+    `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;`,
+    `justify-content:flex-start;flex-shrink:0;position:relative">`,
+    `<div style="flex-shrink:0;width:120px;height:100px;position:relative">`,
+    `<img src="${safeSrc}/static/images/frame-error.svg">`,
+    `</div>`,
+    `<span style="color:#a3a9ae;text-align:center;font-family:Open Sans;`,
+    `font-size:14px;font-style:normal;font-weight:700;line-height:16px">`,
+    `${cspErrorText} Please add it via `,
+    `<a href="${safeSrc}/developer-tools/javascript-sdk" `,
+    `style="color:#4781d1;text-align:center;font-family:Open Sans;`,
+    `font-size:14px;font-style:normal;font-weight:700;line-height:16px;`,
+    `text-decoration-line:underline" target="_blank">`,
+    `the Developer Tools section</a>.`,
+    `</span>`,
+    `</div></div></body>`,
+  ].join("");
 };
 
 /**
@@ -157,7 +186,7 @@ export const getLoaderStyle = (className: string) => {
  * Parameters whose keys match {@link TFrameConfig.filter | filter} fields
  * (e.g. `sortBy`, `sortOrder`, `count`) are placed inside `config.filter`.
  *
- * @returns A complete {@link TFrameConfig} with parsed overrides, or `null` if no `src` parameter is present.
+ * @returns A complete {@link TFrameConfig} with parsed overrides.
  *
  * @example
  * ```html
@@ -172,7 +201,7 @@ export const getLoaderStyle = (className: string) => {
  * // config.showMenu → true
  * ```
  */
-export const getConfigFromParams = (): TFrameConfig | null => {
+export const getConfigFromParams = (): TFrameConfig => {
   const scriptElement = document.currentScript as HTMLScriptElement;
   const searchParams = new URL(decodeURIComponent(scriptElement.src))
     .searchParams;
@@ -192,7 +221,7 @@ export const getConfigFromParams = (): TFrameConfig | null => {
   });
 
   // Ensure default values for mode and src
-  configTemplate.mode = searchParams.get("mode") || "manager";
+  configTemplate.mode = (searchParams.get("mode") || "manager") as TFrameConfig["mode"];
   configTemplate.src = searchParams.get("src") || "";
 
   return configTemplate;
@@ -214,6 +243,9 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  * | {@link SDKMode.Editor} | `/doceditor` | `fileId`, `editorType`, `share` |
  * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
  * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
+ * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
+ * | {@link SDKMode.Personal} | `/sdk/personal-files/my-documents` | `id`, `showMenu`, `infoPanelVisible`, `disableActionButton` |
+ * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `fileId`, `chatId`, `providerName` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
  * @param config - The frame configuration. At minimum, {@link TFrameConfig.mode} must be set.
@@ -227,10 +259,71 @@ export const getConfigFromParams = (): TFrameConfig | null => {
  *
  * @internal
  */
+/**
+ * Builds the iframe URL path for {@link SDKMode.Personal} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param baseFrameOptions - Theme/locale/stylesUrl options shared across modes.
+ * @returns A URL path string (e.g. `"/sdk/personal-files/my-documents?id=folder-42"`).
+ *
+ * @internal
+ */
+/**
+ * Builds the iframe URL path for {@link SDKMode.Chat} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param baseFrameOptions - Theme/locale/stylesUrl options shared across modes.
+ * @returns A URL path string (e.g. `"/sdk/chat?agentId=123"`).
+ *
+ * @internal
+ */
+const getChatPath = (
+  config: TFrameConfig,
+  baseFrameOptions: Record<string, string | number | boolean | undefined | null>,
+): string => {
+  const qs = customUrlSearchParams({
+    ...baseFrameOptions,
+    agentId: config.agentId,
+    fileId: config.fileId ?? undefined,
+    chatId: config.chatId || undefined,
+    providerName: config.providerName || undefined,
+    inviteKey: config.inviteKey || undefined,
+    emplType: config.emplType || undefined,
+    uid: config.uid || undefined,
+  });
+
+  return qs ? `/sdk/chat?${qs}` : "/sdk/chat";
+};
+
+const getPersonalPath = (
+  config: TFrameConfig,
+  baseFrameOptions: Record<string, string | number | boolean | undefined | null>,
+): string => {
+  const qs = customUrlSearchParams({
+    ...baseFrameOptions,
+    id: config.id,
+    showMenu: config.showMenu,
+    infoPanelVisible: config.infoPanelVisible,
+    disableActionButton: config.disableActionButton,
+    downloadToEvent: config.downloadToEvent,
+    sortBy: config.filter?.sortBy,
+    sortOrder: config.filter?.sortOrder,
+    search: config.filter?.search,
+    count: config.filter?.count,
+    page: config.filter?.page,
+  });
+
+  const base = `/sdk/personal-files/${config.personalDestination}`;
+  return qs ? `${base}?${qs}` : base;
+};
+
 export const getFramePath = (config: TFrameConfig) => {
   const baseFrameOptions = {
     theme: config.theme,
     locale: config.locale,
+    stylesUrl: config.stylesUrl,
   };
 
   const baseSelectorOptions = {
@@ -260,19 +353,28 @@ export const getFramePath = (config: TFrameConfig) => {
         : undefined,
   };
 
+  const buildPath = (
+    base: string,
+    params: Record<string, string | number | boolean | undefined | null>
+  ): string => {
+    const qs = customUrlSearchParams(params);
+    return qs ? `${base}?${qs}` : base;
+  };
+
   switch (config.mode) {
     case SDKMode.Manager: {
-      if (config.id) config.filter!.folder = config.id as string;
+      const filter = { ...config.filter };
+      if (config.id) filter.folder = config.id as string;
 
       const params = config.requestToken
-        ? { key: config.requestToken, ...config.filter }
-        : config.filter;
+        ? { key: config.requestToken, ...filter }
+        : filter;
 
       if (!params?.withSubfolders) {
         delete params?.withSubfolders;
       }
 
-      const urlParams = customUrlSearchParams(params!);
+      const urlParams = customUrlSearchParams(params);
 
       return `${config.rootPath}${
         config.requestToken
@@ -281,19 +383,14 @@ export const getFramePath = (config: TFrameConfig) => {
       }`;
     }
 
-    case SDKMode.RoomSelector: {
-      const roomSelectorConfig = {
+    case SDKMode.RoomSelector:
+      return buildPath("/sdk/room-selector", {
         ...baseFrameOptions,
         ...baseSelectorOptions,
-      };
+      });
 
-      const urlParams = customUrlSearchParams(roomSelectorConfig);
-
-      return `/sdk/room-selector${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.FileSelector: {
-      const fileSelectorConfig = {
+    case SDKMode.FileSelector:
+      return buildPath("/sdk/file-selector", {
         ...baseFrameOptions,
         ...baseSelectorOptions,
         breadCrumbs: config.withBreadCrumbs,
@@ -301,62 +398,31 @@ export const getFramePath = (config: TFrameConfig) => {
         id: config.id,
         selectorType: config.selectorType,
         subtitle: config.withSubtitle,
-      };
+      });
 
-      const urlParams = customUrlSearchParams(fileSelectorConfig);
-
-      return `/sdk/file-selector${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.PublicRoom: {
-      const publicRoomConfig = {
+    case SDKMode.PublicRoom:
+      return buildPath("/sdk/public-room", {
         ...baseFrameOptions,
         folder: config.id,
         key: config.requestToken,
         showFilter: config.showFilter,
         showHeader: config.showHeader,
         showTitle: config.showTitle,
-      };
+      });
 
-      const urlParams = customUrlSearchParams(publicRoomConfig);
+    case SDKMode.System:
+      return buildPath("/old-sdk/system", baseFrameOptions);
 
-      return `/sdk/public-room${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.System: {
-      const urlParams = customUrlSearchParams(baseFrameOptions);
-      return `/old-sdk/system${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.Editor: {
-      const editorConfig = {
+    case SDKMode.Editor:
+    case SDKMode.Viewer:
+      return buildPath("/doceditor", {
         ...baseFrameOptions,
         ...baseEditorOptions,
-      };
+        ...(config.mode === SDKMode.Viewer && { action: "view" }),
+      });
 
-      const urlParams = customUrlSearchParams(editorConfig);
-
-      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
-
-      return path;
-    }
-
-    case SDKMode.Viewer: {
-      const viewerConfig = {
-        ...baseFrameOptions,
-        ...baseEditorOptions,
-        action: "view",
-      };
-
-      const urlParams = customUrlSearchParams(viewerConfig);
-
-      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
-
-      return path;
-    }
-
-    case SDKMode.Uploader: {
-      const uploaderConfig = {
+    case SDKMode.Uploader:
+      return buildPath("/sdk/uploader", {
         ...baseFrameOptions,
         targetId: config.id,
         acceptExtensions: config.acceptExtensions,
@@ -367,12 +433,25 @@ export const getFramePath = (config: TFrameConfig) => {
         isMultipleUpload: config.isMultipleUpload,
         maxPerUploadSize: config.maxPerUploadSize,
         maxTotalUploadSize: config.maxTotalUploadSize,
-      };
+      });
 
-      const urlParams = customUrlSearchParams(uploaderConfig);
+    case SDKMode.Forms:
+      return buildPath(`/sdk/forms/${config.destination}`, {
+        ...baseFrameOptions,
+        roomId: config.id,
+        libraryId: config.libraryId,
+        showMenu: config.showMenu,
+        providerName: config.providerName,
+        inviteKey: config.inviteKey,
+        emplType: config.emplType,
+        uid: config.uid,
+      });
 
-      return `/sdk/uploader${urlParams ? `?${urlParams}` : ""}`;
-    }
+    case SDKMode.Personal:
+      return getPersonalPath(config, baseFrameOptions);
+
+    case SDKMode.Chat:
+      return getChatPath(config, baseFrameOptions);
 
     default:
       return config.rootPath || "/";

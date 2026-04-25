@@ -96,7 +96,7 @@ export class SDK {
   };
 
   /**
-   * Alias for {@link SDK.init}. Prefer the mode-specific wrappers instead.
+   * @deprecated Use {@link SDK.init} or a mode-specific wrapper instead.
    *
    * @param config - Frame configuration. See {@link TFrameConfig}.
    * @returns The created or reinitialized {@link SDKInstance}.
@@ -272,6 +272,44 @@ export class SDK {
     this.init({ ...config, mode: SDKMode.System });
 
   /**
+   * Initializes a frame in {@link SDKMode.PublicRoom} mode — anonymous access to view,
+   * edit, comment on, and review documents in a public room.
+   * Forces `mode` to {@link SDKMode.PublicRoom}. Requires {@link TFrameConfig.requestToken}.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const instance = sdk.initPublicRoom({
+   *   frameId: 'ds-frame',
+   *   src: 'https://docspace.example.com',
+   *   requestToken: 'public-room-token',
+   *   events: {
+   *     onAppReady: () => console.log('ready'),
+   *   },
+   * });
+   * ```
+   *
+   * @example
+   * With filter and header options.
+   * ```typescript
+   * const instance = sdk.initPublicRoom({
+   *   frameId: 'ds-frame',
+   *   src: 'https://docspace.example.com',
+   *   requestToken: 'public-room-token',
+   *   showFilter: true,
+   *   showHeader: true,
+   * });
+   * ```
+   */
+  initPublicRoom = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.PublicRoom });
+
+  /**
    * Initializes a frame in {@link SDKMode.Uploader} mode — a file upload interface.
    * Forces `mode` to {@link SDKMode.Uploader}. Requires {@link TFrameConfig.id}
    * (the target folder ID).
@@ -299,4 +337,91 @@ export class SDK {
    */
   initUploader = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Uploader });
+
+  /**
+   * Initializes a frame in {@link SDKMode.Forms} mode — a forms gallery for the room specified by `id`.
+   * Forces `mode` to {@link SDKMode.Forms}. Sets `showMenu` to `true` by default.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const forms = sdk.initForms({
+   *   frameId: 'ds-forms',
+   *   src: 'https://docspace.example.com',
+   *   id: 'room-id',
+   *   showMenu: true,
+   *   events: {
+   *     onCustomAction: (data) => console.log('action:', data),
+   *   },
+   * });
+   * ```
+   */
+  initForms = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.Forms, showMenu: config.showMenu ?? true });
+
+  /**
+   * Initializes a frame in {@link SDKMode.Chat} mode — a full-page AI chat interface
+   * for the agent specified by {@link TFrameConfig.agentId}.
+   * Forces `mode` to {@link SDKMode.Chat}. Requires {@link TFrameConfig.agentId}.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const chat = sdk.initChat({
+   *   frameId: 'ds-chat',
+   *   src: 'https://docspace.example.com',
+   *   agentId: 123,
+   *   events: {
+   *     onAppReady: () => console.log('chat ready'),
+   *   },
+   * });
+   * ```
+   */
+  initChat = (config: TFrameConfig) =>
+    this.init({ ...config, mode: SDKMode.Chat });
+
+  /**
+   * Initializes a frame in {@link SDKMode.Personal} mode — a file/folder manager for the
+   * user's personal space: My Documents, Favorites, Recent, and Trash. The initial
+   * section is controlled by {@link TFrameConfig.personalDestination}.
+   *
+   * Forces `mode` to {@link SDKMode.Personal}. Defaults `showMenu` and `infoPanelVisible` to `true`.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const personal = sdk.initPersonal({
+   *   frameId: 'ds-personal',
+   *   src: 'https://docspace.example.com',
+   *   personalDestination: 'favorites',
+   *   events: {
+   *     onAppReady: () => console.log('ready'),
+   *     onNavigate: (data) => console.log('section:', data.section),
+   *     onFileManagerClick: (file) => console.log('opened file:', file),
+   *   },
+   * });
+   * ```
+   */
+  initPersonal = (config: TFrameConfig) =>
+    this.init({
+      ...config,
+      mode: SDKMode.Personal,
+      showMenu: config.showMenu ?? true,
+      infoPanelVisible: config.infoPanelVisible ?? true,
+    });
 }
