@@ -87,6 +87,7 @@ export const defaultConfig: TFrameConfig = {
   showHeaderBanner: HeaderBannerDisplaying.None,
   showTitle: true,
   showMenu: false,
+  headerOffset: 0,
   showFilter: false,
   showSignOut: true,
   destroyText: "",

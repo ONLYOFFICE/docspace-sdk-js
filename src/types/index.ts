@@ -412,6 +412,14 @@ export type TFrameConfig = {
   showHeaderBanner?: TBannerDisplaying;
   /** Show left navigation menu in {@link SDKMode.Manager} and {@link SDKMode.Forms}. Default: `false`. */
   showMenu?: boolean;
+  /** Inline-start padding (in px) added to header rows so host overlays
+   *  on the left edge (e.g. Nextcloud floating menu) don't cover the
+   *  burger / breadcrumbs / chat-header controls. The outer iframe
+   *  container is not shifted — only the elements inside the header
+   *  move to the right (or to the left in RTL).
+   *  Currently honored in {@link SDKMode.Forms}, {@link SDKMode.Personal}
+   *  and {@link SDKMode.Chat}. Default: `0`. */
+  headerOffset?: number;
   /** OAuth provider name for automatic authentication in {@link SDKMode.Forms} and {@link SDKMode.Chat}. E.g. `"nextcloud"`. */
   providerName?: string;
   /** Invitation key for signup via OAuth in {@link SDKMode.Forms} and {@link SDKMode.Chat}. */
