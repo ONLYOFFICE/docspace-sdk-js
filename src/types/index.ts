@@ -420,13 +420,13 @@ export type TFrameConfig = {
    *  Currently honored in {@link SDKMode.Forms}, {@link SDKMode.Personal}
    *  and {@link SDKMode.Chat}. Default: `0`. */
   headerOffset?: number;
-  /** OAuth provider name for automatic authentication in {@link SDKMode.Forms} and {@link SDKMode.Chat}. E.g. `"nextcloud"`. */
+  /** OAuth provider name for automatic authentication in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. E.g. `"nextcloud"`. */
   providerName?: string;
-  /** Invitation key for signup via OAuth in {@link SDKMode.Forms} and {@link SDKMode.Chat}. */
+  /** Invitation key for signup via OAuth in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
   inviteKey?: string;
-  /** Employee type for signup via OAuth in {@link SDKMode.Forms} and {@link SDKMode.Chat}. */
+  /** Employee type for signup via OAuth in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
   emplType?: string;
-  /** User identifier for {@link SDKMode.Forms} and {@link SDKMode.Chat}. */
+  /** User identifier for {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
   uid?: string;
   /** Show "Cancel" button in selector modes. Default: `false`. */
   showSelectorCancel?: boolean;

@@ -26,6 +26,7 @@
 - Refactored `getFramePath`
 
 ### Fixed
+- Personal mode now propagates `providerName`, `inviteKey`, `emplType`, and `uid` to the iframe URL, matching Forms and Chat. Previously these OAuth bootstrap params passed to `SDK.initPersonal` were silently dropped, so embedding hosts (e.g. Nextcloud) could not auto-authenticate the user via the configured provider.
 - Fixed wrong config merge in `setConfig`
 - Fixed wrong error message in SDK instance
 - Restored missing `withReload` option for `setConfig`

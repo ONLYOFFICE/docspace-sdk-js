@@ -171,6 +171,36 @@ describe("getFramePath — Personal mode", () => {
     expect(path).not.toContain("showMenu=");
     expect(path).not.toContain("infoPanelVisible=");
   });
+
+  test("includes auth params when providerName is set", () => {
+    const path = getFramePath(
+      makePersonalConfig({
+        providerName: "nextcloud",
+        inviteKey: "abc",
+        emplType: "user",
+        uid: "user-123",
+      }),
+    );
+    expect(path).toContain("providerName=nextcloud");
+    expect(path).toContain("inviteKey=abc");
+    expect(path).toContain("emplType=user");
+    expect(path).toContain("uid=user-123");
+  });
+
+  test("omits auth params when undefined", () => {
+    const path = getFramePath(
+      makePersonalConfig({
+        providerName: undefined,
+        inviteKey: undefined,
+        emplType: undefined,
+        uid: undefined,
+      }),
+    );
+    expect(path).not.toContain("providerName");
+    expect(path).not.toContain("inviteKey");
+    expect(path).not.toContain("emplType");
+    expect(path).not.toContain("uid=");
+  });
 });
 
 // ---------------------------------------------------------------------------

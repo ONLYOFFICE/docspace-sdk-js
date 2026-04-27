@@ -244,7 +244,7 @@ export const getConfigFromParams = (): TFrameConfig => {
  * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
  * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
  * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
- * | {@link SDKMode.Personal} | `/sdk/personal-files/my-documents` | `id`, `showMenu`, `infoPanelVisible`, `disableActionButton` |
+ * | {@link SDKMode.Personal} | `/sdk/personal-files/my-documents` | `id`, `showMenu`, `infoPanelVisible`, `disableActionButton`, `providerName` |
  * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `fileId`, `chatId`, `providerName` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
@@ -315,6 +315,10 @@ const getPersonalPath = (
     search: config.filter?.search,
     count: config.filter?.count,
     page: config.filter?.page,
+    providerName: config.providerName || undefined,
+    inviteKey: config.inviteKey || undefined,
+    emplType: config.emplType || undefined,
+    uid: config.uid || undefined,
   });
 
   const base = `/sdk/personal-files/${config.personalDestination}`;
