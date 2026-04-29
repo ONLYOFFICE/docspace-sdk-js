@@ -420,6 +420,12 @@ export type TFrameConfig = {
    *  Currently honored in {@link SDKMode.Forms}, {@link SDKMode.Personal}
    *  and {@link SDKMode.Chat}. Default: `0`. */
   headerOffset?: number;
+  /** Height (in px) of the header component inside the iframe. When unset,
+   *  DocSpace uses its own built-in header height; supply this only to override
+   *  it so the embedded UI matches the host application's chrome.
+   *  Currently honored in {@link SDKMode.Forms}, {@link SDKMode.Personal}
+   *  and {@link SDKMode.Chat}. */
+  headerHeight?: number;
   /** OAuth provider name for automatic authentication in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. E.g. `"nextcloud"`. */
   providerName?: string;
   /** Invitation key for signup via OAuth in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
