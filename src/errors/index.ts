@@ -53,6 +53,8 @@ export enum SDKErrorCode {
   UploadFailed = "UPLOAD_FAILED",
   /** An incoming postMessage payload could not be parsed as valid JSON. */
   ParseError = "PARSE_ERROR",
+  /** The SDK could not resolve an OAuth access token: the {@link TFrameConfig.getToken} callback threw/rejected, or neither `getToken` nor `accessToken` was provided in OAuth mode. */
+  TokenResolveFailed = "TOKEN_RESOLVE_FAILED",
 }
 
 /**

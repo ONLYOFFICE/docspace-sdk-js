@@ -265,4 +265,6 @@ export const enum MessageTypes {
   UploadFileData = "uploadFileData",
   /** Host reply to the iframe's `getExternalData` command. Carries the value resolved by {@link TFrameEvents.onGetExternalData} along with the original `callId`. */
   ExternalDataReturn = "onExternalDataReturn",
+  /** Host reply to the iframe's `getAuthToken` command (OAuth mode). Carries `{ accessToken, expiresAt? }` resolved from {@link TFrameConfig.getToken}, correlated by `callId`. */
+  AuthTokenReturn = "onAuthTokenReturn",
 }

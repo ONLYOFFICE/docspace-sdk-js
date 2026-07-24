@@ -121,6 +121,7 @@ export const defaultConfig: TFrameConfig = {
     onCloseCallback: null,
     onAppReady: null,
     onAppError: null,
+    onAuthError: null,
     onEditorCloseCallback: null,
     onAuthSuccess: null,
     onSignOut: null,

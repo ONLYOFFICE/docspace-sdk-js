@@ -328,10 +328,14 @@ const getPersonalPath = (
 };
 
 export const getFramePath = (config: TFrameConfig) => {
+  // OAuth mode: signal the embedded app to start in Bearer-token mode (no cookie).
+  const oauth = config.getToken || config.accessToken ? "oauth" : undefined;
+
   const baseFrameOptions = {
     theme: config.theme,
     locale: config.locale,
     stylesUrl: config.stylesUrl,
+    auth: oauth,
   };
 
   const baseSelectorOptions = {
@@ -376,11 +380,13 @@ export const getFramePath = (config: TFrameConfig) => {
 
       const params = config.requestToken
         ? { key: config.requestToken, ...filter }
-        : filter;
+        : { ...filter };
 
       if (!params?.withSubfolders) {
         delete params?.withSubfolders;
       }
+
+      if (oauth) (params as Record<string, unknown>).auth = oauth;
 
       const urlParams = customUrlSearchParams(params);
 

@@ -271,6 +271,8 @@ export type TSetExternalDataPayload = {
 export type TFrameEvents = {
   /** Fired when the DocSpace app encounters an initialization or runtime error. Receives the error message string. */
   onAppError?: null | ((message: string) => void);
+  /** Fired (OAuth mode) when the SDK cannot resolve an access token — {@link TFrameConfig.getToken} threw/rejected, or is missing. The host should re-authenticate or surface the failure. */
+  onAuthError?: null | ((error: { code?: string; message: string }) => void);
   /** Fired once when the DocSpace app inside the iframe is fully initialized and ready. */
   onAppReady?: null | ((data: { frameId: string }) => void);
   /** Fired after successful user authorization inside the iframe. */
@@ -400,6 +402,27 @@ export type TFrameConfig = {
   name?: string;
   /** Auth token for public rooms ({@link SDKMode.PublicRoom}) and shared files. Default: `null`. */
   requestToken?: string | null;
+  /**
+   * OAuth access-token provider. Supplying `getToken` (or {@link TFrameConfig.accessToken})
+   * switches the frame into **OAuth mode**: the SDK obtains a short-lived access token from
+   * this callback (on the frame's request and on demand) and hands it to the embedded DocSpace,
+   * which authorizes API calls with `Authorization: Bearer <token>` instead of the session cookie.
+   *
+   * The host backend should perform the OAuth authorization-code / refresh-token exchange and
+   * return a fresh, minimally-scoped DocSpace access token. Never expose `client_secret` or
+   * refresh tokens to the browser. Called again whenever the frame needs a fresh token.
+   */
+  getToken?: () => string | Promise<string>;
+  /**
+   * Static OAuth access token (convenience). The SDK wraps it as `getToken: () => accessToken`.
+   * The SDK cannot refresh it — prefer {@link TFrameConfig.getToken} for anything longer than the token TTL.
+   */
+  accessToken?: string;
+  /**
+   * Optional explicit access-token expiry (epoch ms), used by proactive refresh.
+   * When omitted, expiry is decoded from the JWT `exp` claim. *(Reserved for proactive refresh; not used by the on-demand flow.)*
+   */
+  tokenExpiresAt?: number;
   /** Base navigation path for {@link SDKMode.Manager}. Default: `"/rooms/shared/"`. */
   rootPath?: string;
   /** Content filter for selector modes. See {@link SelectorFilterType}. Default: `"all"`. */

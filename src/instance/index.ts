@@ -335,6 +335,68 @@ export class SDKInstance {
     }
   };
 
+  /** Single-flight guard for OAuth token resolution (the `getAuthToken` command). */
+  #authTokenPromise: Promise<string> | null = null;
+
+  /**
+   * Resolves an OAuth access token via {@link TFrameConfig.getToken} (or the static
+   * {@link TFrameConfig.accessToken}). Single-flight: concurrent requests share one
+   * in-flight call; the cache is cleared once settled, so the next request re-invokes
+   * `getToken` and yields a freshly refreshed token.
+   */
+  #resolveToken = (): Promise<string> => {
+    if (this.#authTokenPromise) return this.#authTokenPromise;
+
+    const { getToken, accessToken } = this.config;
+
+    const source: Promise<string> = getToken
+      ? Promise.resolve().then(() => getToken())
+      : accessToken != null
+      ? Promise.resolve(accessToken)
+      : Promise.reject(
+          new SDKError(
+            SDKErrorCode.TokenResolveFailed,
+            "OAuth mode requires a getToken callback or accessToken in config",
+          ),
+        );
+
+    this.#authTokenPromise = source.finally(() => {
+      this.#authTokenPromise = null;
+    });
+
+    return this.#authTokenPromise;
+  };
+
+  /**
+   * Posts a resolved OAuth access token back to the iframe (reply to `getAuthToken`).
+   * Mirrors {@link SDKInstance.#sendExternalDataReturn}; targets the exact frame origin.
+   *
+   * @param callId - Correlation ID copied from the incoming request.
+   * @param data - `{ accessToken, expiresAt? }` to deliver to the frame.
+   */
+  #sendAuthTokenReturn = (
+    callId: number,
+    data: { accessToken: string; expiresAt?: number },
+  ): void => {
+    try {
+      const { frameId, src } = this.config;
+
+      if (!this.#iframe?.contentWindow) return;
+
+      this.#iframe.contentWindow.postMessage(
+        JSON.stringify({
+          frameId,
+          type: MessageTypes.AuthTokenReturn,
+          callId,
+          data,
+        }),
+        src,
+      );
+    } catch (error) {
+      this.#handleError(error as { message: string });
+    }
+  };
+
   /**
    * Posts the resolved value of an `onGetExternalData` call back to the iframe.
    *
@@ -616,6 +678,7 @@ export class SDKInstance {
     "setConfig",
     "getExternalData",
     "setExternalData",
+    "getAuthToken",
   ]);
 
   /**
@@ -642,6 +705,28 @@ export class SDKInstance {
         .then(() => handler(req))
         .then((result) => this.#sendExternalDataReturn(req.callId, result))
         .catch((error) => this.#handleError(error as { message: string }));
+      return;
+    }
+
+    if (data.commandName === "getAuthToken") {
+      const req = (data.commandData ?? {}) as { callId: number };
+
+      this.#resolveToken()
+        .then((accessToken) =>
+          this.#sendAuthTokenReturn(req.callId, { accessToken }),
+        )
+        .catch((error: unknown) => {
+          // Deliberately NOT #handleError (that routes to onAppError);
+          // token-resolution failures surface via onAuthError.
+          const code =
+            error instanceof SDKError
+              ? error.code
+              : SDKErrorCode.TokenResolveFailed;
+          const message =
+            (error as { message?: string })?.message ??
+            "Failed to resolve auth token";
+          this.config.events?.onAuthError?.({ code, message });
+        });
       return;
     }
 
