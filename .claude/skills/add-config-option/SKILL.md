@@ -99,7 +99,7 @@ pnpm run docs
 - [ ] Tests cover the new path (parser + frame path + mode behavior if any).
 - [ ] `pnpm run docs` regenerated without errors.
 - [ ] After merge: assess impact on `@onlyoffice/docspace-react` (bundles its own SDK
-      copy), the public `docspace-sdk` skill (`docspace-agent-skills` repo:
+      copy), the public `embed-sdk` skill (`agent-skills` repo:
       routing table, `config-reference.md`, `validate-config.mjs` dictionary), and
       note the minimum portal version for the new capability (`api.js` is pinned by
       path `/static/scripts/sdk/{version}/api.js`).

@@ -94,5 +94,5 @@ pnpm run docs
 - [ ] Timeout path and mode guard (if any) covered by tests.
 - [ ] Method visible in TypeDoc with two `@example` blocks.
 - [ ] After merge: assess impact on `@onlyoffice/docspace-react` (bundles its own
-      SDK copy) and the public `docspace-sdk` skill (`methods.md`,
+      SDK copy) and the public `embed-sdk` skill (`methods.md`,
       `config-reference.md`); note the minimum portal/DocSpace version.

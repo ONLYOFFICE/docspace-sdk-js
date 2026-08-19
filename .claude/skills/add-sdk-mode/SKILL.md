@@ -72,7 +72,7 @@ jsdom only — no real iframe/postMessage.
 ## 8. Knowledge sync
 
 - Update the mode list in `CLAUDE.md` (SDK section: `init*` enumeration).
-- After merge: update the public `docspace-sdk` skill in `docspace-agent-skills`
+- After merge: update the public `embed-sdk` skill in `agent-skills`
   (routing table in SKILL.md + new `references/modes/<mode>.md` +
   `validate-config.mjs` mode list), and `@onlyoffice/docspace-react` if the wrapper
   should expose the mode. Record the minimum portal version that serves the new
