@@ -164,6 +164,29 @@ describe("getConfigFromParams", () => {
     Object.defineProperty(document, "currentScript", { value: null, configurable: true });
     expect(() => getConfigFromParams()).toThrow();
   });
+
+  describe("filter param syntax", () => {
+    test("bare filter keys are case-sensitive: sortOrder maps, sortorder does not", () => {
+      registerScript(
+        "https://example.com/api.js?src=&mode=manager&sortOrder=ascending&sortorder=descending"
+      );
+      const result = getConfigFromParams();
+      expect(result?.filter?.sortOrder).toBe("ascending");
+      expect(result?.filter).not.toHaveProperty("sortorder");
+      expect(result).toHaveProperty("sortorder", "descending");
+    });
+
+    test("legacy bracket syntax filter[...] is not mapped into config.filter", () => {
+      registerScript(
+        "https://example.com/api.js?src=&mode=manager&filter[count]=25&filter[sortorder]=descending"
+      );
+      const result = getConfigFromParams();
+      expect(result?.filter?.count).toBe(defaultConfig.filter?.count);
+      expect(result?.filter?.sortOrder).toBe(defaultConfig.filter?.sortOrder);
+      expect(result).toHaveProperty(["filter[count]"], "25");
+      expect(result?.filter).not.toHaveProperty("filter[count]");
+    });
+  });
 });
 
 describe("getCSPErrorBody", () => {
