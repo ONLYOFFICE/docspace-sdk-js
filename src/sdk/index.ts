@@ -339,7 +339,7 @@ export class SDK {
     this.init({ ...config, mode: SDKMode.Uploader });
 
   /**
-   * Initializes a frame in {@link SDKMode.Forms} mode — a forms gallery for the room specified by `id`.
+   * Initializes a frame in {@link SDKMode.Forms} mode — a forms gallery for the room specified by {@link TFrameConfig.id}.
    * Forces `mode` to {@link SDKMode.Forms}. Sets `showMenu` to `true` by default.
    *
    * @param config - Frame configuration. See {@link TFrameConfig}.

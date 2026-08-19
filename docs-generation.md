@@ -27,12 +27,13 @@ pnpm install
 
 ## Source and Output Structure
 
-Documentation is generated from five entry points:
+Documentation is generated from six entry points:
 
 ```
 src/
 ├── constants/index.ts    # SDK constants (CSPApiUrl, FRAME_NAME, defaultConfig, error messages)
 ├── enums/index.ts        # Enumerations (SDKMode, Theme, EditorType, etc.)
+├── errors/index.ts       # Structured errors (SDKError class, SDKErrorCode enum)
 ├── instance/index.ts     # SDKInstance class — individual iframe instance management
 ├── sdk/index.ts          # SDK class — main controller, creates and stores instances
 ├── types/index.ts        # Type definitions (TFrameConfig, TFrameEvents, etc.)
@@ -74,7 +75,7 @@ The full configuration is in `typedoc.json`. Key options:
 
 | Option | Value | Purpose |
 |---|---|---|
-| `entryPoints` | `src/*/index.ts` (5 files) | Source files to document |
+| `entryPoints` | `src/*/index.ts` (6 files) | Source files to document |
 | `plugin` | markdown, frontmatter, docusaurus-theme | Output format and integration |
 | `out` | `"docs"` | Output directory |
 | `sort` | `["alphabetical"]` | Sort members alphabetically within each category |

@@ -45,7 +45,7 @@ export enum SDKErrorCode {
   Disconnected = "DISCONNECTED",
   /** The host domain is blocked by the DocSpace Content Security Policy. */
   CSPViolation = "CSP_VIOLATION",
-  /** A method was called in an incompatible {@link SDKMode} (e.g. `upload` outside Forms). */
+  /** A method was called in an incompatible {@link SDKMode} (e.g. {@link SDKInstance.upload} outside {@link SDKMode.Forms}). */
   ModeMismatch = "MODE_MISMATCH",
   /** The provided {@link TFrameConfig} is missing required fields or has invalid values. */
   InvalidConfig = "INVALID_CONFIG",
@@ -53,7 +53,7 @@ export enum SDKErrorCode {
   UploadFailed = "UPLOAD_FAILED",
   /** An incoming postMessage payload could not be parsed as valid JSON. */
   ParseError = "PARSE_ERROR",
-  /** The SDK could not resolve an OAuth access token: the {@link TFrameConfig.getToken} callback threw/rejected, or neither `getToken` nor `accessToken` was provided in OAuth mode. */
+  /** The SDK could not resolve an OAuth access token: the {@link TFrameConfig.getToken} callback threw/rejected, or neither `getToken` nor {@link TFrameConfig.accessToken} was provided in OAuth mode. */
   TokenResolveFailed = "TOKEN_RESOLVE_FAILED",
 }
 

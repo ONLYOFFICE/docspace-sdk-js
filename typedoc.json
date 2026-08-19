@@ -3,6 +3,7 @@
   "entryPoints": [
     "src/constants/index.ts",
     "src/enums/index.ts",
+    "src/errors/index.ts",
     "src/instance/index.ts",
     "src/sdk/index.ts",
     "src/types/index.ts"
