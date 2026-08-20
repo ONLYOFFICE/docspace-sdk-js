@@ -387,6 +387,7 @@ export const getFramePath = (config: TFrameConfig) => {
       }
 
       if (oauth) (params as Record<string, unknown>).auth = oauth;
+      if (config.theme) (params as Record<string, unknown>).theme = config.theme;
 
       const urlParams = customUrlSearchParams(params);
 

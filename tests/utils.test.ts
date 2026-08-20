@@ -28,7 +28,7 @@ import {
 } from "../src/utils";
 import { cspErrorText, defaultConfig } from "../src/constants";
 import type { TFrameConfig } from "../src/types";
-import { SDKMode } from "../src/enums";
+import { SDKMode, Theme } from "../src/enums";
 
 const registerScript = (src: string) => {
   const script = document.createElement("script");
@@ -226,6 +226,19 @@ describe("getFramePath", () => {
       const path = getFramePath(config);
       expect(path).toMatch(/\/root\/1\/filter\?folder=1/);
       expect(path).not.toContain("withSubfolders=false");
+    });
+
+    test("Manager mode passes the theme param", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Manager,
+        rootPath: "/rooms/shared/",
+        theme: Theme.Base,
+        filter: { search: "" },
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("theme=Base");
     });
 
     test("Manager mode with requestToken uses key query style", () => {
