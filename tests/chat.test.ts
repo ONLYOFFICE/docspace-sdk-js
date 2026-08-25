@@ -64,6 +64,12 @@ describe("getFramePath — Chat mode", () => {
     expect(path).not.toContain("threadId");
   });
 
+  test("builds a user-bound chat path when agentId is omitted", () => {
+    const path = getFramePath(makeChatConfig({ agentId: undefined }));
+    expect(path.startsWith("/sdk/chat")).toBe(true);
+    expect(path).not.toContain("agentId");
+  });
+
   test("includes headerOffset and headerHeight when set", () => {
     const path = getFramePath(
       makeChatConfig({ headerOffset: 48, headerHeight: 64 }),

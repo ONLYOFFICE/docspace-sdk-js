@@ -511,7 +511,7 @@ export type TFrameConfig = {
   maxPerUploadSize?: string;
   /** Max total upload size in {@link SDKMode.Uploader}. */
   maxTotalUploadSize?: string;
-  /** AI agent room ID. Required in {@link SDKMode.Chat}. */
+  /** AI agent room ID. Optional in {@link SDKMode.Chat}: when set, the chat is bound to that agent; when omitted, the chat is bound to the current user. */
   agentId?: string | number;
   /** File ID to attach to the chat composer on init. Optional in {@link SDKMode.Chat}. */
   fileId?: string | number;

@@ -365,9 +365,9 @@ export class SDK {
     this.init({ ...config, mode: SDKMode.Forms, showMenu: config.showMenu ?? true });
 
   /**
-   * Initializes a frame in {@link SDKMode.Chat} mode — a full-page AI chat interface
-   * for the agent specified by {@link TFrameConfig.agentId}.
-   * Forces `mode` to {@link SDKMode.Chat}. Requires {@link TFrameConfig.agentId}.
+   * Initializes a frame in {@link SDKMode.Chat} mode — a full-page AI chat interface.
+   * The chat is bound to the AI agent when {@link TFrameConfig.agentId} is set;
+   * otherwise it is bound to the current user. Forces `mode` to {@link SDKMode.Chat}.
    *
    * @param config - Frame configuration. See {@link TFrameConfig}.
    * @returns The initialized {@link SDKInstance}.
