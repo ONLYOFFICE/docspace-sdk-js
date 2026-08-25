@@ -56,6 +56,14 @@ describe("getFramePath — Chat mode", () => {
     expect(path).toContain("threadId=thread-abc");
   });
 
+  test("includes entityId when set and omits it by default", () => {
+    const withEntity = getFramePath(makeChatConfig({ entityId: 314 }));
+    expect(withEntity).toContain("entityId=314");
+
+    const withoutEntity = getFramePath(makeChatConfig());
+    expect(withoutEntity).not.toContain("entityId");
+  });
+
   test("omits falsy optional params", () => {
     const path = getFramePath(
       makeChatConfig({ fileId: undefined, threadId: "" }),

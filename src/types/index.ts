@@ -513,6 +513,14 @@ export type TFrameConfig = {
   maxTotalUploadSize?: string;
   /** AI agent room ID. Optional in {@link SDKMode.Chat}: when set, the chat is bound to that agent; when omitted, the chat is bound to the current user. */
   agentId?: string | number;
+  /**
+   * ID of the room or folder the chat is opened from — the user's current
+   * location. Optional in {@link SDKMode.Chat}; `undefined` by default.
+   * The AI receives it as workspace context and by default scopes tool calls
+   * (searches, listings, folder contents) to this location. The current user
+   * must have access to the entity, otherwise chat requests are rejected.
+   */
+  entityId?: string | number;
   /** File ID to attach to the chat composer on init. Optional in {@link SDKMode.Chat}. */
   fileId?: string | number;
   /** Thread ID to resume. Optional in {@link SDKMode.Chat}. */
