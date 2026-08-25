@@ -434,13 +434,13 @@ describe("getFramePath", () => {
         mode: SDKMode.Chat,
         agentId: 42,
         fileId: 99,
-        chatId: "conv-abc",
+        threadId: "thread-abc",
       } as any;
       const path = getFramePath(config);
       expect(path).toContain("/sdk/chat");
       expect(path).toContain("agentId=42");
       expect(path).toContain("fileId=99");
-      expect(path).toContain("chatId=conv-abc");
+      expect(path).toContain("threadId=thread-abc");
     });
 
     test("Chat mode omits falsy optional params", () => {
@@ -453,7 +453,7 @@ describe("getFramePath", () => {
       const path = getFramePath(config);
       expect(path).toContain("agentId=7");
       expect(path).not.toContain("fileId");
-      expect(path).not.toContain("chatId");
+      expect(path).not.toContain("threadId");
     });
 
     test("stylesUrl is a base param — included across modes", () => {

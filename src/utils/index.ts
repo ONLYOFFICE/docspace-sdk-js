@@ -245,7 +245,7 @@ export const getConfigFromParams = (): TFrameConfig => {
  * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
  * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
  * | {@link SDKMode.Personal} | `/sdk/personal-files/my-documents` | `id`, `showMenu`, `infoPanelVisible`, `disableActionButton`, `providerName` |
- * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `fileId`, `chatId`, `providerName` |
+ * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `fileId`, `threadId`, `providerName` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
  * @param config - The frame configuration. At minimum, {@link TFrameConfig.mode} must be set.
@@ -287,7 +287,7 @@ const getChatPath = (
     ...baseFrameOptions,
     agentId: config.agentId,
     fileId: config.fileId ?? undefined,
-    chatId: config.chatId || undefined,
+    threadId: config.threadId || undefined,
     headerOffset: config.headerOffset,
     headerHeight: config.headerHeight,
     providerName: config.providerName || undefined,

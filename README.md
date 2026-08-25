@@ -81,7 +81,7 @@ The SDK supports 10 modes, each rendering a different DocSpace UI inside an ifra
 | `public-room` | [`initPublicRoom`](docs/classes/SDK.md#initpublicroom) | Public room view with anonymous access to documents. Requires `requestToken` |
 | `uploader` | [`initUploader`](docs/classes/SDK.md#inituploader) | File upload interface for a specific folder. Requires `id` (target folder identifier) |
 | `forms` | [`initForms`](docs/classes/SDK.md#initforms) | Forms gallery for a room. Requires `id` (room identifier). Supports `showMenu`, custom actions, and file upload |
-| `chat` | [`initChat`](docs/classes/SDK.md#initchat) | AI chat interface. Requires `agentId`. Supports `fileId` and `chatId` to attach files or resume conversations |
+| `chat` | [`initChat`](docs/classes/SDK.md#initchat) | AI chat interface. Requires `agentId`. Supports `fileId` and `threadId` to attach files or resume threads |
 
 ### Examples
 
