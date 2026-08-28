@@ -235,7 +235,7 @@ export const enum InstanceMethods {
   SetConfig = "setConfig",
   /** Calls `SDKInstance.setListView(viewType)`. Changes the file list layout. */
   SetListView = "setListView",
-  /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a callback inside the editor context. */
+  /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a serialized callback inside the editor context as `callback(editor, asc, data)`. */
   ExecuteInEditor = "executeInEditor",
   /** Calls `SDKInstance.navigateSection(section)`. Navigates Forms to a specific section. */
   NavigateSection = "navigateSection",
