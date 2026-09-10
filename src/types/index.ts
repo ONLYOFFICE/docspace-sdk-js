@@ -551,7 +551,7 @@ export type TCreatedBy = {
  * Common fields shared by file, folder, and room metadata.
  * @internal
  */
-type TEntityBase = {
+export type TEntityBase = {
   /** Entity ID. */
   id: number;
   /** Display name. */
@@ -806,8 +806,13 @@ export type TPathParts = {
   roomType?: number;
 };
 
-/** Response wrapper for paginated listing methods. */
-type TListResponse<TFolder> = {
+/**
+ * Response wrapper for paginated listing methods.
+ * Specialized as {@link TFilesResponse} (folders) and {@link TRoomsResponse} (rooms).
+ *
+ * @typeParam TFolder - The folder-like entry type: {@link TFolderInfo} or {@link TRoomInfo}.
+ */
+export type TListResponse<TFolder> = {
   /** File entries. */
   files: TFileInfo[];
   /** Folder or room entries. */
