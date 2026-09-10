@@ -18,7 +18,7 @@ if (!Blob.prototype.arrayBuffer) {
   };
 }
 
-const BASE_SRC = "https://docspace.example.com";
+const BASE_SRC = "https://portal.example.com";
 
 const makeFormsConfig = (
   overrides: Partial<TFrameConfig> = {},

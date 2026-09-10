@@ -55,7 +55,7 @@ export const customUrlSearchParams = (
 };
 
 /**
- * Checks whether the current host domain is in the DocSpace CSP allowlist.
+ * Checks whether the current host domain is in the ONLYOFFICE Apps CSP allowlist.
  *
  * Fetches `{targetSrc}{@link CSPApiUrl}` and compares `window.location.host`
  * against the `domains` array in the JSON response. If the host is not listed,
@@ -66,7 +66,7 @@ export const customUrlSearchParams = (
  *
  * Called by `SDKInstance.initFrame` when {@link TFrameConfig.checkCSP} is `true`.
  *
- * @param targetSrc - The DocSpace server URL (e.g. `"https://docspace.example.com"`).
+ * @param targetSrc - The ONLYOFFICE Apps portal URL (e.g. `"https://portal.example.com"`).
  * @returns Resolves on success; rejects with an `Error` on failure.
  *
  * @throws `Error` — if the CSP response cannot be parsed as JSON.
@@ -113,10 +113,10 @@ export const validateCSP = async (targetSrc: string) => {
  * Returns an HTML string for the CSP error page displayed inside the iframe
  * via `srcdoc` when {@link validateCSP} fails.
  *
- * The page shows the DocSpace logo, an error illustration, {@link cspErrorText},
+ * The page shows the ONLYOFFICE Apps logo, an error illustration, {@link cspErrorText},
  * and a link to the Developer Tools section where the domain can be added.
  *
- * @param src - The DocSpace server URL used to resolve static image assets and the Developer Tools link.
+ * @param src - The ONLYOFFICE Apps portal URL used to resolve static image assets and the Developer Tools link.
  * @returns A complete `<body>` HTML string ready for iframe `srcdoc`.
  *
  * @internal
@@ -156,7 +156,7 @@ export const getCSPErrorBody = (src: string) => {
 
 /**
  * Returns a CSS string for the spinning loader animation injected into the
- * iframe container while the DocSpace app is loading.
+ * iframe container while ONLYOFFICE Apps is loading.
  *
  * Features:
  * - Dark/light mode via `prefers-color-scheme`.
@@ -178,7 +178,7 @@ export const getLoaderStyle = (className: string) => {
  * Parses the current `<script>` element's URL query parameters into a {@link TFrameConfig} object.
  *
  * Designed for the **script-tag embedding** pattern where the SDK is loaded via a
- * `<script src="...sdk.js?src=https://docspace.example.com&mode=manager&...">` tag.
+ * `<script src="...sdk.js?src=https://portal.example.com&mode=manager&...">` tag.
  * The function reads `document.currentScript.src`, decodes it, and merges the
  * query parameters on top of {@link defaultConfig}.
  *
@@ -191,12 +191,12 @@ export const getLoaderStyle = (className: string) => {
  * @example
  * ```html
  * <div id="ds-frame"></div>
- * <script src="https://cdn.example.com/sdk.js?src=https://docspace.example.com&mode=manager&showMenu=true"></script>
+ * <script src="https://cdn.example.com/sdk.js?src=https://portal.example.com&mode=manager&showMenu=true"></script>
  * ```
  *
  * ```typescript
  * const config = getConfigFromParams();
- * // config.src  → "https://docspace.example.com"
+ * // config.src  → "https://portal.example.com"
  * // config.mode → "manager"
  * // config.showMenu → true
  * ```

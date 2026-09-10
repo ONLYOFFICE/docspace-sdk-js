@@ -7,7 +7,7 @@ import { SDKError, SDKErrorCode } from "../src/errors";
 import type { TFrameConfig } from "../src/types";
 import { getFramePath } from "../src/utils";
 
-const BASE_SRC = "https://docspace.example.com";
+const BASE_SRC = "https://portal.example.com";
 
 const makeChatConfig = (
   overrides: Partial<TFrameConfig> = {},

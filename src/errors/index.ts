@@ -43,7 +43,7 @@ export enum SDKErrorCode {
   Timeout = "TIMEOUT",
   /** The iframe is not connected or was disconnected while a call was in flight. */
   Disconnected = "DISCONNECTED",
-  /** The host domain is blocked by the DocSpace Content Security Policy. */
+  /** The host domain is blocked by the ONLYOFFICE Apps Content Security Policy. */
   CSPViolation = "CSP_VIOLATION",
   /** A method was called in an incompatible {@link SDKMode} (e.g. {@link SDKInstance.upload} outside {@link SDKMode.Forms}). */
   ModeMismatch = "MODE_MISMATCH",

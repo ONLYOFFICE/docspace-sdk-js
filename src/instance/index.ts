@@ -68,8 +68,8 @@ type TPendingUploadEntry = {
 };
 
 /**
- * Manages a single DocSpace iframe, handles postMessage communication,
- * and exposes methods for operating on the embedded DocSpace UI.
+ * Manages a single ONLYOFFICE Apps iframe, handles postMessage communication,
+ * and exposes methods for operating on the embedded ONLYOFFICE Apps UI.
  *
  * Instances are created and stored by {@link SDK}. Do not construct directly —
  * use {@link SDK.init} or any `init*` convenience wrapper.
@@ -81,7 +81,7 @@ type TPendingUploadEntry = {
  * const sdk = new SDK();
  * const instance = sdk.initManager({
  *   frameId: 'ds-frame',
- *   src: 'https://docspace.example.com',
+ *   src: 'https://portal.example.com',
  * });
  *
  * instance.getUserInfo().then((user) => console.log(user));
@@ -118,7 +118,7 @@ export class SDKInstance {
   private static _iframeTemplate: HTMLIFrameElement;
 
   /**
-   * Creates a loading indicator for the DocSpace frame.
+   * Creates a loading indicator for the ONLYOFFICE Apps frame.
    *
    * @param config - The frame configuration containing `frameId`, `width`, and `height`.
    * @returns A container `div` element with a loader, ready for DOM insertion.
@@ -176,7 +176,7 @@ export class SDKInstance {
   };
 
   /**
-   * Creates and configures an iframe element for the DocSpace interface.
+   * Creates and configures an iframe element for the ONLYOFFICE Apps interface.
    *
    * @param config - The frame configuration containing `frameId`, `id`, `type`, `src`, `width`, `height`, `events`, `checkCSP`, and `mode`.
    * @returns A configured `HTMLIFrameElement`, ready for DOM insertion.
@@ -253,7 +253,7 @@ export class SDKInstance {
    * Marks the frame as loaded: fades out the loader spinner, reveals the iframe,
    * and fires {@link TFrameEvents.onContentReady}.
    *
-   * The DocSpace iframe calls this automatically once its content is ready, so most
+   * The ONLYOFFICE Apps iframe calls this automatically once its content is ready, so most
    * integrations never need to. Call it manually to reveal the frame on your own schedule,
    * for example when the host page shows its own loading overlay. Every call re-applies the
    * iframe size and visibility and fires {@link TFrameEvents.onContentReady}; the loader is
@@ -270,7 +270,7 @@ export class SDKInstance {
    * ```typescript
    * const instance = sdk.initManager({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   events: { onContentReady: () => console.log('Frame is visible') },
    * });
    *
@@ -322,7 +322,7 @@ export class SDKInstance {
   }
 
   /**
-   * Sends a message to the DocSpace iframe.
+   * Sends a message to the ONLYOFFICE Apps iframe.
    *
    * @param message - The message object to send to the iframe.
    */
@@ -445,7 +445,7 @@ export class SDKInstance {
   };
 
   /**
-   * Handles incoming messages from the DocSpace iframe.
+   * Handles incoming messages from the ONLYOFFICE Apps iframe.
    *
    * @param e - The MessageEvent containing the message data.
    */
@@ -494,7 +494,7 @@ export class SDKInstance {
   };
 
   /**
-   * Parses JSON message data from the DocSpace iframe.
+   * Parses JSON message data from the ONLYOFFICE Apps iframe.
    *
    * @param data - The JSON string to be parsed.
    * @returns The parsed message data, or an error object if parsing fails.
@@ -638,7 +638,7 @@ export class SDKInstance {
   }
 
   /**
-   * Processes event data received from the DocSpace iframe and dispatches it to the registered event handlers.
+   * Processes event data received from the ONLYOFFICE Apps iframe and dispatches it to the registered event handlers.
    *
    * @param eventData - The optional event data containing the event name and payload.
    */
@@ -703,7 +703,7 @@ export class SDKInstance {
   ]);
 
   /**
-   * Executes commands received from the DocSpace iframe by invoking the corresponding SDK method.
+   * Executes commands received from the ONLYOFFICE Apps iframe by invoking the corresponding SDK method.
    * Only methods listed in {@link SDKInstance.#allowedCommands} are callable.
    *
    * @param data - The message data containing the command name and parameters.
@@ -787,9 +787,9 @@ export class SDKInstance {
   }
 
   /**
-   * Executes methods on the DocSpace iframe using message-based communication.
+   * Executes methods on the ONLYOFFICE Apps iframe using message-based communication.
    *
-   * @param methodName - The name of the DocSpace method to execute.
+   * @param methodName - The name of the ONLYOFFICE Apps method to execute.
    * @param params - The parameters for the method, or null if none are required.
    * @param callback - The function called with the response data when execution completes.
    */
@@ -902,7 +902,7 @@ export class SDKInstance {
   }
 
   /**
-   * Creates and applies styling to the iframe element for DocSpace integration.
+   * Creates and applies styling to the iframe element for ONLYOFFICE Apps integration.
    *
    * @returns The configured `HTMLIFrameElement`, ready for DOM insertion.
    */
@@ -949,7 +949,7 @@ export class SDKInstance {
    *
    * @param container - The container element for the frame components.
    * @param target - The target element to be replaced, or null if not required.
-   * @param iframe - The configured `HTMLIFrameElement` for DocSpace integration.
+   * @param iframe - The configured `HTMLIFrameElement` for ONLYOFFICE Apps integration.
    * @returns The integrated iframe element, ready for communication.
    */
   #assembleFrame(
@@ -984,7 +984,7 @@ export class SDKInstance {
   }
 
   /**
-   * Inserts the DocSpace iframe into the DOM element identified by {@link TFrameConfig.frameId}.
+   * Inserts the ONLYOFFICE Apps iframe into the DOM element identified by {@link TFrameConfig.frameId}.
    *
    * Merges `config` with {@link defaultConfig} and the instance's stored config,
    * replaces the target `<div>` with a container holding the iframe (and an optional loader),
@@ -1000,7 +1000,7 @@ export class SDKInstance {
    * ```typescript
    * const iframe = instance.initFrame({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   mode: SDKMode.Viewer,
    *   id: 42,
    * });
@@ -1011,7 +1011,7 @@ export class SDKInstance {
    * ```typescript
    * const iframe = instance.initFrame({
    *   frameId: 'ds-editor',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   mode: SDKMode.Editor,
    *   id: 42,
    *   events: {
@@ -1080,7 +1080,7 @@ export class SDKInstance {
    * Destroy and reinitialize the same frame in a different mode using {@link SDK.initEditor}.
    * ```typescript
    * instance.destroyFrame();
-   * sdk.initEditor({ frameId: 'ds-frame', src: 'https://docspace.example.com', id: 99 });
+   * sdk.initEditor({ frameId: 'ds-frame', src: 'https://portal.example.com', id: 99 });
    * ```
    */
   destroyFrame(): void {
@@ -1769,7 +1769,7 @@ export class SDKInstance {
    * ```typescript
    * const instance = sdk.initEditor({
    *   frameId: 'ds-editor',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   id: 42,
    *   events: {
    *     onEditorOpen: () => {
@@ -1829,7 +1829,7 @@ export class SDKInstance {
    * ```typescript
    * const personal = sdk.initPersonal({
    *   frameId: 'ds-personal',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    * });
    * await personal.navigateSection("trash");
    * ```
@@ -1870,7 +1870,7 @@ export class SDKInstance {
    * ```typescript
    * const forms = sdk.initForms({
    *   frameId: 'ds-forms',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   id: 'room-42',
    *   events: {
    *     onCustomAction: (data) => console.log('action:', data),
@@ -1903,7 +1903,7 @@ export class SDKInstance {
    * The entire file is read into memory via `arrayBuffer()` before transfer.
    * Callers should validate file size before invoking this method to avoid
    * excessive memory usage on the host page. The server-side upload limit
-   * is configured in DocSpace and will reject files that exceed it.
+   * is configured in ONLYOFFICE Apps and will reject files that exceed it.
    *
    * The ArrayBuffer is transferred to the iframe (zero-copy). After `upload()`
    * returns, the buffer is neutered and cannot be reused.

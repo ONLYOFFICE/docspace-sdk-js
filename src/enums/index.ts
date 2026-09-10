@@ -27,7 +27,7 @@
  *
  * @example
  * ```typescript
- * sdk.initFrame({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://docspace.example.com" });
+ * sdk.initFrame({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://portal.example.com" });
  * ```
  */
 export enum SDKMode {
@@ -76,7 +76,7 @@ export const enum SelectorFilterType {
 /**
  * The editor/viewer platform layout. Used in two config fields:
  * - {@link TFrameConfig.type} — the iframe platform type (affects CSS and touch behavior).
- * - {@link TFrameConfig.editorType} — the editor UI layout sent to the DocSpace backend.
+ * - {@link TFrameConfig.editorType} — the editor UI layout sent to the ONLYOFFICE Apps backend.
  *
  * @example
  * ```typescript
@@ -180,7 +180,7 @@ export const enum HeaderBannerDisplaying {
 }
 
 /**
- * Internal method identifiers sent to the DocSpace iframe via `postMessage`.
+ * Internal method identifiers sent to the ONLYOFFICE Apps iframe via `postMessage`.
  * These are used internally by {@link SDKInstance} — call the corresponding
  * public methods on the instance instead of using these values directly.
  *
@@ -245,7 +245,7 @@ export const enum InstanceMethods {
 
 /**
  * The `postMessage` message types in the iframe ↔ host protocol.
- * Most messages flow **from the DocSpace iframe to the host page** and are processed
+ * Most messages flow **from the ONLYOFFICE Apps iframe to the host page** and are processed
  * in `SDKInstance.#onMessage`. The {@link MessageTypes.UploadFileData} and
  * {@link MessageTypes.ExternalDataReturn} types travel in the opposite direction —
  * the host posts them into the iframe.

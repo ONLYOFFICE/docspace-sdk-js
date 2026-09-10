@@ -39,7 +39,7 @@ import { SDKInstance } from "../instance";
  * const sdk = new SDK();
  * const instance = sdk.initManager({
  *   frameId: 'ds-frame',
- *   src: 'https://docspace.example.com',
+ *   src: 'https://portal.example.com',
  * });
  * ```
  */
@@ -70,12 +70,12 @@ export class SDK {
    * // Create a manager instance
    * const instance = sdk.init({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   mode: SDKMode.Manager,
    * });
    *
    * // Reinitialize the same frame in a different mode — sdk.frames['ds-frame'] is reused
-   * sdk.init({ frameId: 'ds-frame', src: 'https://docspace.example.com', mode: SDKMode.Editor, id: 42 });
+   * sdk.init({ frameId: 'ds-frame', src: 'https://portal.example.com', mode: SDKMode.Editor, id: 42 });
    * ```
    */
   init = (config: TFrameConfig): SDKInstance => {
@@ -118,7 +118,7 @@ export class SDK {
    * const sdk = new SDK();
    * const instance = sdk.initManager({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   viewAs: ManagerViewMode.Table,
    *   showFilter: true,
    *   showMenu: true,
@@ -147,7 +147,7 @@ export class SDK {
    * const sdk = new SDK();
    * const instance = sdk.initViewer({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   id: 42,
    *   events: {
    *     onAppReady: () => console.log('ready'),
@@ -174,7 +174,7 @@ export class SDK {
    * const sdk = new SDK();
    * const instance = sdk.initEditor({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   id: 42,
    *   editorType: EditorType.Desktop,
    *   editorCustomization: { autosave: true, forcesave: true },
@@ -203,7 +203,7 @@ export class SDK {
    * const sdk = new SDK();
    * const instance = sdk.initRoomSelector({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   showSelectorHeader: true,
    *   showSelectorCancel: true,
    *   events: {
@@ -231,7 +231,7 @@ export class SDK {
    * const sdk = new SDK();
    * const instance = sdk.initFileSelector({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   selectorType: SelectorFilterType.UserOnly,
    *   withBreadCrumbs: true,
    *   withSearch: true,
@@ -248,7 +248,7 @@ export class SDK {
   /**
    * Initializes a frame in {@link SDKMode.System} mode — a blank page with a loader,
    * used to call system methods ({@link SDKInstance.login}, {@link SDKInstance.logout},
-   * {@link SDKInstance.getUserInfo}) without rendering any DocSpace UI.
+   * {@link SDKInstance.getUserInfo}) without rendering any ONLYOFFICE Apps UI.
    * Forces `mode` to {@link SDKMode.System}.
    *
    * @param config - Frame configuration. See {@link TFrameConfig}.
@@ -261,7 +261,7 @@ export class SDK {
    * const sdk = new SDK();
    * const system = sdk.initSystem({
    *   frameId: 'ds-system',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   events: { onAppReady: () => console.log('system ready') },
    * });
    *
@@ -286,7 +286,7 @@ export class SDK {
    * const sdk = new SDK();
    * const instance = sdk.initPublicRoom({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   requestToken: 'public-room-token',
    *   events: {
    *     onAppReady: () => console.log('ready'),
@@ -299,7 +299,7 @@ export class SDK {
    * ```typescript
    * const instance = sdk.initPublicRoom({
    *   frameId: 'ds-frame',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   requestToken: 'public-room-token',
    *   showFilter: true,
    *   showHeader: true,
@@ -324,7 +324,7 @@ export class SDK {
    * const sdk = new SDK();
    * const uploader = sdk.initUploader({
    *   frameId: 'ds-uploader',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   id: 'folder-id',
    *   acceptExtensions: '.docx,.xlsx,.pdf',
    *   isMultipleUpload: true,
@@ -352,7 +352,7 @@ export class SDK {
    * const sdk = new SDK();
    * const forms = sdk.initForms({
    *   frameId: 'ds-forms',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   id: 'room-id',
    *   showMenu: true,
    *   events: {
@@ -379,7 +379,7 @@ export class SDK {
    * const sdk = new SDK();
    * const chat = sdk.initChat({
    *   frameId: 'ds-chat',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   agentId: 123,
    *   events: {
    *     onAppReady: () => console.log('chat ready'),
@@ -407,7 +407,7 @@ export class SDK {
    * const sdk = new SDK();
    * const personal = sdk.initPersonal({
    *   frameId: 'ds-personal',
-   *   src: 'https://docspace.example.com',
+   *   src: 'https://portal.example.com',
    *   personalDestination: 'favorites',
    *   events: {
    *     onAppReady: () => console.log('ready'),

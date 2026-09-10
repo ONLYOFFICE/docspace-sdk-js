@@ -34,8 +34,8 @@ import {
 } from "../enums";
 
 /**
- * The DocSpace CSP validation endpoint. Used internally to check
- * whether the current host domain is allowed in the target DocSpace instance.
+ * The ONLYOFFICE Apps CSP validation endpoint. Used internally to check
+ * whether the current host domain is allowed in the target ONLYOFFICE Apps instance.
  *
  * @see {@link TFrameConfig.checkCSP} — enables/disables CSP validation on frame init.
  */
@@ -60,7 +60,7 @@ export const FRAME_NAME = "frameDocSpace" as const;
  * // Minimal config — everything else comes from defaultConfig
  * sdk.initFrame({
  *   frameId: "ds-frame",
- *   src: "https://docspace.example.com",
+ *   src: "https://portal.example.com",
  *   mode: "manager",
  * });
  * ```
@@ -140,7 +140,7 @@ export const defaultConfig: TFrameConfig = {
 } as const;
 
 /**
- * Error message shown when the host domain is not in the DocSpace CSP allowlist.
+ * Error message shown when the host domain is not in the ONLYOFFICE Apps CSP allowlist.
  * Displayed inside the iframe via `srcdoc` when {@link TFrameConfig.checkCSP} is `true` and validation fails.
  */
 export const cspErrorText =

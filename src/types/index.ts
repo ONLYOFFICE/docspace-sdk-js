@@ -53,9 +53,9 @@ declare global {
  *
  * @example
  * ```typescript
- * sdk.initFrame({ frameId: 'ds-frame', src: 'https://docspace.example.com', mode: 'manager' });
+ * sdk.initFrame({ frameId: 'ds-frame', src: 'https://portal.example.com', mode: 'manager' });
  * // equivalent to:
- * sdk.initFrame({ frameId: 'ds-frame', src: 'https://docspace.example.com', mode: SDKMode.Manager });
+ * sdk.initFrame({ frameId: 'ds-frame', src: 'https://portal.example.com', mode: SDKMode.Manager });
  * ```
  */
 export type TFrameMode = `${SDKMode}`;
@@ -239,7 +239,7 @@ export type TFrameFilter = {
 };
 
 /**
- * Payload the DocSpace iframe sends when it asks the host to read a value from external storage.
+ * Payload the ONLYOFFICE Apps iframe sends when it asks the host to read a value from external storage.
  * Passed to {@link TFrameEvents.onGetExternalData}.
  *
  * The meaning of `key` is defined by the integrator — it is the identifier used on the
@@ -253,7 +253,7 @@ export type TGetExternalDataRequest = {
 };
 
 /**
- * Payload the DocSpace iframe sends when it asks the host to persist a value in external storage.
+ * Payload the ONLYOFFICE Apps iframe sends when it asks the host to persist a value in external storage.
  * Passed to {@link TFrameEvents.onSetExternalData}.
  *
  * The shape of `value` is defined by the integrator — typically an object with key/value pairs
@@ -267,7 +267,7 @@ export type TSetExternalDataPayload = {
 };
 
 /**
- * Event handler map for the DocSpace iframe. Passed via {@link TFrameConfig.events}.
+ * Event handler map for the ONLYOFFICE Apps iframe. Passed via {@link TFrameConfig.events}.
  * All handlers are optional — set to `null` (default) to disable.
  *
  * Events are delivered from the iframe to the host via the `onEventReturn` postMessage type.
@@ -276,7 +276,7 @@ export type TSetExternalDataPayload = {
  * ```typescript
  * sdk.initFrame({
  *   events: {
- *     onAppReady: () => console.log("DocSpace loaded"),
+ *     onAppReady: () => console.log("ONLYOFFICE Apps loaded"),
  *     onAppError: (err) => console.error("Init error:", err),
  *     onSelectCallback: (item) => console.log("Selected:", item),
  *   },
@@ -285,11 +285,11 @@ export type TSetExternalDataPayload = {
  * ```
  */
 export type TFrameEvents = {
-  /** Fired when the DocSpace app encounters an initialization or runtime error. Receives the error message string. */
+  /** Fired when ONLYOFFICE Apps encounters an initialization or runtime error. Receives the error message string. */
   onAppError?: null | ((message: string) => void);
   /** Fired (OAuth mode) when the SDK cannot resolve an access token — {@link TFrameConfig.getToken} threw/rejected, or is missing. The host should re-authenticate or surface the failure. */
   onAuthError?: null | ((error: { code?: string; message: string }) => void);
-  /** Fired once when the DocSpace app inside the iframe is fully initialized and ready. */
+  /** Fired once when the ONLYOFFICE Apps frame is fully initialized and ready. */
   onAppReady?: null | ((data: { frameId: string }) => void);
   /** Fired after successful user authorization inside the iframe. */
   onAuthSuccess?: null | ((data: object) => void);
@@ -307,7 +307,7 @@ export type TFrameEvents = {
   onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. Receives the selected item data. */
   onSelectCallback?: null | ((item: object) => void);
-  /** Fired when the user signs out from the DocSpace account. */
+  /** Fired when the user signs out from the portal. */
   onSignOut?: null | (() => void);
   /** Fired when the editor is opened from the manager (context menu, hotkeys, modal, panel). */
   onEditorOpen?: null | ((data: object) => void);
@@ -324,7 +324,7 @@ export type TFrameEvents = {
   /** Fired when the user navigates to a different section in {@link SDKMode.Forms} or {@link SDKMode.Personal}. Receives the active section. */
   onNavigate?: null | ((data: { section: TFormsSection | TPersonalSection }) => void);
   /**
-   * Fired when the DocSpace iframe asks the host to read a value from external storage.
+   * Fired when the ONLYOFFICE Apps iframe asks the host to read a value from external storage.
    *
    * The integrator returns the value currently stored for the given `key` (sync or `Promise`);
    * the SDK posts it back to the iframe, correlating the response by `callId`. The meaning of
@@ -336,7 +336,7 @@ export type TFrameEvents = {
    */
   onGetExternalData?: null | ((req: TGetExternalDataRequest) => unknown | Promise<unknown>);
   /**
-   * Fired when the DocSpace iframe asks the host to persist a value in external storage.
+   * Fired when the ONLYOFFICE Apps iframe asks the host to persist a value in external storage.
    *
    * Fire-and-forget: the SDK does not post a response back to the iframe. The handler may
    * return a `Promise`; if the promise rejects (or the handler throws), the error is routed
@@ -347,7 +347,7 @@ export type TFrameEvents = {
 };
 
 /**
- * The main configuration object for initializing a DocSpace frame.
+ * The main configuration object for initializing an ONLYOFFICE Apps frame.
  * Passed to {@link SDKInstance.initFrame} or any `SDK.init*` wrapper.
  *
  * Only `frameId`, `mode`, and `src` are required — all other fields have defaults from {@link defaultConfig}.
@@ -356,7 +356,7 @@ export type TFrameEvents = {
  * ```typescript
  * const config: TFrameConfig = {
  *   frameId: "ds-frame",
- *   src: "https://docspace.example.com",
+ *   src: "https://portal.example.com",
  *   mode: "manager",
  *   width: "100%",
  *   height: "700px",
@@ -410,7 +410,7 @@ export type TFrameConfig = {
   init?: boolean | null;
   /** URL of the integration page. Read from config to return the user back after navigating to external resources (e.g. billing). */
   integrationUrl?: string;
-  /** UI locale as a BCP 47 code (e.g. `"en-US"`). `null` = DocSpace server default. */
+  /** UI locale as a BCP 47 code (e.g. `"en-US"`). `null` = portal default. */
   locale?: string | null;
   /** **Required.** SDK mode. Determines UI and available methods. See {@link SDKMode}. */
   mode: TFrameMode;
@@ -421,11 +421,11 @@ export type TFrameConfig = {
   /**
    * OAuth access-token provider. Supplying `getToken` (or {@link TFrameConfig.accessToken})
    * switches the frame into **OAuth mode**: the SDK obtains a short-lived access token from
-   * this callback (on the frame's request and on demand) and hands it to the embedded DocSpace,
+   * this callback (on the frame's request and on demand) and hands it to the embedded ONLYOFFICE Apps,
    * which authorizes API calls with `Authorization: Bearer <token>` instead of the session cookie.
    *
    * The host backend should perform the OAuth authorization-code / refresh-token exchange and
-   * return a fresh, minimally-scoped DocSpace access token. Never expose `client_secret` or
+   * return a fresh, minimally-scoped ONLYOFFICE Apps access token. Never expose `client_secret` or
    * refresh tokens to the browser. Called again whenever the frame needs a fresh token.
    */
   getToken?: () => string | Promise<string>;
@@ -460,7 +460,7 @@ export type TFrameConfig = {
    *  and {@link SDKMode.Chat}. Default: `0`. */
   headerOffset?: number;
   /** Height (in px) of the header component inside the iframe. When unset,
-   *  DocSpace uses its own built-in header height; supply this only to override
+   *  ONLYOFFICE Apps uses its own built-in header height; supply this only to override
    *  it so the embedded UI matches the host application's chrome.
    *  Currently honored in {@link SDKMode.Forms}, {@link SDKMode.Personal}
    *  and {@link SDKMode.Chat}. */
@@ -483,7 +483,7 @@ export type TFrameConfig = {
   showSignOut?: boolean;
   /** Show current section/room/folder title in {@link SDKMode.Manager}. Default: `true`. */
   showTitle?: boolean;
-  /** **Required.** DocSpace server URL. Used as the iframe `src` origin. */
+  /** **Required.** ONLYOFFICE Apps portal URL. Used as the iframe `src` origin. */
   src: string;
   /** URL to a custom stylesheet applied inside the frame. */
   stylesUrl?: string;
@@ -870,7 +870,7 @@ export type THashSettings = {
 export type TMessageTypes = `${MessageTypes}`;
 
 /**
- * The postMessage payload structure sent from the DocSpace iframe to the host.
+ * The postMessage payload structure sent from the ONLYOFFICE Apps iframe to the host.
  * Parsed by `SDKInstance.#onMessage`. The `type` field determines how the message is handled.
  *
  * @internal
@@ -968,7 +968,7 @@ export type TFormsSection = "my-forms" | "in-progress" | "completed-forms" | "li
  * ```typescript
  * const personal = sdk.initPersonal({
  *   frameId: "ds-personal",
- *   src: "https://docspace.example.com",
+ *   src: "https://portal.example.com",
  *   personalDestination: "favorites",
  * });
  * await personal.navigateSection("trash");

@@ -4,7 +4,7 @@ import { defaultConfig, FRAME_NAME } from "../src/constants";
 import { SDKError, SDKErrorCode } from "../src/errors";
 import type { TFrameConfig } from "../src/types";
 
-const BASE_SRC = "https://docspace.example.com";
+const BASE_SRC = "https://portal.example.com";
 
 const makeConfig = (overrides: Partial<TFrameConfig> = {}): TFrameConfig => ({
   ...defaultConfig,
@@ -423,7 +423,7 @@ describe("message handling", () => {
   test("accepts messages when src has a path (origin still matches)", () => {
     const onAppReady = vi.fn();
     initConnectedInstance({
-      src: "https://docspace.example.com/portal/room",
+      src: "https://portal.example.com/portal/room",
       events: { ...defaultConfig.events, onAppReady },
     });
 
@@ -435,7 +435,7 @@ describe("message handling", () => {
           commandName: "",
           eventReturnData: { event: "onAppReady", data: { ok: true } },
         }),
-        origin: "https://docspace.example.com",
+        origin: "https://portal.example.com",
       }),
     );
 
@@ -445,7 +445,7 @@ describe("message handling", () => {
   test("accepts messages when src has a trailing slash", () => {
     const onAppReady = vi.fn();
     initConnectedInstance({
-      src: "https://docspace.example.com/",
+      src: "https://portal.example.com/",
       events: { ...defaultConfig.events, onAppReady },
     });
 
@@ -457,7 +457,7 @@ describe("message handling", () => {
           commandName: "",
           eventReturnData: { event: "onAppReady", data: { ok: true } },
         }),
-        origin: "https://docspace.example.com",
+        origin: "https://portal.example.com",
       }),
     );
 
