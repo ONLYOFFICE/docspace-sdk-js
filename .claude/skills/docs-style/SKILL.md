@@ -46,21 +46,37 @@ is published to `api.onlyoffice.com` — never edit `docs/` by hand.
    (`import { type Foo } from "..."`). Enum members whose string value is an API
    identifier different from the key get a JSDoc note: `` API value: `"AZ"`. ``
 
-8. **Regeneration:** `pnpm run docs` (runs update-revision → typedoc →
-   update-sidebar). Run it whenever public JSDoc changed, and make sure TypeDoc
-   emits **no warnings** (a warning usually means a broken `{@link}` target).
+8. **Members are table rows.** Fields, enum members and parameters render as
+   rows of a table wrapped in the site's `<APITable>`: keep their descriptions to
+   one paragraph with inline code only — no fenced blocks, no lists. Symbol-level
+   comments (the block above a type, class, enum or method) may carry `@example`
+   fences and `:::note` admonitions; use `:::note` instead of `@remarks`, which
+   renders as a heading. Nested objects get a named `T*` type, never an inline
+   literal — inline literals become dotted rows (`anonymous.label`) that the
+   site renders as code blocks; the pipeline warns about them.
+
+9. **Regeneration:** `pnpm run docs` (runs update-revision → typedoc →
+   tools/docs/index.mjs → update-sidebar). Run it whenever public JSDoc changed.
+   TypeDoc warnings fail the run (`treatValidationWarningsAsErrors`): a warning
+   means a broken `{@link}` target or a referenced type that is not exported.
+   Post-processing `[warn]` lines (unresolved in-page anchor, duplicate APITable
+   row id) must be zero too. Site-facing links to table rows use the APITable
+   ids: the first-cell code span, case-sensitive, without the optional `?`
+   (`TFrameConfig.md#rootPath`); on class pages parameters are prefixed by
+   method (`SDKInstance.md#createRoom-roomId`).
 
 ## Verify
 
 ```bash
-pnpm lint        # naming rules are ESLint-enforced
-pnpm run docs    # must complete with zero TypeDoc warnings
+pnpm lint                              # naming rules are ESLint-enforced
+pnpm run docs                          # must complete with zero warnings and zero [warn] lines
+npx vitest run tests/docs-tools.test.ts  # when a tools/ script changed
 ```
 
 ## Definition of Done
 
 - [ ] `pnpm lint` green.
-- [ ] `pnpm run docs` completes without TypeDoc warnings.
+- [ ] `pnpm run docs` completes without TypeDoc warnings or `[warn]` lines.
 - [ ] No `@internal` symbol appears in the generated reference; every public symbol
       does.
 - [ ] All defaults documented as `` Default: `value`. ``; all cross-references are

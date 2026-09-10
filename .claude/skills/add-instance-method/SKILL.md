@@ -47,6 +47,8 @@ DocSpace client — the SDK only carries the call.
 - JSDoc is mandatory: description, `@param` for each param, `@returns`, and **two**
   `@example` blocks — one simple call, one composing with another method via
   `{@link SDKInstance.other}` (see `login`/`logout` for the exact shape).
+  `@param` descriptions render as table rows: one paragraph, inline code only.
+  For a note that should stand out use a `:::note` block, not `@remarks`.
 
 ## 3. Protocol check
 

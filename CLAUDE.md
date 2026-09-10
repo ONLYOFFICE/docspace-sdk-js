@@ -13,7 +13,8 @@ pnpm install                        # Install dependencies
 pnpm build                          # Build all bundles (esbuild → dist/)
 pnpm test                           # Run all tests (vitest, jsdom)
 pnpm lint                           # ESLint on src/
-pnpm run docs                       # Regenerate TypeDoc → docs/
+pnpm run docs                       # Regenerate API reference → docs/ (TypeDoc + tools/docs post-processing)
+pnpm run docs:sync                  # Regenerate and copy into ../api.onlyoffice.com (local copy, not a deploy)
 npx vitest run tests/utils.test.ts  # Run single test file
 ```
 
@@ -41,6 +42,10 @@ npx vitest run tests/utils.test.ts  # Run single test file
 - `src/main.ts` — Node/bundler entry. Exports SDK, sets `window.DocSpace`. Builds to CJS + ESM.
 - `src/main.browser.ts` — IIFE entry (`dist/api.js`). Additionally parses config from `<script>` tag query params and auto-initializes if `config.init` is set.
 
+### Docs pipeline (`tools/`)
+
+`typedoc.config.mjs` → TypeDoc → `tools/docs/index.mjs` (page transforms, `<APITable>` wrapping, section `index.md` pages) → `tools/update-sidebar.mjs`. Section prose and sidebar labels live in `tools/docs/sections.mjs`. `docs/` is gitignored and regenerated every run. TypeDoc warnings fail the run (`treatValidationWarningsAsErrors`). Transforms are covered by `tests/docs-tools.test.ts`. Full guide: `docs-generation.md`.
+
 ## Conventions
 
 **Naming (enforced by ESLint):**
@@ -56,7 +61,8 @@ npx vitest run tests/utils.test.ts  # Run single test file
 **JSDoc — required on every public symbol:**
 - Cross-reference with `{@link Type.field}`, not plain text
 - Inline field comments with default values: `/** Show menu. Default: \`false\`. */`
-- Mark internal APIs with `@internal` — they are excluded from generated docs
+- Mark internal APIs with `@internal` — they are excluded from generated docs; a `{@link}` to an `@internal` symbol is a broken link
+- Members (fields, enum members, parameters) render as table rows: single paragraph, inline code only, no fenced blocks
 - See `docs-generation.md` for full style guide with examples
 
 **File header — every source file must start with:**

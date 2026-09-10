@@ -17,7 +17,8 @@ parser (`getConfigFromParams`) or the tests.
 Add the field to `TFrameConfig`:
 
 - JSDoc is mandatory: purpose, applicable modes via `{@link SDKMode.X}`, and the
-  default in the exact format `` Default: `value`. ``
+  default in the exact format `` Default: `value`. `` The field renders as a table
+  row: one paragraph, inline code only, no fenced blocks (see the docs-style skill).
 - Naming: camelCase. The field must be optional (`?`) — only `frameId`, `mode`, and
   `src` are required.
 - If the field is an event handler, add it to `TFrameEvents` instead, typed
@@ -97,7 +98,7 @@ pnpm run docs
 - [ ] `getFramePath` includes it for every applicable mode, JSDoc table updated.
 - [ ] JSDoc states the default (`` Default: `value`. ``) and applicable modes.
 - [ ] Tests cover the new path (parser + frame path + mode behavior if any).
-- [ ] `pnpm run docs` regenerated without errors.
+- [ ] `pnpm run docs` regenerated without warnings (warnings fail the run).
 - [ ] After merge: assess impact on `@onlyoffice/docspace-react` (bundles its own SDK
       copy), the public `embed-sdk` skill (`agent-skills` repo:
       routing table, `config-reference.md`, `validate-config.mjs` dictionary), and

@@ -1,327 +1,190 @@
 # Documentation Generation Guide
 
-This guide explains how to generate and write documentation for the ONLYOFFICE DocSpace JavaScript SDK.
+This guide explains how the API reference for `@onlyoffice/docspace-sdk-js` is generated, how the pipeline is structured, and how to write documentation comments so the output stays consistent.
+
+The generated output in `docs/` is published to `api.onlyoffice.com` (section `docspace/javascript-sdk/usage-sdk`). Never edit `docs/` by hand: it is gitignored and wiped on every run (`cleanOutputDir: true`).
 
 ## Overview
 
 The documentation system uses:
-- **TypeDoc** - Main documentation generator that extracts documentation from TypeScript source files
-- **typedoc-plugin-markdown** - Converts TypeDoc output to Markdown format
-- **typedoc-plugin-frontmatter** - Adds frontmatter metadata to generated Markdown files
-- **typedoc-docusaurus-theme** - Provides Docusaurus-compatible documentation structure
 
-The documentation is automatically generated from JSDoc comments in the TypeScript source code.
+- **TypeDoc** — extracts documentation from JSDoc comments in the TypeScript sources
+- **typedoc-plugin-markdown** — converts TypeDoc output to Markdown
+- **typedoc-docusaurus-theme** — emits a Docusaurus-compatible sidebar (`typedoc-sidebar.cjs`); needs **typedoc-plugin-frontmatter**, no frontmatter is emitted
+- **`tools/`** — post-processing scripts that reshape the raw TypeDoc output into the final pages
 
-## Requirements
+## Generating documentation
 
-- **Node.js** v22 and above
-- **pnpm** v10 and above
-
-## Installation
+Requires Node.js 18 or later and pnpm 10 (`pnpm install` first). Nothing in CI runs this: the reference is generated locally and committed to the site repository.
 
 ```bash
-git clone https://github.com/ONLYOFFICE/docspace-sdk-js.git
-cd docspace-sdk-js
-pnpm install
+pnpm run docs        # full pipeline → docs/
+pnpm run docs:sync   # full pipeline + copy into ../api.onlyoffice.com
 ```
 
-## Source and Output Structure
+`pnpm run docs` executes four steps in sequence (see `package.json`):
 
-Documentation is generated from six entry points:
+1. **`tools/update-revision.mjs`** — reads the current Git branch and writes it into `typedoc.config.mjs` → `gitRevision`, so "View source on GitHub" links point at the branch being documented.
+2. **`typedoc`** — parses the entry points and generates raw Markdown into `docs/`.
+3. **`tools/docs/index.mjs`** — rewrites every generated page (see [Post-processing](#post-processing)) and builds an `index.md` per section.
+4. **`tools/update-sidebar.mjs`** — prefixes sidebar doc ids with the site path, points each category at its section index, and reverts `gitRevision` back to `master`.
+
+`pnpm run docs:sync` additionally runs `tools/sync-docs.mjs`, which replaces `../api.onlyoffice.com/site/docspace/javascript-sdk/usage-sdk` with the content of `docs/`, dropping the root `index.md`. It is a local copy into the site checkout, not a deploy.
+
+A healthy run produces **no TypeDoc warnings and no `[warn]` lines** from the post-processing scripts. `treatValidationWarningsAsErrors` is on, so a broken `{@link}` target or a referenced type that is not exported fails the run.
+
+## Entry points and output structure
+
+Six entry points, listed in `typedoc.config.mjs`:
 
 ```
-src/
-├── constants/index.ts    # SDK constants (CSPApiUrl, FRAME_NAME, defaultConfig, error messages)
-├── enums/index.ts        # Enumerations (SDKMode, Theme, EditorType, etc.)
-├── errors/index.ts       # Structured errors (SDKError class, SDKErrorCode enum)
-├── instance/index.ts     # SDKInstance class — individual iframe instance management
-├── sdk/index.ts          # SDK class — main controller, creates and stores instances
-├── types/index.ts        # Type definitions (TFrameConfig, TFrameEvents, etc.)
+src/constants/index.ts    # CSPApiUrl, FRAME_NAME, defaultConfig, error messages
+src/enums/index.ts        # SDKMode, Theme, EditorType, …
+src/errors/index.ts       # SDKError, SDKErrorCode
+src/instance/index.ts     # SDKInstance
+src/sdk/index.ts          # SDK
+src/types/index.ts        # TFrameConfig, TFrameEvents, …
 ```
 
-Generated output in `docs/`:
+Every file carries `@module` + `@mergeModuleWith <project>`, so the output is one flat namespace grouped by kind, one page per symbol:
 
 ```
 docs/
-├── index.md                      # Main documentation index
-├── typedoc-sidebar.cjs           # Sidebar configuration for Docusaurus
-├── classes/                      # Class documentation (SDK, SDKInstance)
-├── enumerations/                 # Enum documentation (SDKMode, Theme, etc.)
-├── type-aliases/                 # Type alias documentation (TFrameConfig, etc.)
-└── variables/                    # Constant/variable documentation (defaultConfig, etc.)
+├── index.md                 # project index (not synced to the site)
+├── typedoc-sidebar.cjs      # Docusaurus sidebar
+├── classes/                 # SDK.md, SDKInstance.md, SDKError.md + index.md
+├── type-aliases/            # TFrameConfig.md, TFrameEvents.md, … + index.md
+├── enumerations/            # SDKMode.md, Theme.md, … + index.md
+└── variables/               # defaultConfig.md, FRAME_NAME.md, … + index.md
 ```
 
-## Generating Documentation
+## TypeDoc configuration
 
-### Command
-
-```bash
-pnpm run docs
-```
-
-This executes a three-step pipeline:
-
-1. **`update-revision.mjs`** — reads the current Git branch name and writes it to `typedoc.json` → `gitRevision`, so source links point to the correct branch on GitHub.
-2. **`typedoc`** — parses all entry points, extracts JSDoc comments, and generates Markdown files in `docs/`.
-3. **`update-sidebar.mjs`** — post-processes the generated output:
-   - Removes escaped underscores (`\_`) from Markdown link text, headings, bold, and italic.
-   - Converts `Defined in: [...]` source references to a single `[View source on GitHub](...)` link per file.
-   - Adds Docusaurus path prefix (`docspace/javascript-sdk/usage-sdk`) to sidebar IDs.
-   - Reverts `gitRevision` back to `master`.
-
-## TypeDoc Configuration
-
-The full configuration is in `typedoc.json`. Key options:
+The full configuration is `typedoc.config.mjs`. The options that define the look of the output:
 
 | Option | Value | Purpose |
 |---|---|---|
-| `entryPoints` | `src/*/index.ts` (6 files) | Source files to document |
-| `plugin` | markdown, frontmatter, docusaurus-theme | Output format and integration |
-| `out` | `"docs"` | Output directory |
-| `sort` | `["alphabetical"]` | Sort members alphabetically within each category |
-| `parametersFormat` | `"table"` | Render method parameters as tables |
-| `propertiesFormat` | `"table"` | Render type properties as tables |
-| `enumMembersFormat` | `"table"` | Render enum members as tables |
-| `typeDeclarationFormat` | `"table"` | Render inline type declarations as tables |
-| `tableColumnSettings` | `{ "hideSources": true }` | Hide source column from tables |
-| `excludePrivate` | `true` | Exclude `private` members |
-| `excludeProtected` | `true` | Exclude `protected` members |
-| `excludeInternal` | `true` | Exclude members marked with `@internal` |
-| `commentStyle` | `"jsdoc"` | Use `/** */` comment style |
-| `sourceLinkTemplate` | GitHub blob URL | Link each symbol to its source line on GitHub |
-| `validation` | notExported, invalidLink, etc. | Validate documentation quality on generation |
-| `sidebar` | `{ autoConfiguration: true }` | Auto-generate Docusaurus sidebar |
+| `textContentMappings.title.memberPage` | `"{name}"` | Page titles are the bare symbol name (`TFrameConfig`), not `Type Alias: TFrameConfig` |
+| `groupOrder` | Classes, Type Aliases, Enumerations, Variables | Order of the kind groups in the sidebar and the project index |
+| `sort` | `["alphabetical"]` | Members sorted by name — `TFrameConfig` has 60+ fields, the alphabet is the index |
+| `useCodeBlocks` | `true` | Signatures as ` ```ts ` fences instead of blockquotes |
+| `expandParameters` | `true` | Inline parameter objects expanded in method signatures |
+| `expandObjects` | off | `TFrameConfig` would otherwise open with a 70-line object literal duplicating its table |
+| `propertiesFormat` etc. | `"table"` | Members are table rows; TypeDoc's per-row `<a id>` anchors are later replaced by the `<APITable>` wrapper |
+| `enumMembersFormat` | `"table"` | Enum members are rows too — member descriptions must stay single-paragraph (see below) |
+| `tableColumnSettings` | `{ hideSources: true }` | No per-member source column; one "View source on GitHub" link per page instead |
+| `locales.en` | `Deprecated:`, `Remarks:` | Tag headings end with a colon |
+| `excludeInternal` / `excludePrivate` / `excludeProtected` | `true` | `@internal` symbols never appear in the output |
+| `treatValidationWarningsAsErrors` | `true` | Dead links fail the run instead of reaching the site |
+| `sourceLinkTemplate` | GitHub blob URL with `{gitRevision}` | Source links; revision set by `update-revision.mjs`, reverted by `update-sidebar.mjs` |
+| `githubPages` | `false` | Keeps TypeDoc from dropping a `.nojekyll` that `docs:sync` would carry into the site repo |
 
-## Writing Documentation Comments
+## Post-processing
 
-### File Header
+Layout of `tools/`:
 
-Every source file must start with a copyright header and module declaration:
+- `shared/markdown.mjs` — shared primitives: `walkMarkdownLines` (line walker that flags code blocks), `transformFile`, `slugify`, `collectPageAnchors`
+- `docs/index.mjs` — pipeline order only: page transforms → APITable wrapping → section index pages
+- `docs/page-transforms.mjs` — per-page transforms (`PAGE_TRANSFORMS`)
+- `docs/api-tables.mjs` — wraps tables in `<APITable>`, swaps the anchor scheme (needs all pages at once)
+- `docs/section-index.mjs` — `index.md` per section
+- `docs/sections.mjs` — section titles, prose and table headers for the index pages and sidebar categories
+- `update-revision.mjs`, `update-sidebar.mjs`, `sync-docs.mjs` — revision, sidebar and sync steps
+- `build.mjs` — the package build, unrelated to docs
 
-```typescript
-/**
- * (c) Copyright Ascensio System SIA 2026
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * ...
- *
- * @license
- */
+### Page transforms (in order)
 
-/**
- * @module
- * @mergeModuleWith <project>
- */
-```
+1. `convertSourceLinks` — rewrites `Defined in: [file.ts:N](url)` under the H1 to one `[View source on GitHub](url)` per page; method-level source lines are dropped.
+2. `escapePipesInTableCells` — escapes `|` inside inline code in table cells (an unescaped pipe from a comment breaks the row).
+3. `fixInPageAnchors` — drops stale `-N` dedup suffixes from in-page hash links; warns about anchors that resolve to nothing.
+4. `ensureBlankLineBeforeHeadings` — restores the blank line MDX requires before a heading.
 
-- `@license` marks the copyright block so TypeDoc excludes it from output.
-- `@module` + `@mergeModuleWith <project>` merges all entry points into a single flat namespace in the generated docs (instead of separate per-file modules).
+### APITable wrapping
 
-### Cross-References with `{@link}`
+`applyApiTables` (`api-tables.mjs`) runs after the page transforms have validated the original anchors. It wraps every table of a symbol page — member tables (rows carry TypeDoc's `<a id>` anchors) and the parameter tables under method headings — in the docs site's `<APITable>` component via `mdx-code-block` fences, strips the `<a id>` anchors, and rewrites all fragment links — in-page and cross-page — to the ids the component derives at runtime:
 
-Use `{@link}` to create navigable links between symbols. This is the primary way to connect related documentation:
+- the row id is the **text of the code span in the first cell** (case-sensitive): `<a id="manager">` becomes `#Manager`, `<a id="rootpath">` becomes `#rootPath`;
+- TypeDoc's optional marker is moved outside the code span (`` `rootPath`? `` instead of `` `rootPath?` ``), so the id carries no `?` — a `?` in a fragment reads as a query string to Docusaurus' anchor checker;
+- on pages where row names collide across tables (a class page, where `roomId` is a parameter of several methods), every table gets a `name="Symbol"` prop and ids become `Symbol-member`: `#createRoom-roomId`, `#SDKInstance-config`;
+- the component makes rows clickable and highlights the row targeted by the URL hash.
+
+Hand-written site pages that link to a table row must use the same ids (`TFrameConfig.md#rootPath`, `TFrameEvents.md#onAppReady`). Links to method headings (`SDKInstance.md#login`) are ordinary heading slugs and are unaffected.
+
+### Section index pages
+
+For every section in `tools/docs/sections.mjs` (`classes`, `type-aliases`, `enumerations`, `variables`), `section-index.mjs` generates an `index.md`: an H1, the section description, and an Overview table (`| Class | Description |`, header configurable) built from each page's H1 and the first sentence of its description.
+
+## Sidebar
+
+`update-sidebar.mjs` loads `typedoc-sidebar.cjs`, prefixes every doc id with `docspace/javascript-sdk/usage-sdk`, and gives each kind category a `link` to its section `index.md` (label taken from `sections.mjs`). The site's `sidebars.ts` spreads the result into its "SDK usage" category.
+
+## Writing documentation comments
+
+### File header
+
+Every source file starts with the copyright block ending in `@license` (which makes TypeDoc exclude it from output), followed by a separate `@module` / `@mergeModuleWith <project>` block. Copy both verbatim from any existing file in `src/`.
+
+### Cross-references with `{@link}`
+
+Use `{@link}` for every reference to another symbol — TypeDoc resolves and validates it, and a broken target fails the run:
 
 ```typescript
 /**
  * The SDK initialization mode. Passed via {@link TFrameConfig.mode}.
- * Determines the UI and available functionality of the embedded frame.
  */
 export enum SDKMode {
-  /** File/folder browser. Supports CRUD operations. Forces `noLoader: false`. */
-  Manager = "manager",
   /** Document editor. Requires {@link TFrameConfig.id}. */
   Editor = "editor",
 }
 ```
 
-Common patterns:
-- Reference a type: `{@link TFrameConfig}`
-- Reference a specific field: `{@link TFrameConfig.mode}`
-- Reference a class method: `{@link SDKInstance.initFrame}`
-- Reference an enum value: `{@link SDKMode.Manager}`
-- Reference a constant: `{@link defaultConfig}`
+Patterns: `{@link TFrameConfig}`, `{@link TFrameConfig.mode}`, `{@link SDKInstance.initFrame}`, `{@link SDKMode.Manager}`, `{@link defaultConfig}`. Never a plain-text mention — it rots silently. A `{@link}` to an `@internal` symbol is a broken link.
 
-### Internal APIs with `@internal`
+### Symbols
 
-Mark types and members that are part of the implementation but should not appear in the public documentation:
+- **First sentence matters** — it becomes the page's description in the section Overview table. Make it a complete, self-contained sentence.
+- **Examples are fenced ` ```typescript ` blocks** inside `@example`, optionally preceded by a one-line caption. Instance methods get two: a simple call, then a composition with another method referenced via `{@link SDKInstance.other}`.
+- **Remarks as admonitions** — write `:::note` … `:::` directly in the comment for a note that should stand out; `@remarks` would render as a heading.
+- **`@deprecated`** with the replacement linked: `@deprecated Use {@link SDK.init} instead.`
 
-```typescript
-/**
- * The postMessage payload structure sent from the DocSpace iframe to the host.
- * Parsed by `SDKInstance.#onMessage`.
- *
- * @internal
- * @see {@link MessageTypes} — possible `type` values and their handling logic.
- */
-export type TMessageData = {
-  // ...
-};
-```
+### Members (table rows)
 
-Types marked `@internal` are excluded from generated docs (`excludeInternal: true` in typedoc.json). Use this for:
-- Internal message types (`TMessageData`, `TEventReturnData`, `TTask`)
-- Internal enums (`InstanceMethods`, `MessageTypes`)
-- Helper types not needed by consumers
+Fields, enum members and parameters render as **table rows**. Keep their descriptions to a single paragraph with inline code only — no fenced blocks, no lists, no line breaks that must survive (TypeDoc flattens a fenced example into one unreadable run of inline code inside the cell).
 
-### Class Documentation
+Field comments state the default in the exact format:
 
 ```typescript
-/**
- * Manages multiple {@link SDKInstance} objects and provides convenience wrappers
- * for each {@link SDKMode}.
- *
- * Calling any `init*` method with a `frameId` that already exists reinitializes
- * the existing instance; otherwise a new instance is created and stored in {@link SDK.frames}.
- *
- * @example
- * ```typescript
- * import { SDK } from '@onlyoffice/docspace-sdk-js';
- *
- * const sdk = new SDK();
- * const instance = sdk.initManager({
- *   frameId: 'ds-frame',
- *   src: 'https://docspace.example.com',
- * });
- * ```
- */
-export class SDK {
-  // ...
-}
+/** Whether to show the side menu. Default: `false`. */
+showMenu?: boolean;
 ```
 
-### Method Documentation
+Enum members whose string value is an API identifier different from the key get a note: `` API value: `"AZ"`. ``
 
-```typescript
-/**
- * Initializes a frame in {@link SDKMode.Editor} mode — full document editor.
- * Forces `mode` to {@link SDKMode.Editor}. Requires {@link TFrameConfig.id}.
- *
- * @param config - Frame configuration. See {@link TFrameConfig}.
- * @returns The initialized {@link SDKInstance}.
- *
- * @example
- * ```typescript
- * import { SDK, EditorType } from '@onlyoffice/docspace-sdk-js';
- *
- * const sdk = new SDK();
- * const instance = sdk.initEditor({
- *   frameId: 'ds-frame',
- *   src: 'https://docspace.example.com',
- *   id: 42,
- *   editorType: EditorType.Desktop,
- *   editorCustomization: { autosave: true, forcesave: true },
- *   events: {
- *     onAppReady: () => console.log('ready'),
- *     onEditorCloseCallback: () => history.back(),
- *   },
- * });
- * ```
- */
-initEditor = (config: TFrameConfig) =>
-  this.init({ ...config, mode: SDKMode.Editor });
-```
+### Nested objects
 
-### Type Documentation
+Give every nested object in a public type a name (`TEditorAnonymous`, `TCustomContextMenuActions`) instead of an inline literal. An inline literal renders as dotted rows (`anonymous.label`) in the parent's table, which the site's `<APITable>` renders as blocks of code; a named type gets its own page and a link from the parent row. `applyApiTables` reports a `[warn]` for every dotted row it finds.
 
-Use a top-level JSDoc block for the type itself, and inline `/** */` comments for each field. Include default values where applicable:
+### Internal APIs
 
-```typescript
-/**
- * Editor customization options passed via {@link TFrameConfig.editorCustomization}.
- * Controls the editor UI: toolbar, menus, macros, theme, and zoom.
- * Only applies to {@link SDKMode.Editor} and {@link SDKMode.Viewer} modes.
- *
- * @example
- * ```typescript
- * sdk.initFrame({
- *   mode: "editor",
- *   editorCustomization: {
- *     compactToolbar: true,
- *     hideRulers: true,
- *     uiTheme: "theme-dark",
- *   },
- *   ...
- * });
- * ```
- */
-export type TEditorCustomization = {
-  /** Enable "Autosave" menu option. When `false`, only "Strict" co-editing mode is available. Default: `true`. */
-  autosave?: boolean;
-  /** Show "Comments" button. When `false`, comments are view-only. Default: `true`. */
-  comments?: boolean;
-  /** Move action buttons from header to toolbar, making the header compact. Default: `false`. */
-  compactHeader?: boolean;
-};
-```
+Mark anything exported but not public with `@internal` — `InstanceMethods`, `MessageTypes`, `TMessageData`, internal helpers. They are excluded from the output. A type that a public type references must itself be exported and documented (`TEntityBase`, `TListResponse`), otherwise TypeDoc reports it and the run fails.
 
-Inline comment conventions:
-- Start with a brief description of what the field controls.
-- Add behavioral notes when the value changes behavior (e.g. "When `false`, ...").
-- End with `Default: \`value\`.` when a default exists in `defaultConfig`.
+## Adding a new section
 
-### Enum Documentation
+A new kind directory (say TypeDoc starts emitting `functions/`) requires one edit: add a `Section` entry to `tools/docs/sections.mjs` (`docsDir`, `sidebarLabel` matching TypeDoc's category label, title, description, table caption and header). The index page and the sidebar link follow on the next run.
 
-```typescript
-/**
- * The SDK initialization mode. Passed via {@link TFrameConfig.mode}.
- * Determines the UI and available functionality of the embedded frame.
- *
- * @example
- * ```typescript
- * sdk.initFrame({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://docspace.example.com" });
- * ```
- */
-export enum SDKMode {
-  /** File/folder browser. Displays a list of entities at `rootPath`. Supports CRUD operations on rooms, folders, and files. Forces `noLoader: false`. */
-  Manager = "manager",
-  /** Document editor. Requires `id` — the file identifier to open for editing. */
-  Editor = "editor",
-  /** Read-only document viewer. Requires `id` — the file identifier to open for viewing. */
-  Viewer = "viewer",
-}
-```
+## Gotchas
 
-### Constant Documentation
+- `docs/` is regenerated from scratch and gitignored — manual edits are lost; fix the JSDoc or a `tools/` script.
+- The `tools/` transforms are regex-based rewrites of TypeDoc's Markdown; a TypeDoc/plugin version bump can silently change the output shape and break them — diff `docs/` against a pre-bump run. `tests/docs-tools.test.ts` covers the transforms on fixtures.
+- `update-revision.mjs` mutates `typedoc.config.mjs` and `update-sidebar.mjs` reverts it. An interrupted run can leave `gitRevision` on your branch name — re-run `pnpm run docs` or reset it to `master` before committing.
+- `docs:sync` requires the `api.onlyoffice.com` checkout as a sibling directory of the repo.
 
-```typescript
-/**
- * The default configuration applied to every frame before user overrides.
- * Merge order in {@link SDKInstance.initFrame}: `defaultConfig` → instance config → user config.
- *
- * Override only the fields you need — unset fields fall back to these defaults.
- *
- * @example
- * ```typescript
- * // Minimal config — everything else comes from defaultConfig
- * sdk.initFrame({
- *   frameId: "ds-frame",
- *   src: "https://docspace.example.com",
- *   mode: "manager",
- * });
- * ```
- */
-export const defaultConfig: TFrameConfig = {
-  /** DocSpace server URL. Must be set — no default. */
-  src: "",
-  /** Base navigation path for {@link SDKMode.Manager}. Default: `"/rooms/shared/"`. */
-  rootPath: "/rooms/shared/",
-  // ...
-};
-```
+## Fixing output problems
 
-## JSDoc Tags Reference
+Fix problems at the source, in this order:
 
-Commonly used tags in this project:
+1. the JSDoc comment in `src/`;
+2. TypeDoc configuration (`typedoc.config.mjs`);
+3. only as a last resort — a new transform in `tools/docs/page-transforms.mjs` (and then a general rule, not a page-specific hack).
 
-| Tag | Usage | Example |
-|---|---|---|
-| `@param` | Document method parameters | `@param config - Frame configuration.` |
-| `@returns` | Document return values | `@returns The initialized SDKInstance.` |
-| `@example` | Provide code examples (fenced with ` ```typescript `) | See examples above |
-| `@remarks` | Additional context beyond the main description | `@remarks This method forces noLoader to false.` |
-| `@see` | Reference related symbols | `@see {@link TFrameConfig}` |
-| `@internal` | Exclude from public documentation | `@internal` |
-| `@license` | Mark copyright header (excluded from output) | `@license` |
-| `@module` | Declare file as a module for TypeDoc | `@module` |
-| `@mergeModuleWith` | Merge module into parent namespace | `@mergeModuleWith <project>` |
-| `@deprecated` | Mark deprecated features | `@deprecated Use initManager instead.` |
+A regex transform papering over a comment that could simply be rewritten is technical debt in the pipeline.
