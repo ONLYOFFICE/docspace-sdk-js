@@ -250,11 +250,32 @@ export class SDKInstance {
   }
 
   /**
-   * Called by the DocSpace iframe (via `onCallCommand`) when the app has finished loading.
-   * Fades out the loader spinner, fades in the iframe, and fires {@link TFrameEvents.onContentReady}.
+   * Marks the frame as loaded: fades out the loader spinner, reveals the iframe,
+   * and fires {@link TFrameEvents.onContentReady}.
    *
-   * @internal
-   * @see {@link TFrameEvents.onContentReady}
+   * The DocSpace iframe calls this automatically once its content is ready, so most
+   * integrations never need to. Call it manually to reveal the frame on your own schedule,
+   * for example when the host page shows its own loading overlay. Every call re-applies the
+   * iframe size and visibility and fires {@link TFrameEvents.onContentReady}; the loader is
+   * removed by the first one.
+   *
+   * @example
+   * ```typescript
+   * instance.setIsLoaded();
+   * ```
+   *
+   * @example
+   * Reveal the frame from a host-side button instead of waiting for the iframe, then react
+   * to the completion via {@link TFrameEvents.onContentReady}.
+   * ```typescript
+   * const instance = sdk.initManager({
+   *   frameId: 'ds-frame',
+   *   src: 'https://docspace.example.com',
+   *   events: { onContentReady: () => console.log('Frame is visible') },
+   * });
+   *
+   * document.getElementById('show-frame').onclick = () => instance.setIsLoaded();
+   * ```
    */
   setIsLoaded(): void {
     const { frameId, width, height, events } = this.config;
@@ -1878,7 +1899,7 @@ export class SDKInstance {
    * @returns A promise that resolves with upload result from the iframe,
    *   or rejects if the iframe reports an error via `onUploadError`.
    *
-   * @remarks
+   * :::note
    * The entire file is read into memory via `arrayBuffer()` before transfer.
    * Callers should validate file size before invoking this method to avoid
    * excessive memory usage on the host page. The server-side upload limit
@@ -1886,6 +1907,7 @@ export class SDKInstance {
    *
    * The ArrayBuffer is transferred to the iframe (zero-copy). After `upload()`
    * returns, the buffer is neutered and cannot be reused.
+   * :::
    *
    * @example
    * ```typescript
