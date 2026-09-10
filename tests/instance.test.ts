@@ -716,6 +716,67 @@ describe("createRoom", () => {
   });
 });
 
+describe("login", () => {
+  const initWithPostMessage = () => {
+    setupTarget();
+    const config = makeConfig();
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+
+    iframe.dispatchEvent(new Event("load"));
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    return { inst, postMessageSpy };
+  };
+
+  test("login() sends only email and passwordHash when the deprecated arguments are omitted", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.login("user@example.com", "hash");
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.methodName).toBe("login");
+    expect(sent.data.data).toEqual({ email: "user@example.com", passwordHash: "hash" });
+  });
+
+  test("login() posts the one-time code next to the credentials when given", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.login("user@example.com", "hash", undefined, undefined, "123456");
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.methodName).toBe("login");
+    expect(sent.data.data).toEqual({ email: "user@example.com", passwordHash: "hash", code: "123456" });
+  });
+
+  test("login() resolves with the portal's answer, including a second-factor redirect", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.login("user@example.com", "hash");
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-frame",
+          type: "onMethodReturn",
+          callId: sent.data.callId,
+          methodReturnData: { url: "/confirm/TfaAuth?key=abc", user: "user@example.com", hash: "hash" },
+          commandName: "login",
+        }),
+        origin: BASE_SRC,
+      })
+    );
+
+    await expect(promise).resolves.toEqual({ url: "/confirm/TfaAuth?key=abc", user: "user@example.com", hash: "hash" });
+  });
+});
+
 describe("external data events", () => {
   const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 

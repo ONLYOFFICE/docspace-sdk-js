@@ -18,6 +18,10 @@
 - Added edge case tests for utils and new modes
 - Exported `TEntityBase` and `TListResponse`, the shared shapes behind `TFileInfo`/`TFolderInfo`/`TRoomInfo` and `TFilesResponse`/`TRoomsResponse`
 - Added `TEditorAnonymous` (`TEditorCustomization.anonymous`) and `TCustomContextMenuActions` (`TCustomActionsConfig.contextMenu`) as named types instead of inline object literals
+- Added the optional `code` argument to `login` for finishing a two-factor sign-in: the portal answers the first call with a `/confirm/…` url and no session, the second call carries the one-time code. Requires a portal whose SDK dispatcher reads `code`
+- Added `TLoginResult`: the resolved shape of `login` — `url` (`"/"` on success, a `/confirm/…` page when a second factor is pending) and the `status`/`message` of a failed attempt
+- Added `TSelectedRoom`, `TSelectedFile` and `TRequestTokenInfo`, the payloads of `onSelectCallback` (an array of rooms for the room selector, a single file object for the file selector)
+- Added `TEditorOpenPayload` and `TEditorAction`, the payload of `onEditorOpen` (the file plus `share` and `action`)
 
 ### Changed
 - Migrated from Jest to Vitest for testing
@@ -27,6 +31,10 @@
 - The product is called ONLYOFFICE Apps throughout the documentation, README and examples; example hosts are `portal.example.com`. Nothing that integrations rely on changed: the package name, the `window.DocSpace.SDK` global, the `frameDocSpace` iframe name prefix and the script URL keep their spelling
 - Refactored `SDKInstance` internals
 - Refactored `getFramePath`
+- `onSelectCallback`, `onEditorOpen` and `onFileManagerClick` are typed with their real payloads instead of `object`; `login` returns `Promise<TLoginResult>` instead of `Promise<object>`
+- `login` documents that the portal's SDK dispatcher forwards only `email` and `passwordHash` and always requests a persistent session; the `password` and `session` arguments do not reach the portal
+- `destroyFrame` documents that it is synchronous, rejects pending calls with `SDKErrorCode.Disconnected` and leaves the placeholder ready for an immediate `init*`
+- `initChat`, `agentId` and `getToken` document the conditions under which the chat renders and how the OAuth token is forwarded
 
 ### Fixed
 - `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with three arguments (the DocsAPI editor object, `window.Asc`, then `data`). The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. Documentation now states that the connector must be created by the callback (`editor.createConnector()`) and shows the `Asc.scope` channel for `callCommand`.
