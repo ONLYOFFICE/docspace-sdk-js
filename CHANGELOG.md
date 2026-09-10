@@ -24,6 +24,7 @@
 - Updated packages and pnpm version
 - Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
 - `setIsLoaded` is documented as a public method again: it reveals the frame and fires `onContentReady`, and can be called by the host to take over the loading hand-off
+- The product is called ONLYOFFICE Apps throughout the documentation, README and examples; example hosts are `portal.example.com`. Nothing that integrations rely on changed: the package name, the `window.DocSpace.SDK` global, the `frameDocSpace` iframe name prefix and the script URL keep their spelling
 - Refactored `SDKInstance` internals
 - Refactored `getFramePath`
 
