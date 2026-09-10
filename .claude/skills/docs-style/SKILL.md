@@ -1,11 +1,11 @@
 ---
 name: docs-style
 description: >
-  JSDoc and TypeDoc conventions for the DocSpace SDK. Use when writing or
+  JSDoc and TypeDoc conventions for the ONLYOFFICE Apps Embed SDK. Use when writing or
   reviewing JSDoc on public symbols, adding file headers, or regenerating docs.
 ---
 
-# DocSpace SDK documentation style
+# ONLYOFFICE Apps Embed SDK documentation style
 
 Condensed, enforceable mirror of `docs-generation.md` (the full style guide with
 examples — read it for anything not covered here). The generated output in `docs/`

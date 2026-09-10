@@ -1,7 +1,7 @@
 ---
 name: add-config-option
 description: >
-  Add or change a TFrameConfig option in the DocSpace SDK. Use when adding a new
+  Add or change a TFrameConfig option in the ONLYOFFICE Apps Embed SDK. Use when adding a new
   frame config field, changing its default value, or wiring it into the browser
   script-tag parser or the iframe URL.
 ---
@@ -45,7 +45,7 @@ This is the browser entry (`dist/api.js` loaded via `<script>` tag). Rules:
 
 ## 4. Iframe URL — `src/utils/index.ts` → `getFramePath`
 
-Only if the field must reach the DocSpace app via the iframe URL:
+Only if the field must reach ONLYOFFICE Apps via the iframe URL:
 
 - Add it to the query of every applicable mode branch (`switch (config.mode)`).
   Shared options go into `baseFrameOptions` / `baseSelectorOptions` /

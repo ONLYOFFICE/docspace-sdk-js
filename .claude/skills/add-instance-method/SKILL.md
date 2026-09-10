@@ -1,7 +1,7 @@
 ---
 name: add-instance-method
 description: >
-  Add a new public method to SDKInstance that proxies a call into the DocSpace
+  Add a new public method to SDKInstance that proxies a call into the ONLYOFFICE Apps
   iframe via postMessage. Use when exposing a new SDK method like getFiles,
   createRoom, or navigateSection.
 ---
@@ -10,12 +10,12 @@ description: >
 
 SDKInstance methods are thin transport wrappers: they post a `TTask` into the iframe
 and resolve on the matching `onMethodReturn` message. The actual logic lives in the
-DocSpace client — the SDK only carries the call.
+ONLYOFFICE Apps client — the SDK only carries the call.
 
 ## 1. Enum entry — `src/enums/index.ts` → `InstanceMethods`
 
 - `const enum`, marked `@internal` — the entry never appears in generated docs.
-- Value = the method name expected by the DocSpace client side.
+- Value = the method name expected by the ONLYOFFICE Apps client side.
 - JSDoc line in the established format:
   `` /** Calls `SDKInstance.methodName(args)`. */ ``
 - Insert alphabetically (some late additions drifted to the end — don't add to the
@@ -52,9 +52,9 @@ DocSpace client — the SDK only carries the call.
 
 ## 3. Protocol check
 
-The SDK is transport only. Confirm the DocSpace client actually implements the
+The SDK is transport only. Confirm the ONLYOFFICE Apps client actually implements the
 method (handles the name and replies with `onMethodReturn`) — otherwise every call
-ends in a 30 s `TIMEOUT`. Record the minimum required DocSpace version in the PR
+ends in a 30 s `TIMEOUT`. Record the minimum required ONLYOFFICE Apps version in the PR
 description.
 
 ## 4. Tests — `tests/instance.test.ts`
@@ -88,7 +88,7 @@ pnpm run docs
 ## Definition of Done
 
 - [ ] Lint and tests green.
-- [ ] Enum entry is `@internal`, alphabetically placed, value matches the DocSpace
+- [ ] Enum entry is `@internal`, alphabetically placed, value matches the ONLYOFFICE Apps
       client method name.
 - [ ] Payload never contains `undefined` fields.
 - [ ] Errors reject via `SDKError` (or legacy status-semantics documented in
@@ -97,4 +97,4 @@ pnpm run docs
 - [ ] Method visible in TypeDoc with two `@example` blocks.
 - [ ] After merge: assess impact on `@onlyoffice/docspace-react` (bundles its own
       SDK copy) and the public `embed-sdk` skill (`methods.md`,
-      `config-reference.md`); note the minimum portal/DocSpace version.
+      `config-reference.md`); note the minimum portal version.

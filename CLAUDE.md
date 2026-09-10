@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-ONLYOFFICE DocSpace JavaScript SDK (`@onlyoffice/docspace-sdk-js`) — TypeScript library that embeds DocSpace UI into web applications via iframes with postMessage communication.
+ONLYOFFICE Apps Embed SDK (`@onlyoffice/docspace-sdk-js`) — TypeScript library that embeds ONLYOFFICE Apps UI into web applications via iframes with postMessage communication.
 
 ## Commands
 
@@ -47,6 +47,8 @@ npx vitest run tests/utils.test.ts  # Run single test file
 `typedoc.config.mjs` → TypeDoc → `tools/docs/index.mjs` (page transforms, `<APITable>` wrapping, section `index.md` pages) → `tools/update-sidebar.mjs`. Section prose and sidebar labels live in `tools/docs/sections.mjs`. `docs/` is gitignored and regenerated every run. TypeDoc warnings fail the run (`treatValidationWarningsAsErrors`). Transforms are covered by `tests/docs-tools.test.ts`. Full guide: `docs-generation.md`.
 
 ## Conventions
+
+**Product name.** The product is ONLYOFFICE Apps; prose, JSDoc and examples say so, and example hosts are `portal.example.com`. The DocSpace name survives only where something outside this repo reads it, and those spellings must not be "fixed": the package name `@onlyoffice/docspace-sdk-js`, the `window.DocSpace.SDK` global that script-tag integrations call, the `frameDocSpace` iframe name prefix the portal client matches, the `github.com/ONLYOFFICE/docspace-*` URLs, the `docspace/javascript-sdk/usage-sdk` docs-site path and the `/static/scripts/sdk/` script URL.
 
 **Naming (enforced by ESLint):**
 - Type aliases: `T` + PascalCase (`TFrameConfig`, `TFrameEvents`)

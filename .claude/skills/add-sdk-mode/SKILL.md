@@ -1,7 +1,7 @@
 ---
 name: add-sdk-mode
 description: >
-  Add a new SDKMode (embedded UI surface) to the DocSpace SDK. Use when wiring a
+  Add a new SDKMode (embedded UI surface) to the ONLYOFFICE Apps Embed SDK. Use when wiring a
   new frame mode end to end: enum, init wrapper, frame path, config fields, tests.
 ---
 
