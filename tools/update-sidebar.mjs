@@ -16,94 +16,70 @@
  * @license
  */
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+// @ts-check
+import { readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = join(__dirname, "..");
+import { SECTIONS } from "./docs/sections.mjs";
+
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+const SIDEBAR_FILE = join(rootDir, "docs", "typedoc-sidebar.cjs");
+const CONFIG_FILE = join(rootDir, "typedoc.config.mjs");
 
 const PATH_PREFIX = "docspace/javascript-sdk/usage-sdk";
-const SIDEBAR_FILE = join(rootDir, "docs", "typedoc-sidebar.cjs");
-const CONFIG_FILE = join(rootDir, "typedoc.json");
-const DOCS_DIR = join(rootDir, "docs");
 const DEFAULT_BRANCH = "master";
 
-function unescapeUnderscores(content) {
-  return content
-    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (match, text, url) => {
-      const unescapedText = text.replace(/\\_/g, "_");
-      return `[${unescapedText}](${url})`;
-    })
-    .replace(/^(#{1,6}\s+.*)$/gm, (match) => {
-      return match.replace(/\\_/g, "_");
-    })
-    .replace(/\*\*([^*]+)\*\*/g, (match, text) => {
-      const unescapedText = text.replace(/\\_/g, "_");
-      return `**${unescapedText}**`;
-    })
-    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, (match, text) => {
-      const unescapedText = text.replace(/\\_/g, "_");
-      return `*${unescapedText}*`;
-    });
-}
-
-function processSourceLinks(content) {
-  const sourcePattern =
-    /^Defined in: \[([^\]]+)\]\((https:\/\/github\.com\/[^)]+)\)$/gm;
-  let isFirst = true;
-  let result = content.replace(sourcePattern, (_, _label, url) => {
-    if (isFirst) {
-      isFirst = false;
-      return `[View source on GitHub](${url})`;
+/**
+ * Prefixes doc ids with the site path and points each kind category at its
+ * generated index page.
+ * @param {any[]} items
+ * @returns {any[]}
+ */
+function rewriteSidebar(items) {
+  return items.map((item) => {
+    if (item.type === "doc") {
+      return { ...item, id: `${PATH_PREFIX}/${item.id}` };
     }
-    return "";
+
+    if (item.type !== "category") return item;
+
+    const section = SECTIONS.find(({ sidebarLabel }) => sidebarLabel === item.label);
+    const link = section
+      ? { type: "doc", id: `${PATH_PREFIX}/${section.docsDir}/index` }
+      : item.link;
+
+    return {
+      ...item,
+      ...(section ? { label: section.title } : {}),
+      ...(link ? { link } : {}),
+      items: rewriteSidebar(item.items ?? []),
+    };
   });
-  result = result.replace(/\n{3,}/g, "\n\n");
-  return result;
-}
-
-function processMarkdownFiles(dir) {
-  const files = readdirSync(dir);
-
-  for (const file of files) {
-    const filePath = join(dir, file);
-    const stat = statSync(filePath);
-
-    if (stat.isDirectory()) {
-      processMarkdownFiles(filePath);
-    } else if (file.endsWith(".md")) {
-      const content = readFileSync(filePath, "utf-8");
-      const updated = processSourceLinks(unescapeUnderscores(content));
-
-      if (content !== updated) {
-        writeFileSync(filePath, updated, "utf-8");
-      }
-    }
-  }
 }
 
 try {
-  processMarkdownFiles(DOCS_DIR);
-  console.log("Processed markdown files: fixed underscores and source links");
+  const require = createRequire(import.meta.url);
+  const sidebarItems = rewriteSidebar(require(SIDEBAR_FILE));
 
-  let content = readFileSync(SIDEBAR_FILE, "utf-8");
+  const sidebar = [
+    "// @ts-check",
+    '/** @type {import("@docusaurus/plugin-content-docs").SidebarsConfig} */',
+    `const typedocSidebar = { items: ${JSON.stringify(sidebarItems, null, 2)} };`,
+    "module.exports = typedocSidebar.items;",
+    "",
+  ].join("\n");
 
-  content = content.replace(
-    /id:\s*"([^"]+)"/g,
-    (_, id) => `id: "${PATH_PREFIX}/${id}"`
-  );
-
-  writeFileSync(SIDEBAR_FILE, content, "utf-8");
-
+  writeFileSync(SIDEBAR_FILE, sidebar, "utf-8");
   console.log(`Updated sidebar with path prefix: ${PATH_PREFIX}`);
 
-  const config = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
-
-  config.gitRevision = DEFAULT_BRANCH;
-
-  writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
-
+  const config = readFileSync(CONFIG_FILE, "utf-8");
+  writeFileSync(
+    CONFIG_FILE,
+    config.replace(/gitRevision:\s*["'][^"']*["']/, `gitRevision: "${DEFAULT_BRANCH}"`),
+    "utf-8"
+  );
   console.log(`Reverted revision to: ${DEFAULT_BRANCH}`);
 } catch (error) {
   console.error("Error updating sidebar:", error);

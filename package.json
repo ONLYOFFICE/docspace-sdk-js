@@ -51,7 +51,8 @@
     "lint": "eslint src/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "docs": "node tools/update-revision.mjs && typedoc && node tools/update-sidebar.mjs",
+    "docs": "node tools/update-revision.mjs && typedoc --options typedoc.config.mjs && node tools/docs/index.mjs && node tools/update-sidebar.mjs",
+    "docs:sync": "pnpm run docs && node tools/sync-docs.mjs",
     "build": "node tools/build.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },

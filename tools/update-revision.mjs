@@ -16,30 +16,30 @@
  * @license
  */
 
+// @ts-check
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = join(__dirname, "..");
-const CONFIG_FILE = join(rootDir, "typedoc.json");
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+const CONFIG_FILE = join(rootDir, "typedoc.config.mjs");
+const GIT_REVISION = /gitRevision:\s*["'][^"']*["']/;
 
 try {
-  const gitBranch = execSync("git rev-parse --abbrev-ref HEAD", {
-    encoding: "utf-8",
-  }).trim();
+  const gitBranch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
 
-  const config = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
+  const config = readFileSync(CONFIG_FILE, "utf-8");
+  const current = config.match(GIT_REVISION)?.[0];
 
-  if (config.gitRevision === gitBranch) {
+  if (!current) throw new Error("gitRevision not found in typedoc.config.mjs");
+
+  if (current === `gitRevision: "${gitBranch}"`) {
     console.log(`Revision already set to: ${gitBranch}`);
     process.exit(0);
   }
 
-  config.gitRevision = gitBranch;
-
-  writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
+  writeFileSync(CONFIG_FILE, config.replace(GIT_REVISION, `gitRevision: "${gitBranch}"`), "utf-8");
 
   console.log(`Updated revision to: ${gitBranch}`);
 } catch (error) {
