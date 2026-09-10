@@ -117,6 +117,27 @@ export type TBannerDisplaying = `${HeaderBannerDisplaying}`;
 export type TFilterSortBy = `${FilterSortBy}`;
 
 /**
+ * Anonymous user settings for the editor, passed via {@link TEditorCustomization.anonymous}.
+ * Controls how a user who is not signed in is named in co-editing and comments.
+ *
+ * @example
+ * ```typescript
+ * sdk.initEditor({
+ *   editorCustomization: {
+ *     anonymous: { request: false, label: "Visitor" },
+ *   },
+ *   ...
+ * });
+ * ```
+ */
+export type TEditorAnonymous = {
+  /** Prompt for anonymous name on open. Default: `true`. */
+  request?: boolean;
+  /** Postfix for anonymous user name. Default: `"Guest"`. */
+  label?: string;
+};
+
+/**
  * Editor customization options passed via {@link TFrameConfig.editorCustomization}.
  * Controls the editor UI: toolbar, menus, macros, theme, and zoom.
  * Only applies to {@link SDKMode.Editor} and {@link SDKMode.Viewer} modes.
@@ -135,13 +156,8 @@ export type TFilterSortBy = `${FilterSortBy}`;
  * ```
  */
 export type TEditorCustomization = {
-  /** Anonymous user settings. */
-  anonymous?: {
-    /** Prompt for anonymous name on open. Default: `true`. */
-    request?: boolean;
-    /** Postfix for anonymous user name. Default: `"Guest"`. */
-    label?: string;
-  };
+  /** Anonymous user settings. See {@link TEditorAnonymous}. */
+  anonymous?: TEditorAnonymous;
   /** Enable "Autosave" menu option. When `false`, only "Strict" co-editing mode is available. Default: `true`. */
   autosave?: boolean;
   /** Show "Comments" button. When `false`, comments are view-only. Default: `true`. */
@@ -549,7 +565,7 @@ export type TCreatedBy = {
 
 /**
  * Common fields shared by file, folder, and room metadata.
- * @internal
+ * Extended by {@link TFileInfo}, {@link TFolderInfo}, and {@link TRoomInfo}.
  */
 export type TEntityBase = {
   /** Entity ID. */
@@ -986,6 +1002,26 @@ export type TCustomContextMenuAction = {
 };
 
 /**
+ * Custom context menu actions grouped by the entity type they apply to.
+ * Passed via {@link TCustomActionsConfig.contextMenu}.
+ *
+ * @example
+ * ```typescript
+ * const contextMenu: TCustomContextMenuActions = {
+ *   file: [{ key: "export", label: "Export to CRM" }],
+ *   folder: [{ key: "share", label: "Share folder" }],
+ * };
+ * await instance.setCustomActions({ contextMenu });
+ * ```
+ */
+export type TCustomContextMenuActions = {
+  /** Custom actions for file context menus. */
+  file?: TCustomContextMenuAction[];
+  /** Custom actions for folder context menus. */
+  folder?: TCustomContextMenuAction[];
+};
+
+/**
  * Configuration for custom context menu actions, passed to {@link SDKInstance.setCustomActions}.
  *
  * @example
@@ -1003,11 +1039,6 @@ export type TCustomContextMenuAction = {
  * ```
  */
 export type TCustomActionsConfig = {
-  /** Context menu actions grouped by entity type. */
-  contextMenu?: {
-    /** Custom actions for file context menus. */
-    file?: TCustomContextMenuAction[];
-    /** Custom actions for folder context menus. */
-    folder?: TCustomContextMenuAction[];
-  };
+  /** Context menu actions grouped by entity type. See {@link TCustomContextMenuActions}. */
+  contextMenu?: TCustomContextMenuActions;
 };
