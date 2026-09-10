@@ -42,6 +42,7 @@ import type {
   TUserInfo,
   TCustomActionsConfig,
   TFormsSection,
+  TLoginResult,
   TPersonalSection,
 } from "../types";
 import {
@@ -1067,9 +1068,13 @@ export class SDKInstance {
   /**
    * Tears down the iframe and releases all resources associated with this instance.
    *
-   * Replaces the container with a plain `<div>` (preserving the original `frameId` and CSS classes),
-   * removes the `message` listener, clears pending callbacks and tasks,
-   * and removes the instance from the global `DocSpace.SDK.frames` registry.
+   * Replaces the container with a plain `<div>` (preserving the original `frameId` and CSS classes,
+   * showing {@link TFrameConfig.destroyText}), removes the `message` listener, rejects pending
+   * method calls with {@link SDKErrorCode.Disconnected}, and removes the instance from the global
+   * `DocSpace.SDK.frames` registry.
+   *
+   * The call is synchronous and complete when it returns: the placeholder keeps the `frameId`, so
+   * an `SDK.init*` call on the same `frameId` may follow immediately — there is nothing to await.
    *
    * @example
    * ```typescript
@@ -1595,41 +1600,58 @@ export class SDKInstance {
   /**
    * Authenticates a user using email and a hashed password.
    *
-   * Obtain `passwordHash` from {@link SDKInstance.createHash}. The plaintext `password`
-   * parameter is an alternative for development only — prefer hashing in production.
+   * Obtain `passwordHash` from {@link SDKInstance.createHash}. The portal reads only `email` and
+   * `passwordHash`; the session it creates is always persistent.
+   *
+   * :::note
+   * The result is **resolved, never rejected**. Check {@link TLoginResult.status}: anything but
+   * `200` (or a missing `token`) means no session was created. An account with two-factor
+   * authentication resolves with {@link TLoginResult.tfa} (or {@link TLoginResult.sms}) set and no
+   * session — call `login` again with the same credentials and the one-time `code`. A portal
+   * whose SDK dispatcher predates the `code` argument ignores it and answers the challenge again;
+   * on such a portal the login page remains the only way to complete a two-factor sign-in.
+   * :::
    *
    * @param email - The user's email address.
    * @param passwordHash - The hashed password (from {@link SDKInstance.createHash}).
-   * @param password - Optional plaintext password (development use only).
-   * @param session - Whether to create a persistent session. Defaults to `false`.
-   * @returns A promise that resolves with the authentication result.
+   * @param password - Deprecated: transmitted but ignored by the portal. Do not send plaintext passwords.
+   * @param session - Deprecated: transmitted but ignored by the portal; the session is always persistent.
+   * @param code - One-time code from the authenticator app or SMS; finishes a login that answered with `tfa` or `sms`.
+   * @returns A promise that resolves with the authentication result — see {@link TLoginResult}.
    *
    * @example
    * Login with a pre-hashed password from {@link SDKInstance.createHash}.
    * ```typescript
-   * await instance.login('user@example.com', passwordHash);
+   * const result = await instance.login('user@example.com', passwordHash);
+   * if (result.status && result.status !== 200) throw new Error(result.message ?? 'login failed');
    * ```
    *
    * @example
-   * Full authentication flow using {@link SDKInstance.getHashSettings} and {@link SDKInstance.createHash}.
+   * Two-factor sign-in using {@link SDKInstance.getHashSettings} and {@link SDKInstance.createHash}.
    * ```typescript
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
-   * const result = await instance.login('user@example.com', hash, undefined, true);
-   * console.log(result);
+   * const first = await instance.login('user@example.com', hash);
+   * if (first.tfa || first.sms) {
+   *   const code = await askUserForCode();
+   *   const second = await instance.login('user@example.com', hash, undefined, undefined, code);
+   *   if (second.status && second.status !== 200) throw new Error('wrong code');
+   * }
    * ```
    */
   login(
     email: string,
     passwordHash: string,
     password?: string,
-    session?: boolean
-  ): Promise<object> {
+    session?: boolean,
+    code?: string
+  ): Promise<TLoginResult> {
     return this.#getMethodPromise(InstanceMethods.Login, {
       email,
       passwordHash,
       ...(password !== undefined && { password }),
       ...(session !== undefined && { session }),
+      ...(code !== undefined && { code }),
     });
   }
 

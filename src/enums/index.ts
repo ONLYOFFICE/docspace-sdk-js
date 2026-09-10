@@ -223,7 +223,7 @@ export const enum InstanceMethods {
   GetSelection = "getSelection",
   /** Calls `SDKInstance.getUserInfo()`. Returns current user or `null` if not authorized. */
   GetUserInfo = "getUserInfo",
-  /** Calls `SDKInstance.login(email, passwordHash)`. */
+  /** Calls `SDKInstance.login(email, passwordHash, code?)`. With `code` set, finishes a two-factor login. */
   Login = "login",
   /** Calls `SDKInstance.logout()`. */
   Logout = "logout",

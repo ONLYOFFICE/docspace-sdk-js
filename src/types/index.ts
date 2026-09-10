@@ -305,14 +305,14 @@ export type TFrameEvents = {
   onNoAccess?: null | (() => void);
   /** Fired when navigating to a non-existent room/folder (404). */
   onNotFound?: null | (() => void);
-  /** Fired in selector modes when a room or file is selected. Receives the selected item data. */
-  onSelectCallback?: null | ((item: object) => void);
+  /** Fired in selector modes when a room or file is selected. {@link SDKMode.RoomSelector} passes an **array** of {@link TSelectedRoom} (one element for a single choice); {@link SDKMode.FileSelector} passes a single {@link TSelectedFile} object. */
+  onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
   /** Fired when the user signs out from the portal. */
   onSignOut?: null | (() => void);
-  /** Fired when the editor is opened from the manager (context menu, hotkeys, modal, panel). */
-  onEditorOpen?: null | ((data: object) => void);
-  /** Fired when a file row is clicked in the manager file list. */
-  onFileManagerClick?: null | ((item: object) => void);
+  /** Fired when the manager is about to open the editor (row activation, context menu, hotkey, the "Create" dialog). Receives the file with the requested action — see {@link TEditorOpenPayload}. Registering the handler suppresses the portal's own editor: open the file in a frame of your own. */
+  onEditorOpen?: null | ((file: TEditorOpenPayload) => void);
+  /** Fired when a file row is activated in the manager list. Files only — a folder click navigates into the folder instead. Receives the portal's file object ({@link TFileInfo}). Registering the handler suppresses the portal's own open action. */
+  onFileManagerClick?: null | ((file: TFileInfo) => void);
   /** Fired when a file upload completes successfully. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
   onUploadSuccess?: null | ((data: { fileName: string; fileSize: number; uploadId?: number }) => void);
   /** Fired when a file upload fails. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
@@ -427,6 +427,12 @@ export type TFrameConfig = {
    * The host backend should perform the OAuth authorization-code / refresh-token exchange and
    * return a fresh, minimally-scoped ONLYOFFICE Apps access token. Never expose `client_secret` or
    * refresh tokens to the browser. Called again whenever the frame needs a fresh token.
+   *
+   * The SDK forwards the returned string unchanged and never parses or refreshes it; the frame
+   * sends it as a `Bearer` credential, so it must be a token the portal accepts under that
+   * scheme. Because the frame authenticates with the header rather than the session cookie,
+   * OAuth mode also works where a browser withholds third-party cookies from a cross-origin
+   * iframe. A rejected or missing token surfaces through {@link TFrameEvents.onAuthError}.
    */
   getToken?: () => string | Promise<string>;
   /**
@@ -527,7 +533,7 @@ export type TFrameConfig = {
   maxPerUploadSize?: string;
   /** Max total upload size in {@link SDKMode.Uploader}. */
   maxTotalUploadSize?: string;
-  /** AI agent room ID. Optional in {@link SDKMode.Chat}: when set, the chat is bound to that agent; when omitted, the chat is bound to the current user. */
+  /** AI agent room ID. Optional in {@link SDKMode.Chat}: when set, the chat is bound to that agent; when omitted, the chat is bound to the current user. The chat renders its composer only for a signed-in user who is not a guest, on a portal with AI enabled; otherwise the page shows a no-access state without firing an event. */
   agentId?: string | number;
   /**
    * ID of the room or folder the chat is opened from — the user's current
@@ -590,6 +596,99 @@ export type TEntityBase = {
   canShare: boolean;
   /** Whether notifications are muted. */
   mute: boolean;
+};
+
+/** Editor action the manager requests when it opens a file: `"view"` read-only, `"fill"` form filling, `"edit"` editing. */
+export type TEditorAction = "view" | "fill" | "edit";
+
+/**
+ * Payload of {@link TFrameEvents.onEditorOpen}: the file the manager is about to open plus the
+ * requested action. When the user creates a new document, the payload is the created file and
+ * `action` is absent.
+ */
+export type TEditorOpenPayload = TFileInfo & {
+  /** Share key of the room when it was opened by an external link; empty otherwise. */
+  share?: string;
+  /** Requested editor action. Absent for a freshly created document. */
+  action?: TEditorAction;
+};
+
+/** One external link of a selected room or file, attached to selector payloads. */
+export type TRequestTokenInfo = {
+  /** Link ID. */
+  id: string;
+  /** Whether this is the primary link. */
+  primary: boolean;
+  /** Link title. */
+  title: string;
+  /** The share key — the value for {@link TFrameConfig.requestToken}. */
+  requestToken: string;
+};
+
+/**
+ * One selected room in the {@link SDKMode.RoomSelector} payload. {@link TFrameEvents.onSelectCallback}
+ * receives an **array** of these; other fields of the selector row pass through unchanged.
+ */
+export type TSelectedRoom = {
+  /** Room ID. */
+  id: string | number;
+  /** Room title. */
+  label: string;
+  /** Room icon URL. */
+  icon?: string;
+  /** Numeric room type. */
+  roomType?: number;
+  /** Whether the room has an external link. */
+  shared?: boolean;
+  /** External links of a public or shared room; `requestTokens[0].requestToken` is the key for {@link SDKMode.PublicRoom}. Absent for rooms without links. */
+  requestTokens?: TRequestTokenInfo[];
+};
+
+/** The {@link SDKMode.FileSelector} payload of {@link TFrameEvents.onSelectCallback}: a single object, not an array. */
+export type TSelectedFile = {
+  /** File ID. */
+  id: string | number;
+  /** File title with extension. */
+  title: string;
+  /** File extension (e.g. `".docx"`). */
+  fileExst?: string;
+  /** Numeric file type. */
+  fileType?: number;
+  /** Folder path titles from the root to the file. */
+  path?: string[];
+  /** Whether the file sits in a public room. */
+  inPublic?: boolean;
+  /** Editor document type derived from `fileType`; `null` when unknown. */
+  documentType?: string | null;
+  /** External links when the file sits in a public room; absent otherwise. */
+  requestTokens?: TRequestTokenInfo[];
+};
+
+/**
+ * Result of {@link SDKInstance.login}. The portal answers by resolving, never by rejecting: a
+ * failed login resolves with `status` other than `200`, and an account with two-factor
+ * authentication resolves with `tfa: true` (or `sms: true`) and no session until `login` is
+ * called again with the one-time `code`.
+ */
+export type TLoginResult = {
+  /** Auth token, also set as the session cookie. Present on success only. */
+  token?: string;
+  /** Token expiry, ISO 8601. */
+  expires?: string;
+  /** `true` when an SMS code is required to finish; `phoneNoise` carries the masked number. */
+  sms?: boolean;
+  /** Masked phone number the SMS code was sent to. */
+  phoneNoise?: string;
+  /** `true` when an authenticator-app code is required to finish — call {@link SDKInstance.login} again with the `code` argument. */
+  tfa?: boolean;
+  /** Authenticator setup key when the app is not connected yet. */
+  tfaKey?: string;
+  /** Portal page that completes the second factor or phone activation. */
+  confirmUrl?: string;
+  /** HTTP status of a failed call; anything but `200` means no session was created. */
+  status?: number;
+  /** Error message of a failed call. */
+  message?: string;
 };
 
 /** File information returned by SDK methods. */

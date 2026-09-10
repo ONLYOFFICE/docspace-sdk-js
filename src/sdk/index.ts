@@ -369,6 +369,14 @@ export class SDK {
    * The chat is bound to the AI agent when {@link TFrameConfig.agentId} is set;
    * otherwise it is bound to the current user. Forces `mode` to {@link SDKMode.Chat}.
    *
+   * :::note
+   * The page renders a composer only when the frame's user is signed in and is not a guest,
+   * and the portal has AI enabled. Otherwise it shows a no-access state (a "Chat history"
+   * control without an input) and fires no event — {@link TFrameEvents.onAppReady} still
+   * arrives. In OAuth mode the token must carry the scopes that read the user's profile;
+   * a token that cannot load the profile lands in the same no-access state.
+   * :::
+   *
    * @param config - Frame configuration. See {@link TFrameConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
