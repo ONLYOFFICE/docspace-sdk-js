@@ -16,12 +16,14 @@
 - Added new instance methods: `navigateSection`, `setCustomActions`, `upload`
 - Added unit tests for SDK instance class
 - Added edge case tests for utils and new modes
+- Exported `TEntityBase` and `TListResponse`, the shared shapes behind `TFileInfo`/`TFolderInfo`/`TRoomInfo` and `TFilesResponse`/`TRoomsResponse`
+- Added `TEditorAnonymous` (`TEditorCustomization.anonymous`) and `TCustomContextMenuActions` (`TCustomActionsConfig.contextMenu`) as named types instead of inline object literals
 
 ### Changed
 - Migrated from Jest to Vitest for testing
 - Updated packages and pnpm version
 - Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
-- Improved documentation generation
+- `setIsLoaded` is documented as a public method again: it reveals the frame and fires `onContentReady`, and can be called by the host to take over the loading hand-off
 - Refactored `SDKInstance` internals
 - Refactored `getFramePath`
 
