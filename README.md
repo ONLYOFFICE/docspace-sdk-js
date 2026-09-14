@@ -1,8 +1,8 @@
 # ONLYOFFICE Apps Embed SDK
 
-The ONLYOFFICE Apps Embed SDK lets developers integrate ONLYOFFICE Apps into web applications. Embed a full-featured file manager, document editor, room and file selectors, file uploader, forms gallery or AI chat — with just a few lines of code.
+The ONLYOFFICE Apps Embed SDK (ONLYOFFICE Apps is the new name of ONLYOFFICE DocSpace) lets developers integrate ONLYOFFICE Apps into web applications. Embed a full-featured file manager, document editor, room and file selectors, file uploader, forms gallery or AI chat — with just a few lines of code.
 
-You can use it as an [npm package](#npm) for modern web applications or connect it via a [script tag](#script-tag) for a quick start. For React projects, there is also a ready-made [React component](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/react-component/).
+You can use it as an [npm package](#npm) for modern web applications or connect it via a [script tag](#script-tag) for a quick start. For React projects, there is also a ready-made [React component](https://api.onlyoffice.com/docspace/javascript-sdk/samples/react-samples/).
 
 ## Prerequisites
 
@@ -254,8 +254,9 @@ If the user is not authenticated, a sign-in page is displayed inside the iframe.
 
 ## Documentation
 
-- [API Reference](https://api.onlyoffice.com/docspace/javascript-sdk/) — full configuration, methods, and events reference
-- [React Component](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/react-component/) — integration guide for React projects
+- [Getting Started](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/) — prerequisites, quickstart, authentication and security
+- [API Reference](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/) — full configuration, methods, and events reference
+- [React Component](https://api.onlyoffice.com/docspace/javascript-sdk/samples/react-samples/) — integration guide for React projects
 - [Changelog](./CHANGELOG.md) — version history and release notes
 
 ## License
