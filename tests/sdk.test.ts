@@ -36,7 +36,9 @@ const mockInstanceFactory = (): MockInst => ({
 });
 
 const setMockReturn = (instance: MockInst) => {
-  (SDKInstance as unknown as Mock).mockReturnValue(instance as any);
+  (SDKInstance as unknown as Mock).mockImplementation(function () {
+    return instance as any;
+  });
   return instance;
 };
 

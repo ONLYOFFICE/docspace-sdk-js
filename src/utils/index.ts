@@ -86,7 +86,7 @@ export const validateCSP = async (targetSrc: string) => {
   try {
     json = await response.json();
   } catch (error) {
-    throw new Error(`CSP validation failed: ${error}`);
+    throw new Error(`CSP validation failed: ${error}`, { cause: error });
   }
 
   const {

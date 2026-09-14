@@ -137,7 +137,7 @@ async function buildAll() {
       build(
         createBuildConfig("iife", "./dist/api.js", "./src/main.browser.ts", {
           platform: "browser",
-          target: ["es2020", "chrome80", "firefox80", "safari14", "edge80"],
+          target: ["es2020", "chrome80", "firefox80", "safari14.1", "edge80"],
         })
       ),
 
