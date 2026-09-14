@@ -71,12 +71,13 @@ jsdom only — no real iframe/postMessage.
 
 ## 8. Knowledge sync
 
-- Update the mode list in `CLAUDE.md` (SDK section: `init*` enumeration).
-- After merge: update the public `embed-sdk` skill in `agent-skills`
-  (routing table in SKILL.md + new `references/modes/<mode>.md` +
-  `validate-config.mjs` mode list), and `@onlyoffice/docspace-react` if the wrapper
-  should expose the mode. Record the minimum portal version that serves the new
-  frame path — older portals will show an empty frame or `TIMEOUT`.
+- Update the mode list in `AGENTS.md` (Architecture → SDK: `init*` enumeration).
+- Record in the PR description, for a human to follow up: whether
+  `@onlyoffice/docspace-react` should expose the mode; the minimum portal version
+  that serves the new frame path — older portals will show an empty frame or
+  `TIMEOUT`; and, once the public `embed-sdk` skill exists (planned
+  `ONLYOFFICE/agent-skills` repository, not created yet), its routing table,
+  `references/modes/<mode>.md` and `validate-config.mjs` mode list.
 
 ## 9. Docs
 
@@ -88,6 +89,7 @@ Ascensio System SIA + Apache 2.0 + `@license`, then `@module` /
 
 ```bash
 pnpm lint
+pnpm typecheck
 npx vitest run tests/<mode>.test.ts
 pnpm test
 pnpm run docs
@@ -99,6 +101,6 @@ pnpm run docs
 - [ ] `getFramePath` returns the correct path + query; JSDoc mode table updated.
 - [ ] Wrapper forces `mode`; `SDKMode` still a regular (iterable) enum.
 - [ ] New fields wired through types → defaults → parser (per add-config-option).
-- [ ] CLAUDE.md mode list updated.
+- [ ] AGENTS.md mode list updated.
 - [ ] `pnpm run docs` regenerated without warnings.
-- [ ] Post-merge sync tasks filed (public skill, react wrapper, portal version).
+- [ ] Follow-ups (react wrapper, portal version, public skill) recorded in the PR description.

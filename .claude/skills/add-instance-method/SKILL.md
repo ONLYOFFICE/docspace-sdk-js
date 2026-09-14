@@ -80,6 +80,7 @@ Apache 2.0 + `@license`, then `@module` / `@mergeModuleWith <project>`.
 
 ```bash
 pnpm lint
+pnpm typecheck
 npx vitest run tests/instance.test.ts
 pnpm test
 pnpm run docs
@@ -95,6 +96,8 @@ pnpm run docs
       `@returns`).
 - [ ] Timeout path and mode guard (if any) covered by tests.
 - [ ] Method visible in TypeDoc with two `@example` blocks.
-- [ ] After merge: assess impact on `@onlyoffice/docspace-react` (bundles its own
-      SDK copy) and the public `embed-sdk` skill (`methods.md`,
-      `config-reference.md`); note the minimum portal version.
+- [ ] Follow-ups recorded in the PR description (for a human, not part of this change):
+      impact on `@onlyoffice/docspace-react` (bundles its own SDK copy); the minimum
+      portal version; and, once the public `embed-sdk` skill exists (planned
+      `ONLYOFFICE/agent-skills` repository, not created yet), its `methods.md` and
+      `config-reference.md`.

@@ -69,7 +69,7 @@ is published to `api.onlyoffice.com` — never edit `docs/` by hand.
 
 ```bash
 pnpm lint                              # naming rules are ESLint-enforced
-pnpm run docs                          # must complete with zero warnings and zero [warn] lines
+pnpm run docs                          # strict: any TypeDoc warning or [warn] line fails the run
 npx vitest run tests/docs-tools.test.ts  # when a tools/ script changed
 ```
 

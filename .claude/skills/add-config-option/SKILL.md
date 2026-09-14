@@ -85,6 +85,7 @@ copyright Ascensio System SIA + Apache 2.0 + `@license`, then the
 
 ```bash
 pnpm lint
+pnpm typecheck
 pnpm test            # or: npx vitest run tests/utils.test.ts
 pnpm run docs
 ```
@@ -99,8 +100,9 @@ pnpm run docs
 - [ ] JSDoc states the default (`` Default: `value`. ``) and applicable modes.
 - [ ] Tests cover the new path (parser + frame path + mode behavior if any).
 - [ ] `pnpm run docs` regenerated without warnings (warnings fail the run).
-- [ ] After merge: assess impact on `@onlyoffice/docspace-react` (bundles its own SDK
-      copy), the public `embed-sdk` skill (`agent-skills` repo:
-      routing table, `config-reference.md`, `validate-config.mjs` dictionary), and
-      note the minimum portal version for the new capability (`api.js` is pinned by
-      path `/static/scripts/sdk/{version}/api.js`).
+- [ ] Follow-ups recorded in the PR description (for a human, not part of this change):
+      impact on `@onlyoffice/docspace-react` (bundles its own SDK copy); the minimum
+      portal version for the new capability (`api.js` is pinned by path
+      `/static/scripts/sdk/{version}/api.js`); and, once the public `embed-sdk` skill
+      exists (planned `ONLYOFFICE/agent-skills` repository, not created yet), its
+      routing table, `config-reference.md` and `validate-config.mjs` dictionary.
