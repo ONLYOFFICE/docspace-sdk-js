@@ -15,7 +15,7 @@ The documentation system uses:
 
 ## Generating documentation
 
-Requires Node.js 24.15 or later and pnpm 12 (`pnpm install` first). The pnpm version is pinned in `package.json` → `packageManager`; pnpm 11 or newer switches to it automatically, pnpm 10 cannot run it and must be upgraded (`npm install -g pnpm@latest`). Nothing in CI runs this: the reference is generated locally and committed to the site repository.
+Requires Node.js 24.15 or later and pnpm 12 (`pnpm install` first). The pnpm version is pinned in `package.json` → `packageManager`; pnpm 11 or newer switches to it automatically, pnpm 10 cannot run it and must be upgraded (`npm install -g pnpm@latest`). CI runs `pnpm run docs` on every push and pull request as a check (a warning fails the job); publishing is still manual: the reference is generated locally and committed to the site repository.
 
 ```bash
 pnpm run docs        # full pipeline → docs/
@@ -31,7 +31,7 @@ pnpm run docs:sync   # full pipeline + copy into ../api.onlyoffice.com
 
 `pnpm run docs:sync` additionally runs `tools/sync-docs.mjs`, which replaces `../api.onlyoffice.com/site/docspace/javascript-sdk/usage-sdk` with the content of `docs/`, dropping the root `index.md`. It is a local copy into the site checkout, not a deploy.
 
-A healthy run produces **no TypeDoc warnings and no `[warn]` lines** from the post-processing scripts. `treatValidationWarningsAsErrors` is on, so a broken `{@link}` target or a referenced type that is not exported fails the run.
+A healthy run produces **no TypeDoc warnings and no `[warn]` lines** from the post-processing scripts. `treatValidationWarningsAsErrors` is on, so a broken `{@link}` target or a referenced type that is not exported fails the run; `tools/docs/index.mjs` runs with `--strict`, so a `[warn]` line (unresolved in-page anchor, duplicate table row id, nested member) fails it too.
 
 ## Entry points and output structure
 

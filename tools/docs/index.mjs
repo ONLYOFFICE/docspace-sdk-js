@@ -21,7 +21,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { transformFile } from "../shared/markdown.mjs";
+import { installWarnCounter, transformFile } from "../shared/markdown.mjs";
 import { PAGE_TRANSFORMS } from "./page-transforms.mjs";
 import { applyApiTables } from "./api-tables.mjs";
 import { generateIndexPage } from "./section-index.mjs";
@@ -29,6 +29,8 @@ import { SECTIONS } from "./sections.mjs";
 
 const ROOT = join(fileURLToPath(import.meta.url), "../../..");
 const DOCS_DIR = join(ROOT, "docs");
+const STRICT = process.argv.includes("--strict");
+const warnings = installWarnCounter();
 
 /**
  * Symbol pages under a directory, excluding index pages.
@@ -60,3 +62,8 @@ for (const section of SECTIONS) {
 }
 
 console.log(`Post-processed ${generatedPages.length} pages.`);
+
+if (warnings.count > 0) {
+  console.log(`${warnings.count} [warn] line(s).`);
+  if (STRICT) process.exit(1);
+}

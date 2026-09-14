@@ -105,3 +105,26 @@ export function collectPageAnchors(content) {
 
   return anchors;
 }
+
+/**
+ * Counts the `[warn]` lines passed to `console.warn`.
+ * @returns {{ readonly count: number, restore: () => void }}
+ */
+export function installWarnCounter() {
+  const original = console.warn;
+  let count = 0;
+
+  console.warn = (...args) => {
+    if (typeof args[0] === "string" && args[0].startsWith("[warn]")) count += 1;
+    original(...args);
+  };
+
+  return {
+    get count() {
+      return count;
+    },
+    restore() {
+      console.warn = original;
+    },
+  };
+}

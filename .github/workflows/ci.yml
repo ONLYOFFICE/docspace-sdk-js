@@ -30,10 +30,16 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint
         run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
       - name: Test
         run: pnpm test
       - name: Build project
         run: pnpm run build
+      - name: Generate docs
+        run: pnpm run docs
+      - name: Check links
+        run: pnpm check-links
       - name: Check package contents
         run: |
           pnpm pack --pack-destination "$RUNNER_TEMP/pkg"

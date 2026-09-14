@@ -20,7 +20,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { collectPageAnchors, slugify, walkMarkdownLines } from "../tools/shared/markdown.mjs";
+import { collectPageAnchors, installWarnCounter, slugify, walkMarkdownLines } from "../tools/shared/markdown.mjs";
 import { PAGE_TRANSFORMS } from "../tools/docs/page-transforms.mjs";
 import { applyApiTables } from "../tools/docs/api-tables.mjs";
 import { generateIndexPage } from "../tools/docs/section-index.mjs";
@@ -283,5 +283,24 @@ describe("section-index", () => {
     expect(index).toContain(
       "| [`FRAME_NAME`](FRAME_NAME.md) | The prefix for the iframe `name` attribute. |"
     );
+  });
+});
+
+describe("installWarnCounter", () => {
+  it("counts [warn] lines and lets other console.warn calls through", () => {
+    const original = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const counter = installWarnCounter();
+
+    console.warn("[warn] Unresolved in-page anchor #missing in page.md");
+    console.warn("[warn] Nested member \"anonymous.label\" in TFoo.md — extract a named type");
+    console.warn("unrelated message");
+
+    expect(counter.count).toBe(2);
+    expect(original).toHaveBeenCalledTimes(3);
+
+    counter.restore();
+    console.warn("[warn] after restore");
+    expect(counter.count).toBe(2);
+    original.mockRestore();
   });
 });
