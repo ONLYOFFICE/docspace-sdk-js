@@ -72,12 +72,12 @@ jsdom only — no real iframe/postMessage.
 ## 8. Knowledge sync
 
 - Update the mode list in `AGENTS.md` (Architecture → SDK: `init*` enumeration).
-- Record in the PR description, for a human to follow up: whether
-  `@onlyoffice/docspace-react` should expose the mode; the minimum portal version
-  that serves the new frame path — older portals will show an empty frame or
-  `TIMEOUT`; and, once the public `embed-sdk` skill exists (planned
-  `ONLYOFFICE/agent-skills` repository, not created yet), its routing table,
-  `references/modes/<mode>.md` and `validate-config.mjs` mode list.
+- Record in the PR description: whether `@onlyoffice/docspace-react` should expose
+  the mode; the minimum portal version that serves the new frame path — older portals
+  will show an empty frame or `TIMEOUT`; and the update of the public `embed-sdk` skill
+  in the `ONLYOFFICE/agent-skills` repository: routing table in `SKILL.md`, a new
+  `references/modes/<mode>.md`, and `node skills/embed-sdk/scripts/sync-sdk.mjs --write`
+  there for the validator's mode list.
 
 ## 9. Docs
 

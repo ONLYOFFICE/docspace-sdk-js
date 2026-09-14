@@ -117,4 +117,5 @@ vitest + jsdom, globals enabled. Files in `tests/`, one suite per area (`sdk`, `
 - `.claude/skills/add-config-option`, `add-instance-method`, `add-sdk-mode`, `docs-style`: step-by-step checklists for the recurring change types. Any agent can read the `SKILL.md` files directly.
 - `docs-generation.md`: full documentation style guide and pipeline reference, including gotchas.
 - `CONTRIBUTING.md`: toolchain, branches, releases, who publishes the reference.
+- `ONLYOFFICE/agent-skills` repository: the public `embed-sdk` skill that teaches integrators' agents to use this SDK. Its `sync-sdk.mjs --check` compares the skill's validator with the SDK's type declarations; a public API change here is followed by an update there.
 - `tests/instance.test.ts`: idioms for simulating the postMessage protocol.

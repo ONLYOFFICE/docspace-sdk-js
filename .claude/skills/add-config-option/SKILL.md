@@ -100,9 +100,10 @@ pnpm run docs
 - [ ] JSDoc states the default (`` Default: `value`. ``) and applicable modes.
 - [ ] Tests cover the new path (parser + frame path + mode behavior if any).
 - [ ] `pnpm run docs` regenerated without warnings (warnings fail the run).
-- [ ] Follow-ups recorded in the PR description (for a human, not part of this change):
-      impact on `@onlyoffice/docspace-react` (bundles its own SDK copy); the minimum
-      portal version for the new capability (`api.js` is pinned by path
-      `/static/scripts/sdk/{version}/api.js`); and, once the public `embed-sdk` skill
-      exists (planned `ONLYOFFICE/agent-skills` repository, not created yet), its
-      routing table, `config-reference.md` and `validate-config.mjs` dictionary.
+- [ ] Follow-ups recorded in the PR description: impact on `@onlyoffice/docspace-react`
+      (bundles its own SDK copy); the minimum portal version for the new capability
+      (`api.js` is pinned by path `/static/scripts/sdk/{version}/api.js`); and the public
+      `embed-sdk` skill in the `ONLYOFFICE/agent-skills` repository: its routing table,
+      `config-reference.md` and the validator dictionary, which
+      `node skills/embed-sdk/scripts/sync-sdk.mjs --check` there compares with the SDK's
+      type declarations.
