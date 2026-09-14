@@ -15,7 +15,7 @@ The documentation system uses:
 
 ## Generating documentation
 
-Requires Node.js 18 or later and pnpm 10 (`pnpm install` first). Nothing in CI runs this: the reference is generated locally and committed to the site repository.
+Requires Node.js 24.15 or later and pnpm 12 (`pnpm install` first). The pnpm version is pinned in `package.json` → `packageManager`; pnpm 11 or newer switches to it automatically, pnpm 10 cannot run it and must be upgraded (`npm install -g pnpm@latest`). Nothing in CI runs this: the reference is generated locally and committed to the site repository.
 
 ```bash
 pnpm run docs        # full pipeline → docs/
@@ -176,6 +176,7 @@ A new kind directory (say TypeDoc starts emitting `functions/`) requires one edi
 
 - `docs/` is regenerated from scratch and gitignored — manual edits are lost; fix the JSDoc or a `tools/` script.
 - The `tools/` transforms are regex-based rewrites of TypeDoc's Markdown; a TypeDoc/plugin version bump can silently change the output shape and break them — diff `docs/` against a pre-bump run. `tests/docs-tools.test.ts` covers the transforms on fixtures.
+- `typedoc-plugin-markdown`, `typedoc-docusaurus-theme` and `typedoc-plugin-frontmatter` are pinned on purpose. typedoc-plugin-markdown 4.10+ changes three pages of the current output: signatures wrap the last parameter onto its own line, parameters with default values render as optional (`setConfig(config?, reload?)`), and function types inside unions get parentheses in tables (`TFrameEvents`). Headings, anchors, frontmatter and the sidebar stay the same. Bump the three together, regenerate, and hand the `docs/` diff to the site team before `docs:sync`.
 - `update-revision.mjs` mutates `typedoc.config.mjs` and `update-sidebar.mjs` reverts it. An interrupted run can leave `gitRevision` on your branch name — re-run `pnpm run docs` or reset it to `master` before committing.
 - `docs:sync` requires the `api.onlyoffice.com` checkout as a sibling directory of the repo.
 

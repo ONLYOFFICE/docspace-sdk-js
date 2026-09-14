@@ -13,10 +13,15 @@ pnpm install                        # Install dependencies
 pnpm build                          # Build all bundles (esbuild → dist/)
 pnpm test                           # Run all tests (vitest, jsdom)
 pnpm lint                           # ESLint on src/
+pnpm audit                          # Expected to report no known vulnerabilities
 pnpm run docs                       # Regenerate API reference → docs/ (TypeDoc + tools/docs post-processing)
 pnpm run docs:sync                  # Regenerate and copy into ../api.onlyoffice.com (local copy, not a deploy)
 npx vitest run tests/utils.test.ts  # Run single test file
 ```
+
+## Tooling
+
+pnpm 12, pinned in `package.json` → `packageManager` (pnpm 11+ switches automatically; pnpm 10 fails with ENOEXEC, upgrade it globally). pnpm settings live in `pnpm-workspace.yaml` (`allowBuilds`; overrides would go there too) — the `pnpm` field in package.json is not read. Node.js 24.15+ (jsdom 30). TypeScript stays on 6.x: TypeScript 7 is the native compiler without the JS API used by `tools/build.mjs`, and typedoc / typescript-eslint peers cap at 6.0.x. `typedoc-plugin-markdown`, `typedoc-docusaurus-theme` and `typedoc-plugin-frontmatter` are pinned on purpose: newer versions change the generated Markdown (signature layout, unions in tables); bump them only together with a reviewed `docs/` diff, the reference is consumed by another team.
 
 ## Architecture
 

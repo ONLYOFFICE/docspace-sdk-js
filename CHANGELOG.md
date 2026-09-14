@@ -25,7 +25,9 @@
 
 ### Changed
 - Migrated from Jest to Vitest for testing
-- Updated packages and pnpm version
+- Migrated to pnpm 12: pnpm settings live in `pnpm-workspace.yaml` (`allowBuilds`), the version is pinned via `packageManager`, and `pnpm` is no longer a devDependency. Contributors need a global pnpm 11 or newer
+- Updated the toolchain: TypeScript 6, Vitest 4, ESLint 10, jsdom 30, esbuild 0.28, TypeDoc 0.28.20. All dependency overrides were removed; `pnpm audit` reports no known vulnerabilities
+- The IIFE bundle targets Safari 14.1 instead of 14.0: esbuild 0.27.6+ treats destructuring in Safari 14.0 as unsupported. The emitted code is unchanged
 - Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
 - `setIsLoaded` is documented as a public method again: it reveals the frame and fires `onContentReady`, and can be called by the host to take over the loading hand-off
 - The product is called ONLYOFFICE Apps throughout the documentation, README and examples; example hosts are `portal.example.com`. Nothing that integrations rely on changed: the package name, the `window.DocSpace.SDK` global, the `frameDocSpace` iframe name prefix and the script URL keep their spelling
@@ -46,6 +48,8 @@
 - Fixed container reinit and target check in `init*`
 - Fixed `isConnected` state handling
 - Fixed method rejection cleanup and mode-guard validation
+- `validateCSP` attaches the original error as `cause` to the thrown `CSP validation failed` error
+- `vitest run --coverage` no longer crashes: the `brace-expansion` override pinned a version incompatible with `minimatch`
 
 ## 2.1.0
 ## Added
