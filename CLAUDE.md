@@ -23,6 +23,8 @@ npx vitest run tests/utils.test.ts  # Run single test file
 
 pnpm 12, pinned in `package.json` → `packageManager` (pnpm 11+ switches automatically; pnpm 10 fails with ENOEXEC, upgrade it globally). pnpm settings live in `pnpm-workspace.yaml` (`allowBuilds`; overrides would go there too) — the `pnpm` field in package.json is not read. Node.js 24.15+ (jsdom 30). TypeScript stays on 6.x: TypeScript 7 is the native compiler without the JS API used by `tools/build.mjs`, and typedoc / typescript-eslint peers cap at 6.0.x. `typedoc-plugin-markdown`, `typedoc-docusaurus-theme` and `typedoc-plugin-frontmatter` are pinned on purpose: newer versions change the generated Markdown (signature layout, unions in tables); bump them only together with a reviewed `docs/` diff, the reference is consumed by another team.
 
+CI: `.github/workflows/ci.yml` runs lint, tests, build, a `pnpm pack` package-contents check and `pnpm audit` on pushes to develop and master, on pull requests and on demand. `release.yml` publishes only on a `v*` tag, which `create-tag.yml` creates on a push to master from the CHANGELOG version.
+
 ## Architecture
 
 **SDK** (`src/sdk/`) — factory and registry of instances. `frames: Record<string, SDKInstance>`. Every `init*` method (initManager, initEditor, initViewer, initRoomSelector, initFileSelector, initSystem, initPublicRoom, initUploader, initForms, initChat, initPersonal) is a thin wrapper over `init()` that forces `mode`. Reuses existing instance if `frameId` matches.

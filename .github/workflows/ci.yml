@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, Test, Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+      - name: Install pnpm and Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Build project
+        run: pnpm run build
+      - name: Check package contents
+        run: |
+          pnpm pack --pack-destination "$RUNNER_TEMP/pkg"
+          tar -tzf "$RUNNER_TEMP"/pkg/*.tgz | tee "$RUNNER_TEMP/pkg/files.txt"
+          for f in package/package.json package/LICENSE package/README.md package/dist/api.js package/dist/esm/main.js package/dist/cjs/main.js package/dist/types/main.d.ts; do
+            grep -qx "$f" "$RUNNER_TEMP/pkg/files.txt" || { echo "::error::$f is missing from the package"; exit 1; }
+          done
+
+  audit:
+    name: Audit Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+      - name: Install pnpm and Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          install: false
+      - name: Audit
+        run: pnpm audit --audit-level=high
