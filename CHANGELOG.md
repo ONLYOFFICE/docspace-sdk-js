@@ -27,6 +27,7 @@
 - Migrated from Jest to Vitest for testing
 - Migrated to pnpm 12: pnpm settings live in `pnpm-workspace.yaml` (`allowBuilds`), the version is pinned via `packageManager`, and `pnpm` is no longer a devDependency. Contributors need a global pnpm 11 or newer
 - Updated the toolchain: TypeScript 6, Vitest 4, ESLint 10, jsdom 30, esbuild 0.28, TypeDoc 0.28.20. All dependency overrides were removed; `pnpm audit` reports no known vulnerabilities
+- Updated the TypeDoc plugins (typedoc-plugin-markdown 4.13, typedoc-docusaurus-theme 1.4.3, typedoc-plugin-frontmatter 1.3.2). Three reference pages change formatting only: signatures wrap the last parameter onto its own line, parameters with default values are marked optional (`SDKError`, `setConfig`), and function types inside unions are parenthesised in the `TFrameEvents` table. Headings, anchors and the sidebar are unchanged
 - The IIFE bundle targets Safari 14.1 instead of 14.0: esbuild 0.27.6+ treats destructuring in Safari 14.0 as unsupported. The emitted code is unchanged
 - Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
 - `setIsLoaded` is documented as a public method again: it reveals the frame and fires `onContentReady`, and can be called by the host to take over the loading hand-off
