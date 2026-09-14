@@ -1,9 +1,9 @@
 {
   "name": "@onlyoffice/docspace-sdk-js",
   "version": "2.2.0",
-  "description": "Simple integration JavaScript SDK for ONLYOFFICE Apps",
+  "description": "Embed the ONLYOFFICE Apps (DocSpace) file manager, document editor and viewer, file and room selectors, uploader, forms gallery and AI chat into a web app via iframe",
   "license": "Apache-2.0",
-  "homepage": "https://www.onlyoffice.com",
+  "homepage": "https://api.onlyoffice.com/docspace/javascript-sdk/get-started/",
   "author": "Ascensio System SIA <integration@onlyoffice.com> (https://www.onlyoffice.com)",
   "maintainers": [
     "Ascensio System SIA <integration@onlyoffice.com> (https://www.onlyoffice.com)"
@@ -32,7 +32,13 @@
     "rooms",
     "file-selector",
     "integration",
-    "typescript"
+    "typescript",
+    "postmessage",
+    "file-picker",
+    "uploader",
+    "forms",
+    "ai-chat",
+    "docspace-sdk"
   ],
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
