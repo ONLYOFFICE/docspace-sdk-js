@@ -22,6 +22,9 @@
 - Added `TLoginResult`: the resolved shape of `login` — `url` (`"/"` on success, a `/confirm/…` page when a second factor is pending) and the `status`/`message` of a failed attempt
 - Added `TSelectedRoom`, `TSelectedFile` and `TRequestTokenInfo`, the payloads of `onSelectCallback` (an array of rooms for the room selector, a single file object for the file selector)
 - Added `TEditorOpenPayload` and `TEditorAction`, the payload of `onEditorOpen` (the file plus `share` and `action`)
+- Added `AGENTS.md` with the instructions coding agents need (commands, architecture, conventions, definition of done); `CLAUDE.md` imports it and keeps only Claude Code specifics
+- Added `CONTRIBUTING.md` (toolchain, commands, branch and release flow) and `context7.json` (Context7 indexing rules and file exclusions)
+- Added `pnpm typecheck` (`tsc --noEmit`) and `pnpm check-links` (`tools/check-links.mjs`, checks the external links of README and CONTRIBUTING). CI runs typecheck, the docs generation and the link check in addition to lint, tests, build and the package-contents check
 
 ### Changed
 - Migrated from Jest to Vitest for testing
@@ -38,6 +41,9 @@
 - `login` documents that the portal's SDK dispatcher forwards only `email` and `passwordHash` and always requests a persistent session; the `password` and `session` arguments do not reach the portal
 - `destroyFrame` documents that it is synchronous, rejects pending calls with `SDKErrorCode.Disconnected` and leaves the placeholder ready for an immediate `init*`
 - `initChat`, `agentId` and `getToken` document the conditions under which the chat renders and how the OAuth token is forwarded
+- `pnpm run docs` runs the Markdown post-processing in strict mode (`tools/docs/index.mjs --strict`): a `[warn]` line (unresolved anchor, duplicate table row id, nested member) fails the run instead of being a note in the log
+- `package.json` `description`, `homepage` and `keywords` describe what the SDK embeds and point at the Embed SDK documentation instead of the corporate site
+- The first paragraph of the README, the package description and `context7.json` name ONLYOFFICE DocSpace once as the previous name of ONLYOFFICE Apps, so searches and indexers by either name find the SDK; everywhere else the product stays ONLYOFFICE Apps
 
 ### Fixed
 - `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with three arguments (the DocsAPI editor object, `window.Asc`, then `data`). The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. Documentation now states that the connector must be created by the callback (`editor.createConnector()`) and shows the `Asc.scope` channel for `callCommand`.
@@ -51,6 +57,7 @@
 - Fixed method rejection cleanup and mode-guard validation
 - `validateCSP` attaches the original error as `cause` to the thrown `CSP validation failed` error
 - `vitest run --coverage` no longer crashes: the `brace-expansion` override pinned a version incompatible with `minimatch`
+- README links to the API reference and the React component pointed at pages that do not exist (`/docspace/javascript-sdk/` and `/get-started/react-component/`); they now lead to the reference index, the Getting Started guide and the React samples
 
 ## 2.1.0
 ## Added
