@@ -17,31 +17,28 @@
  */
 
 // @ts-check
-import { readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CONFIG_FILE = join(rootDir, "typedoc.config.mjs");
-const GIT_REVISION = /gitRevision:\s*["'][^"']*["']/;
 
-try {
-  const gitBranch = "master"; // docs preview branch: the sources are the master state
+const SOURCE = join(rootDir, "docs");
+const TARGET_REPO = join(rootDir, "..", "api.onlyoffice.com");
+const TARGET = join(TARGET_REPO, "site", "docspace", "javascript-sdk", "usage-sdk");
 
-  const config = readFileSync(CONFIG_FILE, "utf-8");
-  const current = config.match(GIT_REVISION)?.[0];
-
-  if (!current) throw new Error("gitRevision not found in typedoc.config.mjs");
-
-  if (current === `gitRevision: "${gitBranch}"`) {
-    console.log(`Revision already set to: ${gitBranch}`);
-    process.exit(0);
-  }
-
-  writeFileSync(CONFIG_FILE, config.replace(GIT_REVISION, `gitRevision: "${gitBranch}"`), "utf-8");
-
-  console.log(`Updated revision to: ${gitBranch}`);
-} catch (error) {
-  console.error("Error updating revision:", error);
+if (!existsSync(join(SOURCE, "typedoc-sidebar.cjs"))) {
+  console.error("docs/ is missing or incomplete — run `pnpm run docs` first");
   process.exit(1);
 }
+
+if (!existsSync(join(TARGET_REPO, ".git"))) {
+  console.error(`Target repository not found: ${TARGET_REPO}`);
+  process.exit(1);
+}
+
+rmSync(TARGET, { recursive: true, force: true });
+cpSync(SOURCE, TARGET, { recursive: true });
+rmSync(join(TARGET, "index.md"), { force: true });
+
+console.log(`Docs synced to ${TARGET}`);

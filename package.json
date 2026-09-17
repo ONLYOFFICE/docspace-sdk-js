@@ -1,9 +1,9 @@
 {
   "name": "@onlyoffice/docspace-sdk-js",
   "version": "2.1.0",
-  "description": "Simple integration JavaScript SDK for ONLYOFFICE DocSpace",
+  "description": "Embed the ONLYOFFICE Apps (DocSpace) file manager, document editor and viewer, file and room selectors, uploader, forms gallery and AI chat into a web app via iframe",
   "license": "Apache-2.0",
-  "homepage": "https://www.onlyoffice.com",
+  "homepage": "https://api.onlyoffice.com/docspace/javascript-sdk/get-started/",
   "author": "Ascensio System SIA <integration@onlyoffice.com> (https://www.onlyoffice.com)",
   "maintainers": [
     "Ascensio System SIA <integration@onlyoffice.com> (https://www.onlyoffice.com)"
@@ -19,52 +19,69 @@
   "keywords": [
     "onlyoffice",
     "docspace",
+    "onlyoffice-apps",
     "sdk",
-    "js-sdk"
+    "js-sdk",
+    "iframe",
+    "embed",
+    "document-management",
+    "file-manager",
+    "editor",
+    "collaboration",
+    "document-editor",
+    "rooms",
+    "file-selector",
+    "integration",
+    "typescript",
+    "postmessage",
+    "file-picker",
+    "uploader",
+    "forms",
+    "ai-chat",
+    "docspace-sdk"
   ],
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
+  "exports": {
+    ".": {
+      "types": "./dist/types/main.d.ts",
+      "import": "./dist/esm/main.js",
+      "require": "./dist/cjs/main.js"
+    }
+  },
   "types": "dist/types/main.d.ts",
+  "sideEffects": false,
   "files": [
     "dist"
   ],
   "scripts": {
     "lint": "eslint src/",
-    "test": "jest",
-    "docs": "ts-node tools/update-revision.mjs && typedoc && ts-node tools/update-sidebar.mjs",
-    "build": "ts-node tools/build.mjs"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docs": "node tools/update-revision.mjs && typedoc --options typedoc.config.mjs && node tools/docs/index.mjs && node tools/update-sidebar.mjs",
+    "docs:sync": "pnpm run docs && node tools/sync-docs.mjs",
+    "build": "node tools/build.mjs",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "check-links": "node tools/check-links.mjs README.md CONTRIBUTING.md"
   },
   "engines": {
-    "node": ">=22",
-    "pnpm": ">=10"
+    "node": ">=18"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.1",
-    "@types/jest": "30.0.0",
-    "@types/node": "22.10.1",
-    "esbuild": "0.25.12",
-    "esbuild-plugin-tsc": "0.5.0",
-    "eslint": "9.39.1",
-    "jest": "30.2.0",
-    "jest-environment-jsdom": "30.2.0",
-    "pnpm": "10.20.0",
-    "ts-jest": "29.4.5",
-    "ts-node": "10.9.2",
-    "tslib": "2.8.1",
-    "typedoc": "0.28.14",
-    "typedoc-docusaurus-theme": "1.4.2",
-    "typedoc-plugin-frontmatter": "1.3.0",
-    "typedoc-plugin-markdown": "4.8.1",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.46.3"
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.4",
+    "@vitest/coverage-v8": "4.1.11",
+    "esbuild": "0.28.2",
+    "eslint": "10.10.0",
+    "jsdom": "30.0.1",
+    "typedoc": "0.28.20",
+    "typedoc-docusaurus-theme": "1.4.3",
+    "typedoc-plugin-frontmatter": "1.3.2",
+    "typedoc-plugin-markdown": "4.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
+    "vitest": "4.1.11"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ],
-    "overrides": {
-      "brace-expansion": "^2.0.2"
-    }
-  },
-  "packageManager": "pnpm@10.20.0"
+  "packageManager": "pnpm@12.4.1"
 }
