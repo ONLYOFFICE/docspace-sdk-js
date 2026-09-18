@@ -117,6 +117,61 @@ describe("page transforms", () => {
   it("adds no front matter to a page without a source reference", () => {
     expect(runPageTransforms("# Title\n\nIntro.")).toBe("# Title\n\nIntro.");
   });
+
+  it("moves the description above the signature block of a type alias or variable page", () => {
+    const input = [
+      "# connectErrorText",
+      "",
+      "```ts",
+      "const connectErrorText: \"Cannot connect.\";",
+      "```",
+      "",
+      "Defined in: [constants/index.ts:9](https://github.com/o/r/blob/master/src/constants/index.ts)",
+      "",
+      "The message shown when the frame cannot connect.",
+      "Used by [SDKInstance](../classes/SDKInstance.md).",
+      "",
+      "Second paragraph.",
+      "",
+      "## See",
+      "",
+      "```ts",
+      "x",
+      "```",
+      "",
+    ].join("\n");
+
+    expect(runPageTransforms(input)).toBe(
+      [
+        "---",
+        "custom_edit_url: https://github.com/o/r/blob/master/src/constants/index.ts",
+        "---",
+        "",
+        "# connectErrorText",
+        "",
+        "The message shown when the frame cannot connect.",
+        "Used by [SDKInstance](../classes/SDKInstance.md).",
+        "",
+        "Second paragraph.",
+        "",
+        "```ts",
+        "const connectErrorText: \"Cannot connect.\";",
+        "```",
+        "",
+        "## See",
+        "",
+        "```ts",
+        "x",
+        "```",
+        "",
+      ].join("\n")
+    );
+  });
+
+  it("keeps a page whose signature is followed directly by a heading unchanged", () => {
+    const input = "# T\n\n```ts\ntype T = object;\n```\n\n## Properties\n\nText.";
+    expect(runPageTransforms(input)).toBe(input);
+  });
 });
 
 describe("api-tables", () => {

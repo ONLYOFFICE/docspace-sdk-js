@@ -24,8 +24,21 @@ import { collectPageAnchors, walkMarkdownLines } from "../shared/markdown.mjs";
 export const EDIT_URL_KEY = "custom_edit_url";
 
 const ANY_HEADING = /^(#{1,6}) /;
+const PAGE_TITLE = /^# /;
+const CODE_FENCE = /^\s*(```|~~~)/;
 const SOURCE_REFERENCE = /^Defined in: \[[^\]]+\]\((https:\/\/github\.com\/[^)]+)\)$/;
 const IN_PAGE_LINK = /\]\(#([^)\s]+)\)/g;
+
+/**
+ * Index of the first line at or after `start` that is not blank.
+ * @param {string[]} lines
+ * @param {number} start
+ */
+function skipBlankLines(lines, start) {
+  let index = start;
+  while (index < lines.length && lines[index].trim() === "") index++;
+  return index;
+}
 
 /**
  * Moves the page-level source reference (the `Defined in:` line under the H1) into
@@ -70,6 +83,57 @@ function moveSourceLinkToFrontmatter(content) {
 
   const body = resultLines.join("\n");
   return editUrl === undefined ? body : `---\n${EDIT_URL_KEY}: ${editUrl}\n---\n\n${body}`;
+}
+
+/**
+ * Puts the page description before the signature block. TypeDoc renders the
+ * `type X = …` / `const X: …` block of a type alias or variable right after the H1,
+ * and a page whose body opens with code hands the site's llms.txt generator the code
+ * instead of a summary. Pages whose description already comes first are left alone.
+ * @param {string} content
+ */
+function moveDescriptionAboveSignature(content) {
+  const marked = [...walkMarkdownLines(content)];
+  const lines = marked.map(({ line }) => line);
+
+  const titleIndex = marked.findIndex(
+    ({ line, insideCodeBlock }) => !insideCodeBlock && PAGE_TITLE.test(line)
+  );
+  if (titleIndex === -1) return content;
+
+  const signatureStart = skipBlankLines(lines, titleIndex + 1);
+  if (!CODE_FENCE.test(lines[signatureStart] ?? "")) return content;
+
+  let signatureEnd = signatureStart + 1;
+  while (signatureEnd < lines.length && !CODE_FENCE.test(lines[signatureEnd])) signatureEnd++;
+  if (signatureEnd >= lines.length) return content;
+  signatureEnd++;
+
+  const descriptionStart = skipBlankLines(lines, signatureEnd);
+  let descriptionEnd = descriptionStart;
+  while (
+    descriptionEnd < lines.length &&
+    !ANY_HEADING.test(lines[descriptionEnd]) &&
+    !CODE_FENCE.test(lines[descriptionEnd])
+  ) {
+    descriptionEnd++;
+  }
+  while (descriptionEnd > descriptionStart && lines[descriptionEnd - 1].trim() === "") {
+    descriptionEnd--;
+  }
+  if (descriptionEnd === descriptionStart) return content;
+
+  const rest = lines.slice(skipBlankLines(lines, descriptionEnd));
+
+  return [
+    ...lines.slice(0, titleIndex + 1),
+    "",
+    ...lines.slice(descriptionStart, descriptionEnd),
+    "",
+    ...lines.slice(signatureStart, signatureEnd),
+    "",
+    ...rest,
+  ].join("\n");
 }
 
 /**
@@ -135,6 +199,7 @@ function ensureBlankLineBeforeHeadings(content) {
 /** Per-page transforms, in run order. */
 export const PAGE_TRANSFORMS = [
   moveSourceLinkToFrontmatter,
+  moveDescriptionAboveSignature,
   escapePipesInTableCells,
   fixInPageAnchors,
   ensureBlankLineBeforeHeadings,
