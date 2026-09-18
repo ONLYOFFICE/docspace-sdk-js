@@ -73,7 +73,6 @@ The full configuration is `typedoc.config.mjs`. The options that define the look
 | `propertiesFormat` etc. | `"table"` | Members are table rows; TypeDoc's per-row `<a id>` anchors are later replaced by the `<APITable>` wrapper |
 | `enumMembersFormat` | `"table"` | Enum members are rows too — member descriptions must stay single-paragraph (see below) |
 | `tableColumnSettings` | `{ hideSources: true }` | No per-member source column; the page-level source reference becomes `custom_edit_url` instead |
-| `locales.en` | `Deprecated:`, `Remarks:` | Tag headings end with a colon |
 | `excludeInternal` / `excludePrivate` / `excludeProtected` | `true` | `@internal` symbols never appear in the output |
 | `treatValidationWarningsAsErrors` | `true` | Dead links fail the run instead of reaching the site |
 | `sourceLinkTemplate` | GitHub blob URL with `{gitRevision}`, no line anchor | The file URL that becomes `custom_edit_url`; revision set by `update-revision.mjs`, reverted by `update-sidebar.mjs` |

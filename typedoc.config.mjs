@@ -93,12 +93,6 @@ export default {
     exampleTag: true,
     ignoreUnescapedBraces: true,
   },
-  locales: {
-    en: {
-      tag_deprecated: "Deprecated:",
-      tag_remarks: "Remarks:",
-    },
-  },
   textContentMappings: {
     "title.memberPage": "{name}",
   },
