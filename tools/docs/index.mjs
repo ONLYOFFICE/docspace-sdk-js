@@ -26,9 +26,14 @@ import { PAGE_TRANSFORMS } from "./page-transforms.mjs";
 import { applyApiTables } from "./api-tables.mjs";
 import { generateIndexPage } from "./section-index.mjs";
 import { SECTIONS } from "./sections.mjs";
+import typedocConfig from "../../typedoc.config.mjs";
 
 const ROOT = join(fileURLToPath(import.meta.url), "../../..");
 const DOCS_DIR = join(ROOT, "docs");
+/** Edit link of the section index pages: the file their prose lives in, on the documented revision. */
+const SECTIONS_EDIT_URL = String(typedocConfig.sourceLinkTemplate)
+  .replace("{gitRevision}", String(typedocConfig.gitRevision))
+  .replace("{path}", "tools/docs/sections.mjs");
 const STRICT = process.argv.includes("--strict");
 const warnings = installWarnCounter();
 
@@ -58,7 +63,7 @@ for (const pagePath of generatedPages) {
 applyApiTables(generatedPages);
 
 for (const section of SECTIONS) {
-  generateIndexPage(section, DOCS_DIR);
+  generateIndexPage(section, DOCS_DIR, SECTIONS_EDIT_URL);
 }
 
 console.log(`Post-processed ${generatedPages.length} pages.`);

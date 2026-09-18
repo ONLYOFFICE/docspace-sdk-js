@@ -22,6 +22,7 @@ import { basename, dirname, resolve } from "node:path";
 import { transformFile, walkMarkdownLines } from "../shared/markdown.mjs";
 
 const APITABLE_IMPORT = "import APITable from '@site/src/components/APITable/APITable';";
+const FRONTMATTER_FENCE = "---";
 
 const ROW_ANCHOR = /^\| <a id="([^"]+)"><\/a> /;
 const HEADING = /^(#{1,6}) (.+)$/;
@@ -125,9 +126,20 @@ function findMemberTables(lines, insideCode) {
 }
 
 /**
+ * Line index at which the MDX import goes: right after the front matter block, or the top of the page.
+ * @param {string[]} lines
+ */
+function importInsertionIndex(lines) {
+  if (lines[0] !== FRONTMATTER_FENCE) return 0;
+  const closing = lines.indexOf(FRONTMATTER_FENCE, 1);
+  return closing === -1 ? 0 : closing + 1;
+}
+
+/**
  * Wraps the tables of one page in `<APITable>`, strips `<a id>` row anchors and moves the
  * optional `?` outside the code span. Tables get a `name` prefix when row names collide
- * across the page. Returns the old anchor → new id map.
+ * across the page. The component import is added once, after the front matter.
+ * Returns the old anchor → new id map.
  * @param {string} filePath
  * @returns {Map<string, string>}
  */
@@ -172,17 +184,19 @@ function wrapMemberTables(filePath) {
     const nameAttribute = usePrefix
       ? ` name="${tables[i].symbolName.replace(/[^\w.-]/g, "")}"`
       : "";
-    const opener = [
-      "```mdx-code-block",
-      ...(i === 0 ? [APITABLE_IMPORT, ""] : []),
-      `<APITable${nameAttribute}>`,
-      "```",
-      "",
-    ];
-    const closer = ["", "```mdx-code-block", "</APITable>", "```"];
-    lines.splice(end, 0, ...closer);
-    lines.splice(start, 0, ...opener);
+    lines.splice(end, 0, "", "</APITable>");
+    lines.splice(start, 0, `<APITable${nameAttribute}>`, "");
   }
+
+  const importIndex = importInsertionIndex(lines);
+  const blankLineFollows = lines[importIndex]?.trim() === "";
+  lines.splice(
+    importIndex,
+    0,
+    ...(importIndex === 0 ? [] : [""]),
+    APITABLE_IMPORT,
+    ...(blankLineFollows ? [] : [""])
+  );
 
   transformFile(filePath, () => lines.join("\n"));
   return anchorMap;

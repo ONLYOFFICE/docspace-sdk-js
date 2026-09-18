@@ -10,7 +10,7 @@ The documentation system uses:
 
 - **TypeDoc** — extracts documentation from JSDoc comments in the TypeScript sources
 - **typedoc-plugin-markdown** — converts TypeDoc output to Markdown
-- **typedoc-docusaurus-theme** — emits a Docusaurus-compatible sidebar (`typedoc-sidebar.cjs`); needs **typedoc-plugin-frontmatter**, no frontmatter is emitted
+- **typedoc-docusaurus-theme** — emits a Docusaurus-compatible sidebar (`typedoc-sidebar.cjs`); needs **typedoc-plugin-frontmatter**; the plugin itself emits nothing, the only front matter on a page is the `custom_edit_url` added by `tools/`
 - **`tools/`** — post-processing scripts that reshape the raw TypeDoc output into the final pages
 
 ## Generating documentation
@@ -24,7 +24,7 @@ pnpm run docs:sync   # full pipeline + copy into ../api.onlyoffice.com
 
 `pnpm run docs` executes four steps in sequence (see `package.json`):
 
-1. **`tools/update-revision.mjs`** — reads the current Git branch and writes it into `typedoc.config.mjs` → `gitRevision`, so "View source on GitHub" links point at the branch being documented.
+1. **`tools/update-revision.mjs`** — reads the current Git branch and writes it into `typedoc.config.mjs` → `gitRevision`, so the `custom_edit_url` of every page points at the branch being documented.
 2. **`typedoc`** — parses the entry points and generates raw Markdown into `docs/`.
 3. **`tools/docs/index.mjs`** — rewrites every generated page (see [Post-processing](#post-processing)) and builds an `index.md` per section.
 4. **`tools/update-sidebar.mjs`** — prefixes sidebar doc ids with the site path, points each category at its section index, and reverts `gitRevision` back to `master`.
@@ -72,11 +72,11 @@ The full configuration is `typedoc.config.mjs`. The options that define the look
 | `expandObjects` | off | `TFrameConfig` would otherwise open with a 70-line object literal duplicating its table |
 | `propertiesFormat` etc. | `"table"` | Members are table rows; TypeDoc's per-row `<a id>` anchors are later replaced by the `<APITable>` wrapper |
 | `enumMembersFormat` | `"table"` | Enum members are rows too — member descriptions must stay single-paragraph (see below) |
-| `tableColumnSettings` | `{ hideSources: true }` | No per-member source column; one "View source on GitHub" link per page instead |
+| `tableColumnSettings` | `{ hideSources: true }` | No per-member source column; the page-level source reference becomes `custom_edit_url` instead |
 | `locales.en` | `Deprecated:`, `Remarks:` | Tag headings end with a colon |
 | `excludeInternal` / `excludePrivate` / `excludeProtected` | `true` | `@internal` symbols never appear in the output |
 | `treatValidationWarningsAsErrors` | `true` | Dead links fail the run instead of reaching the site |
-| `sourceLinkTemplate` | GitHub blob URL with `{gitRevision}` | Source links; revision set by `update-revision.mjs`, reverted by `update-sidebar.mjs` |
+| `sourceLinkTemplate` | GitHub blob URL with `{gitRevision}`, no line anchor | The file URL that becomes `custom_edit_url`; revision set by `update-revision.mjs`, reverted by `update-sidebar.mjs` |
 | `githubPages` | `false` | Keeps TypeDoc from dropping a `.nojekyll` that `docs:sync` would carry into the site repo |
 
 ## Post-processing
@@ -94,14 +94,14 @@ Layout of `tools/`:
 
 ### Page transforms (in order)
 
-1. `convertSourceLinks` — rewrites `Defined in: [file.ts:N](url)` under the H1 to one `[View source on GitHub](url)` per page; method-level source lines are dropped.
+1. `moveSourceLinkToFrontmatter` — moves the `Defined in: [file.ts](url)` line under the H1 into `custom_edit_url` front matter, so the site's "Edit this page" link opens the source file on GitHub; method-level source lines are dropped.
 2. `escapePipesInTableCells` — escapes `|` inside inline code in table cells (an unescaped pipe from a comment breaks the row).
 3. `fixInPageAnchors` — drops stale `-N` dedup suffixes from in-page hash links; warns about anchors that resolve to nothing.
 4. `ensureBlankLineBeforeHeadings` — restores the blank line MDX requires before a heading.
 
 ### APITable wrapping
 
-`applyApiTables` (`api-tables.mjs`) runs after the page transforms have validated the original anchors. It wraps every table of a symbol page — member tables (rows carry TypeDoc's `<a id>` anchors) and the parameter tables under method headings — in the docs site's `<APITable>` component via `mdx-code-block` fences, strips the `<a id>` anchors, and rewrites all fragment links — in-page and cross-page — to the ids the component derives at runtime:
+`applyApiTables` (`api-tables.mjs`) runs after the page transforms have validated the original anchors. It wraps every table of a symbol page — member tables (rows carry TypeDoc's `<a id>` anchors) and the parameter tables under method headings — in the docs site's `<APITable>` component (bare JSX tags; one `import APITable from '@site/src/components/APITable/APITable'` line is inserted after the front matter), strips the `<a id>` anchors, and rewrites all fragment links — in-page and cross-page — to the ids the component derives at runtime:
 
 - the row id is the **text of the code span in the first cell** (case-sensitive): `<a id="manager">` becomes `#Manager`, `<a id="rootpath">` becomes `#rootPath`;
 - TypeDoc's optional marker is moved outside the code span (`` `rootPath`? `` instead of `` `rootPath?` ``), so the id carries no `?` — a `?` in a fragment reads as a query string to Docusaurus' anchor checker;
@@ -112,7 +112,7 @@ Hand-written site pages that link to a table row must use the same ids (`TFrameC
 
 ### Section index pages
 
-For every section in `tools/docs/sections.mjs` (`classes`, `type-aliases`, `enumerations`, `variables`), `section-index.mjs` generates an `index.md`: an H1, the section description, and an Overview table (`| Class | Description |`, header configurable) built from each page's H1 and the first sentence of its description.
+For every section in `tools/docs/sections.mjs` (`classes`, `type-aliases`, `enumerations`, `variables`), `section-index.mjs` generates an `index.md`: an H1, the section description, and an Overview table (`| Class | Description |`, header configurable) built from each page's H1 and the first sentence of its description. Its `custom_edit_url` points at `tools/docs/sections.mjs` on the documented revision, since that is where the prose lives.
 
 ## Sidebar
 
