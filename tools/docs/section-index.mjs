@@ -20,14 +20,14 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { walkMarkdownLines } from "../shared/markdown.mjs";
-import { SOURCE_LINK_LABEL } from "./page-transforms.mjs";
+import { EDIT_URL_KEY } from "./page-transforms.mjs";
 
 /**
- * True for a source reference line, raw ("Defined in:") or rewritten.
+ * True for a raw TypeDoc source reference line (the transforms move it into front matter).
  * @param {string} line
  */
 function isSourceReferenceLine(line) {
-  return line.startsWith("Defined in:") || line.startsWith(`[${SOURCE_LINK_LABEL}](`);
+  return line.startsWith("Defined in:");
 }
 
 /**
@@ -76,7 +76,7 @@ function readPageTitle(pagePath, fallback) {
 
 /**
  * Description of the page's symbol: the first paragraph after the H1, skipping
- * the signature code block and the source link.
+ * the front matter, the MDX import, the signature code block and the source reference.
  * @param {string} pagePath
  */
 function readPageDescription(pagePath) {
@@ -115,11 +115,14 @@ function readPageDescription(pagePath) {
 
 /**
  * Generates index.md for one section: title, prose from sections.mjs, and an
- * overview table built from the final page titles and descriptions.
+ * overview table built from the final page titles and descriptions. With
+ * `editUrl` the page gets `custom_edit_url` front matter, so the site's
+ * "Edit this page" link opens the file the prose lives in.
  * @param {import("./sections.mjs").Section} section
  * @param {string} docsDir
+ * @param {string} [editUrl]
  */
-export function generateIndexPage(section, docsDir) {
+export function generateIndexPage(section, docsDir, editUrl) {
   const sectionPath = join(docsDir, section.docsDir);
 
   if (!existsSync(sectionPath)) {
@@ -146,6 +149,7 @@ export function generateIndexPage(section, docsDir) {
   }
 
   const content = [
+    ...(editUrl ? ["---", `${EDIT_URL_KEY}: ${editUrl}`, "---", ""] : []),
     `# ${section.title}`,
     ``,
     section.description,

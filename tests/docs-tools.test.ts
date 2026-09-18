@@ -68,7 +68,7 @@ describe("shared/markdown", () => {
 });
 
 describe("page transforms", () => {
-  it("keeps one source link under the page title and drops member-level ones", () => {
+  it("moves the page-level source link into custom_edit_url front matter and drops member-level ones", () => {
     const input = [
       "# SDKInstance",
       "",
@@ -85,10 +85,11 @@ describe("page transforms", () => {
 
     const output = runPageTransforms(input);
 
-    expect(output).toContain(
-      "[View source on GitHub](https://github.com/o/r/blob/master/src/instance/index.ts#L90)"
+    expect(output).toMatch(
+      /^---\ncustom_edit_url: https:\/\/github\.com\/o\/r\/blob\/master\/src\/instance\/index\.ts#L90\n---\n\n# SDKInstance\n\nIntro\./
     );
     expect(output).not.toContain("Defined in:");
+    expect(output).not.toContain("View source");
     expect(output).not.toContain("#L500");
     expect(output).toContain("### login()\n\nLogs in.");
   });
@@ -112,6 +113,10 @@ describe("page transforms", () => {
   it("inserts the blank line MDX needs before a heading", () => {
     expect(runPageTransforms("text\n## Heading")).toBe("text\n\n## Heading");
   });
+
+  it("adds no front matter to a page without a source reference", () => {
+    expect(runPageTransforms("# Title\n\nIntro.")).toBe("# Title\n\nIntro.");
+  });
 });
 
 describe("api-tables", () => {
@@ -122,6 +127,10 @@ describe("api-tables", () => {
     const events = writePage(
       "type-aliases/TFrameEvents.md",
       [
+        "---",
+        "custom_edit_url: https://github.com/o/r",
+        "---",
+        "",
         "# TFrameEvents",
         "",
         "## Properties",
@@ -141,10 +150,13 @@ describe("api-tables", () => {
     applyApiTables([events, config]);
 
     const eventsOutput = readFileSync(events, "utf-8");
-    expect(eventsOutput).toContain(
-      "```mdx-code-block\nimport APITable from '@site/src/components/APITable/APITable';\n\n<APITable>\n```"
+    expect(eventsOutput).toMatch(
+      /^---\ncustom_edit_url: https:\/\/github\.com\/o\/r\n---\n\nimport APITable from '@site\/src\/components\/APITable\/APITable';\n\n# TFrameEvents\n/
     );
-    expect(eventsOutput).toContain("```mdx-code-block\n</APITable>\n```");
+    expect(eventsOutput).toContain("## Properties\n\n<APITable>\n\n| Property |");
+    expect(eventsOutput).toContain("|\n\n</APITable>\n");
+    expect(eventsOutput).not.toContain("mdx-code-block");
+    expect(eventsOutput.match(/import APITable/g)).toHaveLength(1);
     expect(eventsOutput).not.toContain("<a id=");
     expect(eventsOutput).toContain("| `onAppReady`? | `null` | Ready. |");
     expect(eventsOutput).toContain("[onAppReady](#onAppReady)");
@@ -209,7 +221,9 @@ describe("api-tables", () => {
       "# One\n\n#### Parameters\n\n| Parameter | Type |\n| ------ | ------ |\n| `config` | `T` |\n"
     );
     applyApiTables([page]);
-    expect(readFileSync(page, "utf-8")).toContain("<APITable>\n```");
+    const output = readFileSync(page, "utf-8");
+    expect(output.startsWith("import APITable from '@site/src/components/APITable/APITable';\n\n# One\n")).toBe(true);
+    expect(output).toContain("#### Parameters\n\n<APITable>\n\n| Parameter |");
   });
 
   it("prefixes row ids with the symbol name when two tables share a row name", () => {
@@ -243,13 +257,17 @@ describe("section-index", () => {
     writePage(
       "variables/FRAME_NAME.md",
       [
+        "---",
+        "custom_edit_url: https://github.com/o/r",
+        "---",
+        "",
+        "import APITable from '@site/src/components/APITable/APITable';",
+        "",
         "# FRAME\\_NAME",
         "",
         "```ts",
         "const FRAME_NAME: \"frameDocSpace\";",
         "```",
-        "",
-        "[View source on GitHub](https://github.com/o/r)",
         "",
         "The prefix for the iframe `name` attribute. The full name is `{FRAME_NAME}__#{frameId}`.",
         "",
@@ -257,7 +275,7 @@ describe("section-index", () => {
     );
     writePage(
       "variables/CSPApiUrl.md",
-      "# CSPApiUrl\n\n[View source on GitHub](https://github.com/o/r)\n\nThe CSP endpoint (e.g. for checks). Second sentence.\n"
+      "# CSPApiUrl\n\nDefined in: [x.ts:1](https://github.com/o/r)\n\nThe CSP endpoint (e.g. for checks). Second sentence.\n"
     );
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
 
@@ -270,11 +288,17 @@ describe("section-index", () => {
         tableCaption: "The following constants are available:",
         tableHeaderName: "Constant",
       },
-      tempDir
+      tempDir,
+      "https://github.com/o/r/blob/master/tools/docs/sections.mjs"
     );
 
     log.mockRestore();
     const index = readFileSync(join(tempDir, "variables", "index.md"), "utf-8");
+    expect(
+      index.startsWith(
+        "---\ncustom_edit_url: https://github.com/o/r/blob/master/tools/docs/sections.mjs\n---\n\n# Variables\n"
+      )
+    ).toBe(true);
     expect(index).toContain("# Variables\n\nExported constants.\n\n## Overview");
     expect(index).toContain("| Constant | Description |");
     expect(index).toContain(

@@ -20,21 +20,26 @@
 import { basename } from "node:path";
 import { collectPageAnchors, walkMarkdownLines } from "../shared/markdown.mjs";
 
-export const SOURCE_LINK_LABEL = "View source on GitHub";
+/** Docusaurus front matter key that overrides the "Edit this page" link. */
+export const EDIT_URL_KEY = "custom_edit_url";
 
 const ANY_HEADING = /^(#{1,6}) /;
 const SOURCE_REFERENCE = /^Defined in: \[[^\]]+\]\((https:\/\/github\.com\/[^)]+)\)$/;
 const IN_PAGE_LINK = /\]\(#([^)\s]+)\)/g;
 
 /**
- * Keeps one "View source on GitHub" link per page (the one under the H1) and drops member-level ones.
+ * Moves the page-level source reference (the `Defined in:` line under the H1) into
+ * `custom_edit_url` front matter, so the site's "Edit this page" link opens the source
+ * file on GitHub, and drops member-level source references.
  * @param {string} content
  */
-function convertSourceLinks(content) {
+function moveSourceLinkToFrontmatter(content) {
   /** @type {string[]} */
   const resultLines = [];
 
   let isUnderPageTitle = false;
+  /** @type {string | undefined} */
+  let editUrl;
 
   for (const { line, insideCodeBlock } of walkMarkdownLines(content)) {
     if (insideCodeBlock) {
@@ -55,16 +60,16 @@ function convertSourceLinks(content) {
       continue;
     }
 
-    if (isUnderPageTitle) {
-      resultLines.push(`[${SOURCE_LINK_LABEL}](${sourceMatch[1]})`);
+    if (isUnderPageTitle && editUrl === undefined) {
+      editUrl = sourceMatch[1];
       isUnderPageTitle = false;
-      continue;
     }
 
     if (resultLines[resultLines.length - 1]?.trim() === "") resultLines.pop();
   }
 
-  return resultLines.join("\n");
+  const body = resultLines.join("\n");
+  return editUrl === undefined ? body : `---\n${EDIT_URL_KEY}: ${editUrl}\n---\n\n${body}`;
 }
 
 /**
@@ -129,7 +134,7 @@ function ensureBlankLineBeforeHeadings(content) {
 
 /** Per-page transforms, in run order. */
 export const PAGE_TRANSFORMS = [
-  convertSourceLinks,
+  moveSourceLinkToFrontmatter,
   escapePipesInTableCells,
   fixInPageAnchors,
   ensureBlankLineBeforeHeadings,

@@ -82,7 +82,7 @@ export default {
   treatValidationWarningsAsErrors: true,
   disableSources: false,
   sourceLinkTemplate:
-    "https://github.com/ONLYOFFICE/docspace-sdk-js/blob/{gitRevision}/{path}#L{line}",
+    "https://github.com/ONLYOFFICE/docspace-sdk-js/blob/{gitRevision}/{path}",
   gitRevision: "master",
   githubPages: false,
   searchInComments: true,
