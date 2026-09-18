@@ -94,9 +94,10 @@ Layout of `tools/`:
 ### Page transforms (in order)
 
 1. `moveSourceLinkToFrontmatter` — moves the `Defined in: [file.ts](url)` line under the H1 into `custom_edit_url` front matter, so the site's "Edit this page" link opens the source file on GitHub; method-level source lines are dropped.
-2. `escapePipesInTableCells` — escapes `|` inside inline code in table cells (an unescaped pipe from a comment breaks the row).
-3. `fixInPageAnchors` — drops stale `-N` dedup suffixes from in-page hash links; warns about anchors that resolve to nothing.
-4. `ensureBlankLineBeforeHeadings` — restores the blank line MDX requires before a heading.
+2. `moveDescriptionAboveSignature` — on type alias and variable pages, moves the description paragraphs above the `type X = …` / `const X: …` signature block TypeDoc puts right after the H1, so the page opens with prose. The site publishes the page source as a Markdown twin for LLMs, and a twin that opens with a signature block reads as code, not documentation.
+3. `escapePipesInTableCells` — escapes `|` inside inline code in table cells (an unescaped pipe from a comment breaks the row).
+4. `fixInPageAnchors` — drops stale `-N` dedup suffixes from in-page hash links; warns about anchors that resolve to nothing.
+5. `ensureBlankLineBeforeHeadings` — restores the blank line MDX requires before a heading.
 
 ### APITable wrapping
 
