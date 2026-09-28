@@ -30,6 +30,7 @@ if (typeof window !== "undefined") {
 }
 
 export { SDKError, SDKErrorCode };
+export type { TSDKErrorDetails } from "./errors";
 export default SDK;
 export { SDKInstance } from "./instance";
 export {

@@ -40,10 +40,12 @@ ONLYOFFICE Apps client — the SDK only carries the call.
 - Typed return: reuse a type from `src/types` (`TFilesResponse`, `TUserInfo`, …) or
   add a new `T`-prefixed one (with full JSDoc, see the add-config-option / docs-style
   skills for conventions).
-- Error semantics: some legacy methods (`login`, `createRoom`) **resolve** with a
-  payload containing `status !== 200` instead of rejecting — integrations must check
-  it manually. **New methods must reject via `SDKError`.** If a method inherits the
-  legacy resolve-with-status semantics, state that explicitly in `@returns`.
+- Error semantics: `#settleMethodResult` rejects with `SDKErrorCode.ApiError` when the
+  portal flags the reply (`isError: true`, client 4.0) and with `ModeMismatch` on
+  `"Wrong method for this mode"`; only the legacy `login` and `createRoom` (listed in
+  `LEGACY_STATUS_METHODS`) **resolve** `{ status, message }` instead. **New methods must
+  reject via `SDKError`** — never add to that set. Add the standard line under `@returns`:
+  `` Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure. ``
 - JSDoc is mandatory: description, `@param` for each param, `@returns`, and **two**
   `@example` blocks — one simple call, one composing with another method via
   `{@link SDKInstance.other}` (see `login`/`logout` for the exact shape).

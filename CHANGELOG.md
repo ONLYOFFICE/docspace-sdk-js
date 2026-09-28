@@ -8,6 +8,7 @@
 - Added Chat mode
 - Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection`); `navigateSection` now also works in Personal mode
 - Added `SDKError` and `SDKErrorCode`
+- Added `SDKErrorCode.ApiError`, `TSDKErrorDetails` and the `status` / `data` fields of `SDKError`: a method call the portal flags as failed (`isError: true`, ONLYOFFICE Apps 4.0) now rejects with the HTTP status and the portal's error payload; the legacy `login` and `createRoom` keep resolving `{ status, message }`. A `"Wrong method for this mode"` reply rejects with `SDKErrorCode.ModeMismatch`
 - Added `methodTimeout` config field
 - Added `stylesUrl` and `integrationUrl` config fields
 - Added new events: `onNavigate`, `onUploadSuccess`, `onUploadError`, `onCustomAction`, `onContentReady`, `onNoAccess`, `onNotFound`, `onEditorOpen`, `onGetExternalData`, `onSetExternalData`
@@ -49,6 +50,7 @@
 - The first paragraph of the README, the package description and `context7.json` name ONLYOFFICE DocSpace once as the previous name of ONLYOFFICE Apps, so searches and indexers by either name find the SDK; everywhere else the product stays ONLYOFFICE Apps
 
 ### Fixed
+- Error replies from portals that do not flag failures are sanitized before the promise resolves: `config` (whose `data` is the request body, e.g. the password hash of `login`), `request` and `stack` no longer reach the host page
 - `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with three arguments (the DocsAPI editor object, `window.Asc`, then `data`). The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. Documentation now states that the connector must be created by the callback (`editor.createConnector()`) and shows the `Asc.scope` channel for `callCommand`.
 - Personal mode now propagates `providerName`, `inviteKey`, `emplType`, and `uid` to the iframe URL, matching Forms and Chat. Previously these OAuth bootstrap params passed to `SDK.initPersonal` were silently dropped, so embedding hosts (e.g. Nextcloud) could not auto-authenticate the user via the configured provider.
 - Fixed wrong config merge in `setConfig`

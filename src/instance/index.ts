@@ -21,7 +21,7 @@
  * @mergeModuleWith <project>
  */
 
-import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
+import { defaultConfig, FRAME_NAME, connectErrorText, wrongMethodText } from "../constants";
 import { SDKError, SDKErrorCode } from "../errors";
 import type {
   TCreateRoomOptions,
@@ -43,6 +43,7 @@ import type {
   TCustomActionsConfig,
   TFormsSection,
   TLoginResult,
+  TMethodError,
   TPersonalSection,
 } from "../types";
 import {
@@ -55,10 +56,21 @@ import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
 
 /** @internal */
 type TCallbackEntry = {
+  methodName: string;
   resolve: (data: object) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout> | null;
 };
+
+/**
+ * Methods that keep the pre-2.2 contract: a portal error is resolved as `{ status, message }`
+ * instead of rejecting with {@link SDKErrorCode.ApiError}.
+ * @internal
+ */
+const LEGACY_STATUS_METHODS: ReadonlySet<string> = new Set([InstanceMethods.Login, InstanceMethods.CreateRoom]);
+
+/** Keys an error payload from the portal must not carry to the host. @internal */
+const ERROR_PAYLOAD_STRIP_KEYS = ["config", "request", "stack"] as const;
 
 /** @internal */
 type TPendingUploadEntry = {
@@ -74,6 +86,17 @@ type TPendingUploadEntry = {
  *
  * Instances are created and stored by {@link SDK}. Do not construct directly —
  * use {@link SDK.init} or any `init*` convenience wrapper.
+ *
+ * :::note
+ * Every method that talks to the frame returns a promise that rejects with an {@link SDKError}:
+ * {@link SDKErrorCode.ApiError} when the portal reports a failure (HTTP status in {@link SDKError.status}),
+ * {@link SDKErrorCode.ModeMismatch} when the current mode has no such method,
+ * {@link SDKErrorCode.Timeout} after {@link TFrameConfig.methodTimeout} and
+ * {@link SDKErrorCode.Disconnected} when the frame is not connected. Two legacy methods differ:
+ * {@link SDKInstance.login} and {@link SDKInstance.createRoom} resolve a portal failure as `{ status, message }`.
+ * A portal older than ONLYOFFICE Apps 4.0 does not flag failures, so on such a portal every method resolves
+ * the portal's error object (with `config`, `request` and `stack` removed) instead of rejecting.
+ * :::
  *
  * @example
  * ```typescript
@@ -552,7 +575,7 @@ export class SDKInstance {
       this.#callbacks.delete(matchedId);
       if (entry.timer) clearTimeout(entry.timer);
       try {
-        entry.resolve(data.methodReturnData || {});
+        this.#settleMethodResult(entry, data.methodReturnData);
       } catch (error) {
         console.error("Error in callback execution:", error);
       }
@@ -561,6 +584,74 @@ export class SDKInstance {
     this.#drainNextTask();
   }
 
+  /**
+   * Resolves or rejects a pending method call from the portal's `methodReturnData`.
+   *
+   * - `"Wrong method for this mode"` rejects with {@link SDKErrorCode.ModeMismatch}.
+   * - A payload flagged `isError: true` (client 4.0+) rejects with {@link SDKErrorCode.ApiError};
+   *   the legacy `login` and `createRoom` resolve it as `{ status, message }` instead.
+   * - A payload that looks like a serialized `AxiosError` from an older portal resolves,
+   *   with `config`, `request` and `stack` removed so request bodies never reach the host.
+   * - Anything else resolves as is (`{}` for an empty reply).
+   *
+   * @internal
+   */
+  #settleMethodResult(entry: TCallbackEntry, payload: unknown): void {
+    if (payload === wrongMethodText) {
+      entry.reject(
+        new SDKError(SDKErrorCode.ModeMismatch, `${entry.methodName} is not available in ${this.config.mode} mode`)
+      );
+      return;
+    }
+
+    if (!payload || typeof payload !== "object") {
+      entry.resolve(payload || {});
+      return;
+    }
+
+    const record = payload as Record<string, unknown>;
+
+    if (record.isError === true) {
+      const { isError: _flag, ...sanitized } = this.#sanitizeErrorPayload(record) as TMethodError;
+      if (LEGACY_STATUS_METHODS.has(entry.methodName)) {
+        entry.resolve(sanitized);
+        return;
+      }
+      const status = typeof sanitized.status === "number" ? sanitized.status : undefined;
+      const message =
+        typeof sanitized.message === "string" && sanitized.message
+          ? sanitized.message
+          : `${entry.methodName} failed${status !== undefined ? ` with status ${status}` : ""}`;
+      entry.reject(new SDKError(SDKErrorCode.ApiError, message, false, { status, data: sanitized }));
+      return;
+    }
+
+    entry.resolve(this.#isErrorLike(record) ? this.#sanitizeErrorPayload(record) : record);
+  }
+
+  /**
+   * Whether a reply from a portal without the `isError` marker is a serialized error
+   * (`AxiosError.toJSON()` output or a failed HTTP status).
+   * @internal
+   */
+  #isErrorLike(record: Record<string, unknown>): boolean {
+    return (
+      record.name === "AxiosError" ||
+      record.isAxiosError === true ||
+      (typeof record.status === "number" && record.status >= 400 && typeof record.message === "string")
+    );
+  }
+
+  /**
+   * Returns a copy of an error payload without the request `config` (its `data` is the request
+   * body, e.g. the password hash of `login`), the `request` object and the `stack`.
+   * @internal
+   */
+  #sanitizeErrorPayload(record: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = { ...record };
+    for (const key of ERROR_PAYLOAD_STRIP_KEYS) delete sanitized[key];
+    return sanitized;
+  }
   /**
    * Sends the next queued task and starts its timeout timer.
    * @internal
@@ -808,7 +899,7 @@ export class SDKInstance {
     }
 
     const callId = ++this.#callIdCounter;
-    const entry = { resolve, reject, timer: null as ReturnType<typeof setTimeout> | null };
+    const entry: TCallbackEntry = { methodName, resolve, reject, timer: null };
     this.#callbacks.set(callId, entry);
     const message: TTask = { type: "method", methodName, data: params, callId };
 
@@ -1134,7 +1225,8 @@ export class SDKInstance {
    *
    * @param methodName - The name of the method to execute.
    * @param params - The parameters to pass to the method. Defaults to null.
-   * @returns A promise that resolves to an object containing the result of the method execution.
+   * @returns A promise that resolves to an object containing the result of the method execution,
+   *   or rejects — see `#settleMethodResult` for the error rules.
    */
   #getMethodPromise = <T extends object>(
     methodName: string,
@@ -1171,6 +1263,7 @@ export class SDKInstance {
    * read them first via {@link SDKInstance.getConfig}.
    * ```typescript
    * const current = instance.getConfig();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.setConfig({ ...current, id: 99, mode: SDKMode.Editor }, true);
    * ```
    */
@@ -1237,6 +1330,7 @@ export class SDKInstance {
    * Check write access before calling {@link SDKInstance.createFolder}.
    * ```typescript
    * const info = await instance.getFolderInfo();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (info.security?.create) {
    *   await instance.createFolder(info.id, 'Archive');
    * }
@@ -1261,6 +1355,7 @@ export class SDKInstance {
    * Pass the selection as context to {@link SDKInstance.openModal}.
    * ```typescript
    * const selection = await instance.getSelection();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (selection.length > 0) {
    *   await instance.openModal('share', { items: selection });
    * }
@@ -1285,6 +1380,7 @@ export class SDKInstance {
    * Open the first file in viewer mode via {@link SDKInstance.setConfig}.
    * ```typescript
    * const files = await instance.getFiles();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (files.files[0]) {
    *   await instance.setConfig({ id: files.files[0].id, mode: SDKMode.Viewer }, true);
    * }
@@ -1309,6 +1405,7 @@ export class SDKInstance {
    * Navigate into the first subfolder via {@link SDKInstance.setConfig}.
    * ```typescript
    * const folders = await instance.getFolders();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (folders.folders[0]) {
    *   await instance.setConfig({ id: folders.folders[0].id }, true);
    * }
@@ -1336,6 +1433,7 @@ export class SDKInstance {
    * ```typescript
    * const list = await instance.getList();
    * console.log('Files:', list.files.length, 'Folders:', list.folders.length);
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * ```
    */
   getList(): Promise<TFilesResponse> {
@@ -1358,6 +1456,7 @@ export class SDKInstance {
    * console.log(rooms);
    * ```
    *
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * @example
    * Find rooms and remove an outdated tag from each using {@link SDKInstance.removeTagsFromRoom}.
    * ```typescript
@@ -1386,6 +1485,7 @@ export class SDKInstance {
    * Apply the user's preferred locale via {@link SDKInstance.setConfig}.
    * ```typescript
    * const user = await instance.getUserInfo();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (user.cultureName) {
    *   await instance.setConfig({ locale: user.cultureName });
    * }
@@ -1410,6 +1510,7 @@ export class SDKInstance {
    * Full authentication flow using {@link SDKInstance.createHash} and {@link SDKInstance.login}.
    * ```typescript
    * const settings = await instance.getHashSettings();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * await instance.login('user@example.com', hash);
    * ```
@@ -1435,6 +1536,7 @@ export class SDKInstance {
    * Open a share dialog for the items currently selected in the frame using {@link SDKInstance.getSelection}.
    * ```typescript
    * const selection = await instance.getSelection();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (selection.length > 0) {
    *   await instance.openModal('share', { items: selection });
    * }
@@ -1463,6 +1565,7 @@ export class SDKInstance {
    * Create a file and immediately open it in the editor using {@link SDKInstance.setConfig}.
    * ```typescript
    * const file = await instance.createFile('folder-123', 'Report', 'template-456', '');
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.setConfig({ id: file.id, mode: SDKMode.Editor }, true);
    * ```
    */
@@ -1497,6 +1600,7 @@ export class SDKInstance {
    * Create a folder and immediately add a file inside it using {@link SDKInstance.createFile}.
    * ```typescript
    * const folder = await instance.createFolder('parent-123', 'Q1 Reports');
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.createFile(folder.id, 'Summary', 'template-456', '');
    * ```
    */
@@ -1513,7 +1617,8 @@ export class SDKInstance {
    * @param title - The room display name.
    * @param roomType - The room type (e.g. `1` for custom, `2` for filling forms).
    * @param options - Optional room settings. See {@link TCreateRoomOptions}.
-   * @returns A promise that resolves with {@link TRoomInfo}.
+   * @returns A promise that resolves with {@link TRoomInfo}, or with `{ status, message }` when the portal
+   *   reports a failure — unlike the other methods, `createRoom` does not reject on portal errors.
    *
    * @example
    * ```typescript
@@ -1558,6 +1663,7 @@ export class SDKInstance {
    * ```typescript
    * const { mode } = instance.getConfig();
    * if (mode === SDKMode.Manager) {
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   await instance.setListView('tile');
    * }
    * ```
@@ -1585,6 +1691,7 @@ export class SDKInstance {
    * @example
    * Full login flow using {@link SDKInstance.getHashSettings} and {@link SDKInstance.login}.
    * ```typescript
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * await instance.login('user@example.com', hash, undefined, true);
@@ -1631,6 +1738,7 @@ export class SDKInstance {
    * @example
    * Two-factor sign-in using {@link SDKInstance.getHashSettings} and {@link SDKInstance.createHash}.
    * ```typescript
+   *   Unlike the other methods, a portal failure is resolved as `{ status, message }`, not rejected.
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * const first = await instance.login('user@example.com', hash);
@@ -1672,6 +1780,7 @@ export class SDKInstance {
    * {@link SDKInstance.createHash}, and {@link SDKInstance.login}.
    * ```typescript
    * await instance.logout();
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('newpassword', settings);
    * await instance.login('other@example.com', hash);
@@ -1697,6 +1806,7 @@ export class SDKInstance {
    * Create a tag and immediately apply it to a room using {@link SDKInstance.addTagsToRoom}.
    * ```typescript
    * await instance.createTag('archived');
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.addTagsToRoom('room-123', ['archived']);
    * ```
    */
@@ -1721,6 +1831,7 @@ export class SDKInstance {
    * to a newly created room via {@link SDKInstance.createRoom}.
    * ```typescript
    * await instance.createTag('design');
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const room = await instance.createRoom('Creative Hub', 'collaboration');
    * await instance.addTagsToRoom(room.id, ['design']);
    * ```
@@ -1749,6 +1860,7 @@ export class SDKInstance {
    * ```typescript
    * const rooms = await instance.getRooms({ search: 'sprint-22' });
    * for (const room of rooms.folders) {
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
    * }
    * ```
@@ -1852,6 +1964,7 @@ export class SDKInstance {
    * Personal mode.
    * ```typescript
    * const personal = sdk.initPersonal({
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   frameId: 'ds-personal',
    *   src: 'https://portal.example.com',
    * });
@@ -1885,6 +1998,7 @@ export class SDKInstance {
    *       { key: "send-to-crm", label: "Send to CRM", icon: "https://example.com/icon.svg" },
    *       { key: "export", label: "Export", section: ["completed-forms"] },
    *     ],
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   },
    * });
    * ```
@@ -1917,11 +2031,15 @@ export class SDKInstance {
    * Uploads a file into the current room.
    * Only works in {@link SDKMode.Forms} mode.
    * The file is transferred to the iframe via zero-copy ArrayBuffer and uploaded
-   * using the chunked upload API. The form list refreshes automatically when complete.
+   * using the chunked upload API. The file list refreshes automatically when complete.
    *
    * @param file - The file to upload. Callers should validate type and size before calling.
-   * @returns A promise that resolves with upload result from the iframe,
-   *   or rejects if the iframe reports an error via `onUploadError`.
+   * @returns A promise that resolves with the payload of {@link TFrameEvents.onUploadSuccess}
+   *   (`{ fileName, fileSize, uploadId }`), so a handler for that event is optional. Rejects with
+   *   {@link SDKError}: {@link SDKErrorCode.UploadFailed} when the frame reports
+   *   {@link TFrameEvents.onUploadError} or the transfer exceeds 120 seconds,
+   *   {@link SDKErrorCode.ModeMismatch} in any other mode, {@link SDKErrorCode.Disconnected}
+   *   before the frame is connected.
    *
    * :::note
    * The entire file is read into memory via `arrayBuffer()` before transfer.

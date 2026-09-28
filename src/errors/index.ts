@@ -55,14 +55,29 @@ export enum SDKErrorCode {
   ParseError = "PARSE_ERROR",
   /** The SDK could not resolve an OAuth access token: the {@link TFrameConfig.getToken} callback threw/rejected, or neither `getToken` nor {@link TFrameConfig.accessToken} was provided in OAuth mode. */
   TokenResolveFailed = "TOKEN_RESOLVE_FAILED",
+  /** The portal reported a failure while executing a method call. {@link SDKError.status} carries the HTTP status of the failed request, {@link SDKError.data} the portal's error payload. Requires an ONLYOFFICE Apps portal that flags method errors (client 4.0). */
+  ApiError = "API_ERROR",
 }
+
+/**
+ * Extra details attached to an {@link SDKError}.
+ * Set for {@link SDKErrorCode.ApiError}; absent for every other code.
+ */
+export type TSDKErrorDetails = {
+  /** HTTP status of the failed portal request (`401`, `403`, `404`, …). Absent when the portal did not report one. */
+  status?: number;
+  /** The portal's error payload with `config`, `request` and `stack` removed: `message`, `name`, `code`, `status`. */
+  data?: object;
+};
 
 /**
  * The SDK's structured error class. Thrown or passed to {@link TFrameEvents.onAppError}
  * whenever the SDK encounters a known failure.
  *
  * The `code` property identifies the failure category; `recoverable` indicates whether
- * the caller may retry the operation without reinitializing the frame.
+ * the caller may retry the operation without reinitializing the frame. For
+ * {@link SDKErrorCode.ApiError} the `status` and `data` properties carry what the portal
+ * reported.
  *
  * @example
  * ```typescript
@@ -92,15 +107,30 @@ export class SDKError extends Error {
   readonly recoverable: boolean;
 
   /**
+   * HTTP status of the failed portal request. Set for {@link SDKErrorCode.ApiError} when the
+   * portal reported one; `undefined` otherwise.
+   */
+  readonly status?: number;
+
+  /**
+   * The portal's error payload for {@link SDKErrorCode.ApiError}, with `config`, `request` and
+   * `stack` removed; `undefined` for every other code.
+   */
+  readonly data?: object;
+
+  /**
    * @param code - The error category. Use a {@link SDKErrorCode} value.
    * @param message - Human-readable description of what went wrong.
    * @param recoverable - Whether the operation may be retried. Default: `false`.
+   * @param details - HTTP status and portal payload for {@link SDKErrorCode.ApiError}. See {@link TSDKErrorDetails}.
    */
-  constructor(code: SDKErrorCode, message: string, recoverable: boolean = false) {
+  constructor(code: SDKErrorCode, message: string, recoverable: boolean = false, details?: TSDKErrorDetails) {
     super(message);
     Object.setPrototypeOf(this, new.target.prototype);
     this.name = "SDKError";
     this.code = code;
     this.recoverable = recoverable;
+    if (details?.status !== undefined) this.status = details.status;
+    if (details?.data !== undefined) this.data = details.data;
   }
 }

@@ -994,6 +994,26 @@ export type TMessageData = {
 };
 
 /**
+ * The `methodReturnData` an ONLYOFFICE Apps portal (client 4.0+) sends when a method call failed.
+ * `isError` is the marker; the other fields are the sanitized error the portal caught.
+ * `SDKInstance.#handleMethodResponse` turns it into an {@link SDKError} with {@link SDKErrorCode.ApiError}.
+ *
+ * @internal
+ */
+export type TMethodError = {
+  /** Marks the payload as an error. Always `true`. */
+  isError: true;
+  /** HTTP status of the failed request, when the portal had one. */
+  status?: number;
+  /** Error message reported by the portal. */
+  message?: string;
+  /** Error class name on the portal side (`"AxiosError"`, `"Error"`). */
+  name?: string;
+  /** Portal-side error code (`"ERR_BAD_REQUEST"`, …). */
+  code?: string | number;
+};
+
+/**
  * Event data within a {@link MessageTypes.OnEventReturn} message.
  * The `event` field is matched against {@link TFrameEvents} handler names.
  *

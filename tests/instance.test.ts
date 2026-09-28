@@ -554,6 +554,218 @@ describe("method wrappers — postMessage verification", () => {
   });
 });
 
+describe("method errors reported by the portal", () => {
+  const initWithPostMessage = () => {
+    setupTarget();
+    const config = makeConfig();
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+
+    iframe.dispatchEvent(new Event("load"));
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    return { inst, postMessageSpy };
+  };
+
+  const reply = (callId: number, methodReturnData: unknown) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({ frameId: "ds-frame", type: "onMethodReturn", callId, methodReturnData, commandName: "" }),
+        origin: BASE_SRC,
+      }),
+    );
+  };
+
+  const sentCallId = (spy: ReturnType<typeof vi.fn>, index = 0) =>
+    JSON.parse(spy.mock.calls[index][0]).callId as number;
+
+  const rawAxiosError = {
+    name: "AxiosError",
+    message: "Request failed with status code 401",
+    code: "ERR_BAD_REQUEST",
+    status: 401,
+    stack: "AxiosError: Request failed\n    at settle",
+    config: { url: "/api/2.0/authentication", data: '{"passwordHash":"secret-hash"}' },
+  };
+
+  test("isError marker rejects with ApiError carrying status and sanitized data", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.getFiles();
+    reply(sentCallId(postMessageSpy), { isError: true, status: 403, message: "Forbidden", name: "AxiosError" });
+
+    let caught: unknown;
+    try {
+      await promise;
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(SDKError);
+    const err = caught as SDKError;
+    expect(err.code).toBe(SDKErrorCode.ApiError);
+    expect(err.status).toBe(403);
+    expect(err.message).toBe("Forbidden");
+    expect(err.data).toEqual({ status: 403, message: "Forbidden", name: "AxiosError" });
+  });
+
+  test("isError marker without message falls back to a method-based message", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.getFolders();
+    reply(sentCallId(postMessageSpy), { isError: true, status: 500 });
+
+    await expect(promise).rejects.toMatchObject({
+      code: SDKErrorCode.ApiError,
+      message: "getFolders failed with status 500",
+    });
+  });
+
+  test("isError marker strips config, request and stack from the rejection data", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.getFiles();
+    reply(sentCallId(postMessageSpy), { ...rawAxiosError, isError: true, request: {} });
+
+    let caught: unknown;
+    try {
+      await promise;
+    } catch (e) {
+      caught = e;
+    }
+
+    const data = (caught as SDKError).data as Record<string, unknown>;
+    expect(data).not.toHaveProperty("config");
+    expect(data).not.toHaveProperty("request");
+    expect(data).not.toHaveProperty("stack");
+    expect(data).not.toHaveProperty("isError");
+    expect(JSON.stringify(caught)).not.toContain("secret-hash");
+  });
+
+  test("legacy login resolves the flagged error as { status, message } without the marker", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.login("user@example.com", "hash");
+    reply(sentCallId(postMessageSpy), { ...rawAxiosError, isError: true });
+
+    const result = await promise;
+    expect(result).toMatchObject({ status: 401, message: "Request failed with status code 401" });
+    expect(result).not.toHaveProperty("isError");
+    expect(result).not.toHaveProperty("config");
+    expect(result).not.toHaveProperty("stack");
+  });
+
+  test("legacy createRoom resolves the flagged error instead of rejecting", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.createRoom("Room", 5);
+    reply(sentCallId(postMessageSpy), { isError: true, status: 403, message: "Forbidden" });
+
+    await expect(promise).resolves.toEqual({ status: 403, message: "Forbidden" });
+  });
+
+  test("older portal: a serialized AxiosError resolves without config, request and stack", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.login("user@example.com", "hash");
+    reply(sentCallId(postMessageSpy), { ...rawAxiosError, request: {} });
+
+    const result = await promise;
+    expect(result).toEqual({
+      name: "AxiosError",
+      message: "Request failed with status code 401",
+      code: "ERR_BAD_REQUEST",
+      status: 401,
+    });
+    expect(JSON.stringify(result)).not.toContain("secret-hash");
+  });
+
+  test("older portal: a failed HTTP status without an AxiosError name is sanitized too", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.getFiles();
+    reply(sentCallId(postMessageSpy), { status: 404, message: "Not found", stack: "Error: Not found", config: {} });
+
+    await expect(promise).resolves.toEqual({ status: 404, message: "Not found" });
+  });
+
+  test("a successful reply is passed through untouched", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.getFiles();
+    reply(sentCallId(postMessageSpy), { files: [1], status: 200, config: { keep: true } });
+
+    await expect(promise).resolves.toEqual({ files: [1], status: 200, config: { keep: true } });
+  });
+
+  test("a primitive reply (createHash) resolves as is", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.createHash("p@ss", { size: 256, iterations: 1000, salt: "salt" });
+    reply(sentCallId(postMessageSpy), "hashed-value");
+
+    await expect(promise).resolves.toBe("hashed-value");
+  });
+
+  test("an empty reply resolves with an empty object", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.logout();
+    reply(sentCallId(postMessageSpy), null);
+
+    await expect(promise).resolves.toEqual({});
+  });
+
+  test("'Wrong method for this mode' rejects with ModeMismatch", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const promise = inst.createRoom("Room", 5);
+    reply(sentCallId(postMessageSpy), "Wrong method for this mode");
+
+    await expect(promise).rejects.toMatchObject({
+      code: SDKErrorCode.ModeMismatch,
+      message: "createRoom is not available in manager mode",
+    });
+  });
+
+  test("a rejected call still drains the next queued task", async () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const first = inst.getFiles();
+    const second = inst.getFolders();
+    expect(postMessageSpy).toHaveBeenCalledTimes(1);
+
+    reply(sentCallId(postMessageSpy), { isError: true, status: 500, message: "boom" });
+    await expect(first).rejects.toBeInstanceOf(SDKError);
+
+    expect(postMessageSpy).toHaveBeenCalledTimes(2);
+    reply(sentCallId(postMessageSpy, 1), { folders: [] });
+    await expect(second).resolves.toEqual({ folders: [] });
+  });
+
+  test("ApiError does not fire onAppError", async () => {
+    const onAppError = vi.fn();
+    setupTarget();
+    const config = makeConfig({ events: { ...defaultConfig.events, onAppError } });
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+    iframe.dispatchEvent(new Event("load"));
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", { value: { postMessage: postMessageSpy }, writable: true });
+
+    const promise = inst.getFiles();
+    reply(sentCallId(postMessageSpy), { isError: true, status: 500, message: "boom" });
+
+    await expect(promise).rejects.toBeInstanceOf(SDKError);
+    expect(onAppError).not.toHaveBeenCalled();
+  });
+});
+
 describe("callId correlation", () => {
   const initWithPostMessage = () => {
     setupTarget();

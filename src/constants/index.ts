@@ -151,3 +151,10 @@ export const cspErrorText =
  * before the postMessage channel is established (i.e. before the first valid message from the iframe).
  */
 export const connectErrorText = "Message bus is not connected with frame" as const;
+
+/**
+ * Reply the ONLYOFFICE Apps portal sends as `methodReturnData` when the current mode has no handler
+ * for the called method. `SDKInstance.#handleMethodResponse` rejects it with {@link SDKErrorCode.ModeMismatch}.
+ * @internal
+ */
+export const wrongMethodText = "Wrong method for this mode" as const;
