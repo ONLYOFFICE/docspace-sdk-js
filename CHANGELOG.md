@@ -19,6 +19,7 @@
 - Added new instance methods: `navigateSection`, `setCustomActions`, `upload`. `upload` works in Forms and Personal mode; a mode-guarded method called in any other mode rejects its promise with `SDKErrorCode.ModeMismatch` instead of throwing
 - Added unit tests for SDK instance class
 - Added edge case tests for utils and new modes
+- Exported the documented constants `CSPApiUrl`, `FRAME_NAME`, `defaultConfig`, `cspErrorText` and `connectErrorText` from the package entry point
 - Exported `TEntityBase` and `TListResponse`, the shared shapes behind `TFileInfo`/`TFolderInfo`/`TRoomInfo` and `TFilesResponse`/`TRoomsResponse`
 - Added `TEditorAnonymous` (`TEditorCustomization.anonymous`) and `TCustomContextMenuActions` (`TCustomActionsConfig.contextMenu`) as named types instead of inline object literals
 - Added the optional `code` argument to `login` for finishing a two-factor sign-in: the portal answers the first call with a `/confirm/…` url and no session, the second call carries the one-time code. Requires a portal whose SDK dispatcher reads `code`
