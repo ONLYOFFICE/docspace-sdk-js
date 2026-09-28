@@ -66,7 +66,7 @@ export enum SDKErrorCode {
 export type TSDKErrorDetails = {
   /** HTTP status of the failed portal request (`401`, `403`, `404`, …). Absent when the portal did not report one. */
   status?: number;
-  /** The portal's error payload with `config`, `request` and `stack` removed: `message`, `name`, `code`, `status`. */
+  /** The portal's error payload: `message`, `name`, `code`, `status`. */
   data?: object;
 };
 

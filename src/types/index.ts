@@ -192,7 +192,7 @@ export type TEditorCustomization = {
   toolbarHideFileName?: boolean;
   /** Use flat (highlighted) toolbar tabs instead of distinct tabs. Default: `false`. */
   toolbarNoTabs?: boolean;
-  /** Editor color theme: a {@link Theme} value. The portal maps `"Base"` to its light and `"Dark"` to its dark editor theme, `"System"` follows the OS; any other string falls back to `"System"`. Unset by default: the editor follows {@link TFrameConfig.theme}. */
+  /** Editor color theme: a {@link Theme} value; any other string falls back to `"System"`. Unset by default: the editor follows {@link TFrameConfig.theme}. */
   uiTheme?: TTheme;
   /** Ruler/dialog measurement units. Default: `"cm"`. */
   unit?: "cm" | "pt" | "inch";
@@ -387,13 +387,13 @@ export type TUploaderUploadError = {
  * ```
  */
 export type TFrameEvents = {
-  /** Fired by the SDK itself, in every mode, when it hits an error: CSP validation ({@link SDKErrorCode.CSPViolation}), an unparsable message, a call before or after the connection ({@link SDKErrorCode.Disconnected}), a method timeout ({@link SDKErrorCode.Timeout}) or a token failure. Receives the error message string. The portal never sends this event, so an API error of a method call does not fire it — the method's promise rejects instead. */
+  /** Fired by the SDK itself, in every mode, on a CSP, message parsing, connection, method timeout or token failure. Receives the error message string. A portal API error does not fire it: the method's promise rejects instead. */
   onAppError?: null | ((message: string) => void);
-  /** Fired (OAuth mode, every mode) when no access token can be used: the SDK could not resolve one ({@link TFrameConfig.getToken} threw, rejected or is missing; `code` is {@link SDKErrorCode.TokenResolveFailed}), or the portal still answered `401` after a fresh token (`code` is `"UNAUTHORIZED"`: the token expired or lacks the scope). The host should re-authenticate or surface the failure. */
+  /** Fired (OAuth mode) when no access token can be used: the SDK could not resolve one (`code` {@link SDKErrorCode.TokenResolveFailed}: {@link TFrameConfig.getToken} threw, rejected or is missing), or the portal still answered `401` after a fresh token (`code` `"UNAUTHORIZED"`). The host should re-authenticate or surface the failure. */
   onAuthError?: null | ((error: { code?: string; message: string }) => void);
   /** Fired once, in every mode, when the ONLYOFFICE Apps frame is fully initialized and ready. {@link SDKMode.PublicRoom} without a valid {@link TFrameConfig.id} renders an "Invalid link" page and never fires it. */
   onAppReady?: null | ((data: { frameId: string }) => void);
-  /** Fired when the user completes a sign-in through a confirmation link opened inside the frame. Not fired by {@link SDKInstance.login} or the OAuth flow: there a loaded frame and {@link TFrameEvents.onAppReady} are the sign of success. */
+  /** Fired when the user completes a sign-in through a confirmation link opened inside the frame. Not fired by {@link SDKInstance.login} or the OAuth flow, where {@link TFrameEvents.onAppReady} is the sign of success. */
   onAuthSuccess?: null | ((data: object) => void);
   /** Fired in selector modes ({@link SDKMode.RoomSelector}, {@link SDKMode.FileSelector}) when the dialog is closed or canceled. */
   onCloseCallback?: null | (() => void);
@@ -409,7 +409,7 @@ export type TFrameEvents = {
   onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. {@link SDKMode.RoomSelector} passes an **array** of {@link TSelectedRoom} (one element for a single choice); {@link SDKMode.FileSelector} passes a single {@link TSelectedFile} object. */
   onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
-  /** Fired when the user signs out through the portal UI inside the frame ({@link SDKMode.Manager} and the other modes that show the profile menu). Not fired by {@link SDKInstance.logout}. */
+  /** Fired when the user signs out through the portal's profile menu inside the frame. Not fired by {@link SDKInstance.logout}. */
   onSignOut?: null | (() => void);
   /** Fired in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Forms} and {@link SDKMode.Personal} when the frame is about to open the editor (row activation, context menu, hotkey, the "Create" dialog). Receives the file with the requested action — see {@link TEditorOpenPayload}. Registering the handler suppresses the portal's own editor: open the file in a frame of your own. */
   onEditorOpen?: null | ((file: TEditorOpenPayload) => void);
@@ -478,10 +478,10 @@ export type TFrameConfig = {
   cancelButtonLabel?: string;
   /**
    * HEX color for the selector accept button. Default: `"#5299E0"`.
-   * @deprecated ONLYOFFICE Apps 4.0 does not read it; the selector uses the portal theme. Kept for configs written for older versions.
+   * @deprecated ONLYOFFICE Apps 4.0 does not read it; the selector uses the portal theme.
    */
   buttonColor?: string;
-  /** Validate the host against the portal's CSP allowlist before loading the iframe: the SDK fetches {@link CSPApiUrl} and compares the host name and port (scheme and path are ignored). `false` skips that request only; the portal still sends its `frame-ancestors` header, so a host missing from the allowlist gets a blank frame from the browser instead of the SDK's error page. Default: `true`. */
+  /** Validate the host against the portal's CSP allowlist before loading the iframe (host name and port only). `false` skips the request to {@link CSPApiUrl}; the browser still enforces the portal's `frame-ancestors` header. Default: `true`. */
   checkCSP?: boolean;
   /** Plain text shown in the placeholder `div` after {@link SDKInstance.destroyFrame}. Markup is not rendered. Default: `""`. */
   destroyText?: string;
@@ -493,7 +493,7 @@ export type TFrameConfig = {
   downloadToEvent?: boolean;
   /** Editor UI customization. See {@link TEditorCustomization}. Default: `{}`. */
   editorCustomization?: TEditorCustomization;
-  /** The "Open file location" button of the editor. `true` = the button navigates to the file's folder; `"event"` = the button stays visible and fires {@link TFrameEvents.onEditorCloseCallback} instead of navigating (set automatically when that handler is registered); `false` = the button is hidden (also hidden for guests). Default: `true`. */
+  /** The "Open file location" button of the editor. `true` = the button opens the file's folder; `"event"` = the button fires {@link TFrameEvents.onEditorCloseCallback} instead (set automatically when the handler is registered); `false` = no button. Default: `true`. */
   editorGoBack?: boolean | "event";
   /** Editor UI layout sent to the backend. See {@link EditorType}. Default: `"desktop"`. */
   editorType?: TEditorType;
@@ -507,7 +507,7 @@ export type TFrameConfig = {
   frameId: string;
   /** Iframe height. CSS value: `"100%"`, `"600px"`, etc. Default: `"100%"`. */
   height?: string;
-  /** Entity ID: the file in {@link SDKMode.Editor} and {@link SDKMode.Viewer}, the target folder in {@link SDKMode.Uploader}, the room in {@link SDKMode.PublicRoom}, the folder to open in {@link SDKMode.Personal}, the form filling room in {@link SDKMode.Forms}. Required for Editor, Viewer, Uploader and PublicRoom; optional in Forms, where the room configured in the portal's Forms settings is used when unset. Default: `null`. */
+  /** Entity ID: the file in {@link SDKMode.Editor} and {@link SDKMode.Viewer}, the target folder in {@link SDKMode.Uploader}, the room in {@link SDKMode.PublicRoom}, the folder to open in {@link SDKMode.Personal}, the form filling room in {@link SDKMode.Forms} (optional there: the room from the portal's Forms settings is used when unset). Default: `null`. */
   id?: string | number | null;
   /** Show info panel toggle in {@link SDKMode.Manager}. Default: `true`. */
   infoPanelVisible?: boolean;
@@ -521,7 +521,7 @@ export type TFrameConfig = {
   mode: TFrameMode;
   /** Iframe `name` attribute prefix. Default: {@link FRAME_NAME}. */
   name?: string;
-  /** Share key of an external link, for content that is not otherwise accessible: the room link in {@link SDKMode.PublicRoom} and {@link SDKMode.Manager} (`key`), the file link in {@link SDKMode.Editor} and {@link SDKMode.Viewer} (`share`). Ignored by every other mode. Obtain it from {@link TRequestTokenInfo.requestToken}. Default: `null`. */
+  /** Share key of an external link: the room link in {@link SDKMode.PublicRoom} and {@link SDKMode.Manager}, the file link in {@link SDKMode.Editor} and {@link SDKMode.Viewer}. Ignored by other modes. Obtain it from {@link TRequestTokenInfo.requestToken}. Default: `null`. */
   requestToken?: string | null;
   /**
    * OAuth access-token provider. Supplying `getToken` (or {@link TFrameConfig.accessToken})
@@ -607,9 +607,9 @@ export type TFrameConfig = {
    * @deprecated ONLYOFFICE Apps 4.0 does not read it: the layout is the one the user last chose. Call {@link SDKInstance.setListView} after {@link TFrameEvents.onAppReady} instead.
    */
   viewAs?: TManagerViewMode;
-  /** Visible table columns in {@link SDKMode.Manager}. Comma-separated: `"Index,Name,Size,Type,Tags"`. Applies in the table layout only (switch with {@link SDKInstance.setListView}) and only until the user changes the columns: a column set stored in the browser for the portal takes precedence. */
+  /** Visible table columns in {@link SDKMode.Manager}. Comma-separated: `"Index,Name,Size,Type,Tags"`. Applies in the table layout only ({@link SDKInstance.setListView}); a column set the user saved in the browser takes precedence. */
   viewTableColumns?: string;
-  /** Delay iframe append. When `true`, the iframe is not rendered until {@link SDKInstance.setConfig} is called with `reload = true`; a call without reload rejects with {@link SDKErrorCode.Disconnected} because no frame is connected yet. {@link SDKMode.System} ignores the flag and renders at once. Default: `false`. */
+  /** Delay iframe append. When `true`, the iframe is not rendered until {@link SDKInstance.setConfig} is called with `reload = true` (without reload the call rejects with {@link SDKErrorCode.Disconnected}). {@link SDKMode.System} ignores the flag. Default: `false`. */
   waiting?: boolean;
   /** Iframe width. CSS value: `"100%"`, `"800px"`, etc. Default: `"100%"`. */
   width?: string;

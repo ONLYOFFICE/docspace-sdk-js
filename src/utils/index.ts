@@ -59,10 +59,8 @@ export const customUrlSearchParams = (
  *
  * Fetches `{targetSrc}{@link CSPApiUrl}` and compares `window.location.host` (host name
  * and port, lower-cased) with the host of every entry of the `domains` array in the JSON
- * response. The scheme is ignored, so `http://` and `https://` entries of one host are
- * equivalent here; an entry with a path never matches. If the host is not listed, throws
- * an error with {@link cspErrorText}. The portal's own `frame-ancestors` header is checked
- * by the browser independently of this call.
+ * response; the scheme is ignored and an entry with a path never matches. If the host is
+ * not listed, throws an error with {@link cspErrorText}.
  *
  * Skipped when `window.location.origin` equals the origin of `targetSrc`
  * (same-origin embedding).

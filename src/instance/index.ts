@@ -94,8 +94,8 @@ type TPendingUploadEntry = {
  * {@link SDKErrorCode.Timeout} after {@link TFrameConfig.methodTimeout} and
  * {@link SDKErrorCode.Disconnected} when the frame is not connected. Two legacy methods differ:
  * {@link SDKInstance.login} and {@link SDKInstance.createRoom} resolve a portal failure as `{ status, message }`.
- * A portal older than ONLYOFFICE Apps 4.0 does not flag failures, so on such a portal every method resolves
- * the portal's error object (with `config`, `request` and `stack` removed) instead of rejecting.
+ * A portal older than ONLYOFFICE Apps 4.0 does not flag failures: there every method resolves the portal's
+ * error object instead of rejecting.
  * :::
  *
  * @example
@@ -1632,7 +1632,7 @@ export class SDKInstance {
    * :::
    *
    * @param title - The room display name.
-   * @param roomType - The room type: a {@link RoomType} value or its numeric API value (`1` form filling, `2` collaboration, `5` custom, `6` public, `8` virtual data, `9` AI).
+   * @param roomType - The room type: a {@link RoomType} value or its numeric API value.
    * @param options - Optional room settings. See {@link TCreateRoomOptions}.
    * @returns A promise that resolves with {@link TRoomInfo}, or with `{ status, message }` when the portal
    *   reports a failure — unlike the other methods, `createRoom` does not reject on portal errors.
@@ -2052,12 +2052,10 @@ export class SDKInstance {
    * using the chunked upload API. The file list refreshes automatically when complete.
    *
    * @param file - The file to upload. Callers should validate type and size before calling.
-   * @returns A promise that resolves with the payload of {@link TFrameEvents.onUploadSuccess}
-   *   (`{ fileName, fileSize, uploadId }`), so a handler for that event is optional. Rejects with
-   *   {@link SDKError}: {@link SDKErrorCode.UploadFailed} when the frame reports
-   *   {@link TFrameEvents.onUploadError} or the transfer exceeds 120 seconds,
-   *   {@link SDKErrorCode.ModeMismatch} in any other mode, {@link SDKErrorCode.Disconnected}
-   *   before the frame is connected.
+   * @returns A promise that resolves with the {@link TUploadResult} of {@link TFrameEvents.onUploadSuccess},
+   *   so a handler for that event is optional. Rejects with {@link SDKErrorCode.UploadFailed} on
+   *   {@link TFrameEvents.onUploadError} or after 120 seconds, {@link SDKErrorCode.ModeMismatch} in any
+   *   other mode, {@link SDKErrorCode.Disconnected} before the frame is connected.
    *
    * :::note
    * The entire file is read into memory via `arrayBuffer()` before transfer.
@@ -2068,9 +2066,8 @@ export class SDKInstance {
    * The ArrayBuffer is transferred to the iframe (zero-copy). After `upload()`
    * returns, the buffer is neutered and cannot be reused.
    *
-   * The transfer has its own 120-second timeout; {@link TFrameConfig.methodTimeout} does not apply.
-   * {@link TFrameEvents.onUploadProgress} is not emitted for `upload()` — the frame reports only
-   * success or failure.
+   * {@link TFrameConfig.methodTimeout} does not apply to the transfer, and
+   * {@link TFrameEvents.onUploadProgress} is not emitted for it.
    * :::
    *
    * @example

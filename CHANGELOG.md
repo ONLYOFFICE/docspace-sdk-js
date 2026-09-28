@@ -9,13 +9,14 @@
 - Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection`); `navigateSection` now also works in Personal mode
 - Added `SDKError` and `SDKErrorCode`
 - Added `RoomType`, the room types accepted by `createRoom` (form filling `1`, collaboration `2`, custom `5`, public `6`, virtual data `8`, AI `9`)
-- Added `SDKErrorCode.ApiError`, `TSDKErrorDetails` and the `status` / `data` fields of `SDKError`: a method call the portal flags as failed (`isError: true`, ONLYOFFICE Apps 4.0) now rejects with the HTTP status and the portal's error payload; the legacy `login` and `createRoom` keep resolving `{ status, message }`. A `"Wrong method for this mode"` reply rejects with `SDKErrorCode.ModeMismatch`
+- Added `SDKErrorCode.ApiError`, `TSDKErrorDetails` and the `status` / `data` fields of `SDKError`: a method call the portal (ONLYOFFICE Apps 4.0) reports as failed rejects with the HTTP status and the error payload; `login` and `createRoom` keep resolving `{ status, message }`
+- A `"Wrong method for this mode"` reply rejects with `SDKErrorCode.ModeMismatch`
 - Added `methodTimeout` config field
 - Added `stylesUrl` and `integrationUrl` config fields
 - Added new events: `onNavigate`, `onUploadSuccess`, `onUploadError`, `onCustomAction`, `onContentReady`, `onNoAccess`, `onNotFound`, `onEditorOpen`, `onGetExternalData`, `onSetExternalData`
 - Added round-trip delivery for `onGetExternalData`: the handler's return value (sync or `Promise`) is posted back to the iframe via the new `MessageTypes.ExternalDataReturn` envelope and correlated by `callId`
 - Added new types: `TGetExternalDataRequest`, `TSetExternalDataPayload`
-- Added the upload event payload types: `TUploadResult`, `TUploadError` (Forms and Personal, one object per `upload` call), `TUploaderUploadResult`, `TUploadedFile`, `TUploaderUploadError`, `TRejectedFile`, `TUploadRejection` (Uploader dialog: an array of API envelopes on success, `{ error, rejectedFiles }` on failure) and `TUploadProgress` (Uploader, per chunk). Every `TFrameEvents` handler now names the modes that emit the event
+- Added the upload event payload types `TUploadResult`, `TUploadError`, `TUploadProgress`, `TUploaderUploadResult`, `TUploadedFile`, `TUploaderUploadError`, `TRejectedFile` and `TUploadRejection`; every `TFrameEvents` handler names the modes that emit the event
 - Added new instance methods: `navigateSection`, `setCustomActions`, `upload`. `upload` works in Forms and Personal mode; a mode-guarded method called in any other mode rejects its promise with `SDKErrorCode.ModeMismatch` instead of throwing
 - Added unit tests for SDK instance class
 - Added edge case tests for utils and new modes
@@ -34,7 +35,7 @@
 - Migrated from Jest to Vitest for testing
 - `editorCustomization.uiTheme` takes a `Theme` value (`"Base"`, `"Dark"`, `"System"`), the only values the portal maps to editor themes
 - Deprecated `buttonColor` and `viewAs`: ONLYOFFICE Apps 4.0 does not read them
-- Config field JSDoc states the modes each field applies to and the portal's actual behaviour (`id` optional in Forms, `requestToken` modes, `stylesUrl` URL rules, `viewTableColumns` precedence, `editorGoBack` values, `noLoader` and `waiting` per mode, `checkCSP` scope, `destroyText` as plain text, `onNoAccess` in Chat)
+- Config field JSDoc states the modes each field applies to and the portal's actual behaviour
 - `createFile`: `templateId` and `formId` are optional and the title may carry an extension, matching the portal
 - Generated reference pages carry the source file URL as `custom_edit_url` front matter instead of a "View source on GitHub" link under the title, so the site's "Edit this page" link opens the source on GitHub; the section index pages point at `tools/docs/sections.mjs`. The `APITable` import is a plain MDX import line after the front matter and the `<APITable>` tags are no longer wrapped in `mdx-code-block` fences
 - The `Remarks` and `Deprecated` headings of the generated reference use TypeDoc's default text again, without a trailing colon
@@ -57,7 +58,7 @@
 - The first paragraph of the README, the package description and `context7.json` name ONLYOFFICE DocSpace once as the previous name of ONLYOFFICE Apps, so searches and indexers by either name find the SDK; everywhere else the product stays ONLYOFFICE Apps
 
 ### Fixed
-- Error replies from portals that do not flag failures are sanitized before the promise resolves: `config` (whose `data` is the request body, e.g. the password hash of `login`), `request` and `stack` no longer reach the host page
+- Error replies from portals that do not flag failures are sanitized: `config`, `request` and `stack` are removed before the promise resolves, so a failed `login` no longer exposes the password hash to the host page
 - `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with three arguments (the DocsAPI editor object, `window.Asc`, then `data`). The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. Documentation now states that the connector must be created by the callback (`editor.createConnector()`) and shows the `Asc.scope` channel for `callCommand`.
 - Personal mode now propagates `providerName`, `inviteKey`, `emplType`, and `uid` to the iframe URL, matching Forms and Chat. Previously these OAuth bootstrap params passed to `SDK.initPersonal` were silently dropped, so embedding hosts (e.g. Nextcloud) could not auto-authenticate the user via the configured provider.
 - Fixed wrong config merge in `setConfig`
