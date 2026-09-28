@@ -14,7 +14,7 @@
 - Added new events: `onNavigate`, `onUploadSuccess`, `onUploadError`, `onCustomAction`, `onContentReady`, `onNoAccess`, `onNotFound`, `onEditorOpen`, `onGetExternalData`, `onSetExternalData`
 - Added round-trip delivery for `onGetExternalData`: the handler's return value (sync or `Promise`) is posted back to the iframe via the new `MessageTypes.ExternalDataReturn` envelope and correlated by `callId`
 - Added new types: `TGetExternalDataRequest`, `TSetExternalDataPayload`
-- Added new instance methods: `navigateSection`, `setCustomActions`, `upload`
+- Added new instance methods: `navigateSection`, `setCustomActions`, `upload`. `upload` works in Forms and Personal mode; a mode-guarded method called in any other mode rejects its promise with `SDKErrorCode.ModeMismatch` instead of throwing
 - Added unit tests for SDK instance class
 - Added edge case tests for utils and new modes
 - Exported `TEntityBase` and `TListResponse`, the shared shapes behind `TFileInfo`/`TFolderInfo`/`TRoomInfo` and `TFilesResponse`/`TRoomsResponse`

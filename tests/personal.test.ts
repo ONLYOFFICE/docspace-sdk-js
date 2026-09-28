@@ -281,7 +281,7 @@ describe("navigateSection — Personal mode", () => {
     expect(result).toEqual({ section: "favorites" });
   });
 
-  test("throws SDKError with ModeMismatch when called in Manager mode", () => {
+  test("rejects with SDKError ModeMismatch when called in Manager mode", async () => {
     setupTarget("ds-manager");
     const config: TFrameConfig = {
       ...defaultConfig,
@@ -293,11 +293,65 @@ describe("navigateSection — Personal mode", () => {
     const inst = new SDKInstance(config);
     inst.initFrame(config);
 
-    expect(() => inst.navigateSection("my-documents")).toThrow(SDKError);
+    let caught: unknown;
     try {
-      inst.navigateSection("my-documents");
+      await inst.navigateSection("my-documents");
     } catch (e) {
-      expect((e as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
+      caught = e;
     }
+    expect(caught).toBeInstanceOf(SDKError);
+    expect((caught as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
+  });
+});
+
+describe("upload — Personal mode", () => {
+  const dispatchUploadEvent = (event: "onUploadSuccess" | "onUploadError", data: object) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          frameId: "ds-personal",
+          type: "onEventReturn",
+          eventReturnData: { event, data },
+        }),
+        origin: BASE_SRC,
+      }),
+    );
+  };
+
+  test("posts uploadFileData with the file metadata and resolves with the onUploadSuccess payload", async () => {
+    const { inst, postMessageSpy } = initConnected();
+    postMessageSpy.mockImplementation((msg: unknown) => {
+      const m = msg as { type?: string; fileName?: string };
+      if (typeof msg === "object" && m.type === "uploadFileData") {
+        queueMicrotask(() =>
+          dispatchUploadEvent("onUploadSuccess", { fileName: m.fileName, fileSize: 4, uploadId: 1 }),
+        );
+      }
+    });
+
+    const result = await inst.upload(new File(["data"], "photo.png"));
+
+    const raw = postMessageSpy.mock.calls.find(
+      (c) => typeof c[0] === "object" && c[0]?.type === "uploadFileData",
+    );
+    expect(raw).toBeDefined();
+    expect(raw![0]).toMatchObject({ frameId: "ds-personal", fileName: "photo.png", fileSize: 4 });
+    expect(raw![0].buffer).toBeInstanceOf(ArrayBuffer);
+    expect(result).toEqual({ fileName: "photo.png", fileSize: 4, uploadId: 1 });
+  });
+
+  test("rejects with UploadFailed when the frame reports onUploadError", async () => {
+    const { inst, postMessageSpy } = initConnected();
+    postMessageSpy.mockImplementation((msg: unknown) => {
+      const m = msg as { type?: string; fileName?: string };
+      if (typeof msg === "object" && m.type === "uploadFileData") {
+        queueMicrotask(() => dispatchUploadEvent("onUploadError", { fileName: m.fileName, message: "Quota exceeded" }));
+      }
+    });
+
+    await expect(inst.upload(new File(["data"], "big.bin"))).rejects.toMatchObject({
+      code: SDKErrorCode.UploadFailed,
+      message: "Quota exceeded",
+    });
   });
 });

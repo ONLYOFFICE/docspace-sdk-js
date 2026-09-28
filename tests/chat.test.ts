@@ -177,25 +177,26 @@ describe("mode-guarded methods — Chat mode", () => {
     return inst;
   };
 
-  test("navigateSection throws SDKError with ModeMismatch", () => {
+  test("navigateSection rejects with SDKError ModeMismatch", async () => {
     const inst = initChatInstance();
 
-    expect(() => inst.navigateSection("my-documents")).toThrow(SDKError);
-    try {
-      inst.navigateSection("my-documents");
-    } catch (e) {
-      expect((e as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
-    }
+    await expect(inst.navigateSection("my-documents")).rejects.toBeInstanceOf(SDKError);
+    await expect(inst.navigateSection("my-documents")).rejects.toMatchObject({ code: SDKErrorCode.ModeMismatch });
   });
 
-  test("setCustomActions throws SDKError with ModeMismatch", () => {
+  test("setCustomActions rejects with SDKError ModeMismatch", async () => {
     const inst = initChatInstance();
 
-    expect(() => inst.setCustomActions([])).toThrow(SDKError);
-    try {
-      inst.setCustomActions([]);
-    } catch (e) {
-      expect((e as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
-    }
+    await expect(inst.setCustomActions([])).rejects.toBeInstanceOf(SDKError);
+    await expect(inst.setCustomActions([])).rejects.toMatchObject({ code: SDKErrorCode.ModeMismatch });
+  });
+
+  test("upload rejects with SDKError ModeMismatch", async () => {
+    const inst = initChatInstance();
+
+    await expect(inst.upload(new File(["x"], "doc.pdf"))).rejects.toMatchObject({
+      code: SDKErrorCode.ModeMismatch,
+      message: "upload is only available in Forms or Personal mode",
+    });
   });
 });

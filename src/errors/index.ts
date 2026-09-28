@@ -45,7 +45,7 @@ export enum SDKErrorCode {
   Disconnected = "DISCONNECTED",
   /** The host domain is blocked by the ONLYOFFICE Apps Content Security Policy. */
   CSPViolation = "CSP_VIOLATION",
-  /** A method was called in an incompatible {@link SDKMode} (e.g. {@link SDKInstance.upload} outside {@link SDKMode.Forms}). */
+  /** A method was called in an incompatible {@link SDKMode} (e.g. {@link SDKInstance.setCustomActions} outside {@link SDKMode.Forms}), or the portal answered that the current mode has no such method. The promise rejects; nothing is thrown synchronously. */
   ModeMismatch = "MODE_MISMATCH",
   /** The provided {@link TFrameConfig} is missing required fields or has invalid values. */
   InvalidConfig = "INVALID_CONFIG",

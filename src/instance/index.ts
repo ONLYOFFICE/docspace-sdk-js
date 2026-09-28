@@ -652,6 +652,17 @@ export class SDKInstance {
     for (const key of ERROR_PAYLOAD_STRIP_KEYS) delete sanitized[key];
     return sanitized;
   }
+
+  /**
+   * Returns a promise rejected with {@link SDKErrorCode.ModeMismatch}. Mode-guarded methods
+   * use it instead of throwing so that `.catch()` and `await` handle the guard the same way as
+   * every other failure.
+   * @internal
+   */
+  #rejectModeMismatch(message: string): Promise<never> {
+    return Promise.reject(new SDKError(SDKErrorCode.ModeMismatch, message));
+  }
+
   /**
    * Sends the next queued task and starts its timeout timer.
    * @internal
@@ -1252,6 +1263,7 @@ export class SDKInstance {
    * @param config - Partial frame configuration to merge. Defaults to {@link defaultConfig}.
    * @param reload - When `true`, reinitializes the frame. Defaults to `false`.
    * @returns A promise that resolves with the iframe's response, or with the merged config if `reload` is `true`.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1263,7 +1275,6 @@ export class SDKInstance {
    * read them first via {@link SDKInstance.getConfig}.
    * ```typescript
    * const current = instance.getConfig();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.setConfig({ ...current, id: 99, mode: SDKMode.Editor }, true);
    * ```
    */
@@ -1319,6 +1330,7 @@ export class SDKInstance {
    * Returns metadata about the folder currently open in the frame.
    *
    * @returns A promise that resolves with {@link TFolderInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1330,7 +1342,6 @@ export class SDKInstance {
    * Check write access before calling {@link SDKInstance.createFolder}.
    * ```typescript
    * const info = await instance.getFolderInfo();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (info.security?.create) {
    *   await instance.createFolder(info.id, 'Archive');
    * }
@@ -1344,6 +1355,7 @@ export class SDKInstance {
    * Returns the items currently selected in the frame.
    *
    * @returns A promise that resolves with an array of {@link TFileInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1355,7 +1367,6 @@ export class SDKInstance {
    * Pass the selection as context to {@link SDKInstance.openModal}.
    * ```typescript
    * const selection = await instance.getSelection();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (selection.length > 0) {
    *   await instance.openModal('share', { items: selection });
    * }
@@ -1369,6 +1380,7 @@ export class SDKInstance {
    * Returns the files in the folder currently open in the frame.
    *
    * @returns A promise that resolves with {@link TFilesResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1380,7 +1392,6 @@ export class SDKInstance {
    * Open the first file in viewer mode via {@link SDKInstance.setConfig}.
    * ```typescript
    * const files = await instance.getFiles();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (files.files[0]) {
    *   await instance.setConfig({ id: files.files[0].id, mode: SDKMode.Viewer }, true);
    * }
@@ -1394,6 +1405,7 @@ export class SDKInstance {
    * Returns the subfolders of the folder currently open in the frame.
    *
    * @returns A promise that resolves with {@link TFilesResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1405,7 +1417,6 @@ export class SDKInstance {
    * Navigate into the first subfolder via {@link SDKInstance.setConfig}.
    * ```typescript
    * const folders = await instance.getFolders();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (folders.folders[0]) {
    *   await instance.setConfig({ id: folders.folders[0].id }, true);
    * }
@@ -1422,6 +1433,7 @@ export class SDKInstance {
    * when you need only one content type.
    *
    * @returns A promise that resolves with {@link TFilesResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1433,7 +1445,6 @@ export class SDKInstance {
    * ```typescript
    * const list = await instance.getList();
    * console.log('Files:', list.files.length, 'Folders:', list.folders.length);
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * ```
    */
   getList(): Promise<TFilesResponse> {
@@ -1445,6 +1456,7 @@ export class SDKInstance {
    *
    * @param filter - Filter and sort criteria. See {@link TFrameFilter}.
    * @returns A promise that resolves with {@link TRoomsResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1456,7 +1468,6 @@ export class SDKInstance {
    * console.log(rooms);
    * ```
    *
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * @example
    * Find rooms and remove an outdated tag from each using {@link SDKInstance.removeTagsFromRoom}.
    * ```typescript
@@ -1474,6 +1485,7 @@ export class SDKInstance {
    * Returns information about the currently authenticated user.
    *
    * @returns A promise that resolves with {@link TUserInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1485,7 +1497,6 @@ export class SDKInstance {
    * Apply the user's preferred locale via {@link SDKInstance.setConfig}.
    * ```typescript
    * const user = await instance.getUserInfo();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (user.cultureName) {
    *   await instance.setConfig({ locale: user.cultureName });
    * }
@@ -1499,6 +1510,7 @@ export class SDKInstance {
    * Returns the server's password hash settings needed by {@link SDKInstance.createHash}.
    *
    * @returns A promise that resolves with {@link THashSettings}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1510,7 +1522,6 @@ export class SDKInstance {
    * Full authentication flow using {@link SDKInstance.createHash} and {@link SDKInstance.login}.
    * ```typescript
    * const settings = await instance.getHashSettings();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * await instance.login('user@example.com', hash);
    * ```
@@ -1525,6 +1536,7 @@ export class SDKInstance {
    * @param type - The modal type identifier.
    * @param options - Modal-specific configuration options.
    * @returns A promise that resolves with the modal result.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1536,7 +1548,6 @@ export class SDKInstance {
    * Open a share dialog for the items currently selected in the frame using {@link SDKInstance.getSelection}.
    * ```typescript
    * const selection = await instance.getSelection();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * if (selection.length > 0) {
    *   await instance.openModal('share', { items: selection });
    * }
@@ -1554,6 +1565,7 @@ export class SDKInstance {
    * @param templateId - The ID of the template to use for the new file.
    * @param formId - The ID of the associated form, or an empty string if none.
    * @returns A promise that resolves with {@link TFileInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1565,7 +1577,6 @@ export class SDKInstance {
    * Create a file and immediately open it in the editor using {@link SDKInstance.setConfig}.
    * ```typescript
    * const file = await instance.createFile('folder-123', 'Report', 'template-456', '');
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.setConfig({ id: file.id, mode: SDKMode.Editor }, true);
    * ```
    */
@@ -1589,6 +1600,7 @@ export class SDKInstance {
    * @param parentFolderId - The ID of the parent folder.
    * @param title - The folder title.
    * @returns A promise that resolves with {@link TFolderInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1600,7 +1612,6 @@ export class SDKInstance {
    * Create a folder and immediately add a file inside it using {@link SDKInstance.createFile}.
    * ```typescript
    * const folder = await instance.createFolder('parent-123', 'Q1 Reports');
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.createFile(folder.id, 'Summary', 'template-456', '');
    * ```
    */
@@ -1652,6 +1663,7 @@ export class SDKInstance {
    *
    * @param viewType - The view mode: `"row"`, `"table"`, or `"tile"`.
    * @returns A promise that resolves with the result of the operation.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1663,7 +1675,6 @@ export class SDKInstance {
    * ```typescript
    * const { mode } = instance.getConfig();
    * if (mode === SDKMode.Manager) {
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   await instance.setListView('tile');
    * }
    * ```
@@ -1680,6 +1691,7 @@ export class SDKInstance {
    * @param password - The plaintext password to hash.
    * @param hashSettings - Hash algorithm settings from {@link SDKInstance.getHashSettings}.
    * @returns A promise that resolves with the generated hash.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1691,7 +1703,6 @@ export class SDKInstance {
    * @example
    * Full login flow using {@link SDKInstance.getHashSettings} and {@link SDKInstance.login}.
    * ```typescript
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * await instance.login('user@example.com', hash, undefined, true);
@@ -1727,6 +1738,7 @@ export class SDKInstance {
    * @param session - Not forwarded by the portal's SDK dispatcher (client 4.0.0); the session is always persistent.
    * @param code - One-time code from the authenticator app or SMS; finishes a login that answered with a `/confirm/…` url.
    * @returns A promise that resolves with the authentication result — see {@link TLoginResult}.
+   *   Unlike the other methods, a portal failure is resolved as `{ status, message }`, not rejected.
    *
    * @example
    * Login with a pre-hashed password from {@link SDKInstance.createHash}.
@@ -1738,7 +1750,6 @@ export class SDKInstance {
    * @example
    * Two-factor sign-in using {@link SDKInstance.getHashSettings} and {@link SDKInstance.createHash}.
    * ```typescript
-   *   Unlike the other methods, a portal failure is resolved as `{ status, message }`, not rejected.
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('p@ssw0rd', settings);
    * const first = await instance.login('user@example.com', hash);
@@ -1769,6 +1780,7 @@ export class SDKInstance {
    * Ends the current user session.
    *
    * @returns A promise that resolves with the logout result.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1780,7 +1792,6 @@ export class SDKInstance {
    * {@link SDKInstance.createHash}, and {@link SDKInstance.login}.
    * ```typescript
    * await instance.logout();
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const settings = await instance.getHashSettings();
    * const hash = await instance.createHash('newpassword', settings);
    * await instance.login('other@example.com', hash);
@@ -1795,6 +1806,7 @@ export class SDKInstance {
    *
    * @param name - The tag name.
    * @returns A promise that resolves with the created tag data.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1806,7 +1818,6 @@ export class SDKInstance {
    * Create a tag and immediately apply it to a room using {@link SDKInstance.addTagsToRoom}.
    * ```typescript
    * await instance.createTag('archived');
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * await instance.addTagsToRoom('room-123', ['archived']);
    * ```
    */
@@ -1820,6 +1831,7 @@ export class SDKInstance {
    * @param roomId - The room ID.
    * @param tags - Tag names to add.
    * @returns A promise that resolves with the result of the operation.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1831,7 +1843,6 @@ export class SDKInstance {
    * to a newly created room via {@link SDKInstance.createRoom}.
    * ```typescript
    * await instance.createTag('design');
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    * const room = await instance.createRoom('Creative Hub', 'collaboration');
    * await instance.addTagsToRoom(room.id, ['design']);
    * ```
@@ -1849,6 +1860,7 @@ export class SDKInstance {
    * @param roomId - The room ID.
    * @param tags - Tag names to remove.
    * @returns A promise that resolves with the result of the operation.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
@@ -1860,7 +1872,6 @@ export class SDKInstance {
    * ```typescript
    * const rooms = await instance.getRooms({ search: 'sprint-22' });
    * for (const room of rooms.folders) {
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
    * }
    * ```
@@ -1953,6 +1964,8 @@ export class SDKInstance {
    * @param section - Target section. For {@link SDKMode.Forms} — {@link TFormsSection};
    *   for {@link SDKMode.Personal} — {@link TPersonalSection}.
    * @returns A promise that resolves when the navigation is complete.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure,
+   *   or with {@link SDKErrorCode.ModeMismatch} in any other mode.
    *
    * @example
    * Forms mode.
@@ -1964,7 +1977,6 @@ export class SDKInstance {
    * Personal mode.
    * ```typescript
    * const personal = sdk.initPersonal({
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   frameId: 'ds-personal',
    *   src: 'https://portal.example.com',
    * });
@@ -1973,10 +1985,7 @@ export class SDKInstance {
    */
   navigateSection(section: TFormsSection | TPersonalSection): Promise<object> {
     if (this.config.mode !== SDKMode.Forms && this.config.mode !== SDKMode.Personal) {
-      throw new SDKError(
-        SDKErrorCode.ModeMismatch,
-        "navigateSection is only available in Forms or Personal mode",
-      );
+      return this.#rejectModeMismatch("navigateSection is only available in Forms or Personal mode");
     }
 
     return this.#getMethodPromise(InstanceMethods.NavigateSection, { section });
@@ -1989,6 +1998,8 @@ export class SDKInstance {
    *
    * @param config - Custom actions configuration. See {@link TCustomActionsConfig}.
    * @returns A promise that resolves when actions are registered.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure,
+   *   or with {@link SDKErrorCode.ModeMismatch} in any other mode.
    *
    * @example
    * ```typescript
@@ -1998,7 +2009,6 @@ export class SDKInstance {
    *       { key: "send-to-crm", label: "Send to CRM", icon: "https://example.com/icon.svg" },
    *       { key: "export", label: "Export", section: ["completed-forms"] },
    *     ],
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *   },
    * });
    * ```
@@ -2021,15 +2031,15 @@ export class SDKInstance {
    */
   setCustomActions(config: TCustomActionsConfig): Promise<object> {
     if (this.config.mode !== SDKMode.Forms) {
-      throw new SDKError(SDKErrorCode.ModeMismatch, "setCustomActions is only available in Forms mode");
+      return this.#rejectModeMismatch("setCustomActions is only available in Forms mode");
     }
 
     return this.#getMethodPromise(InstanceMethods.SetCustomActions, config);
   }
 
   /**
-   * Uploads a file into the current room.
-   * Only works in {@link SDKMode.Forms} mode.
+   * Uploads a file into the frame's current location: the form filling room in
+   * {@link SDKMode.Forms}, the open folder in {@link SDKMode.Personal}.
    * The file is transferred to the iframe via zero-copy ArrayBuffer and uploaded
    * using the chunked upload API. The file list refreshes automatically when complete.
    *
@@ -2049,6 +2059,10 @@ export class SDKInstance {
    *
    * The ArrayBuffer is transferred to the iframe (zero-copy). After `upload()`
    * returns, the buffer is neutered and cannot be reused.
+   *
+   * The transfer has its own 120-second timeout; {@link TFrameConfig.methodTimeout} does not apply.
+   * {@link TFrameEvents.onUploadProgress} is not emitted for `upload()` — the frame reports only
+   * success or failure.
    * :::
    *
    * @example
@@ -2070,8 +2084,8 @@ export class SDKInstance {
    * ```
    */
   async upload(file: File): Promise<object> {
-    if (this.config.mode !== SDKMode.Forms) {
-      throw new SDKError(SDKErrorCode.ModeMismatch, "upload is only available in Forms mode");
+    if (this.config.mode !== SDKMode.Forms && this.config.mode !== SDKMode.Personal) {
+      return this.#rejectModeMismatch("upload is only available in Forms or Personal mode");
     }
 
     if (!this.#isConnected) {

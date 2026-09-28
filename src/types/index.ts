@@ -313,9 +313,9 @@ export type TFrameEvents = {
   onEditorOpen?: null | ((file: TEditorOpenPayload) => void);
   /** Fired when a file row is activated in the manager list. Files only — a folder click navigates into the folder instead. Receives the portal's file object ({@link TFileInfo}). Registering the handler suppresses the portal's own open action. */
   onFileManagerClick?: null | ((file: TFileInfo) => void);
-  /** Fired when a file upload completes successfully. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
+  /** Fired when a file upload completes successfully. Works in {@link SDKMode.Uploader}, {@link SDKMode.Forms} and {@link SDKMode.Personal} modes. */
   onUploadSuccess?: null | ((data: { fileName: string; fileSize: number; uploadId?: number }) => void);
-  /** Fired when a file upload fails. Works in {@link SDKMode.Uploader} and {@link SDKMode.Forms} modes. */
+  /** Fired when a file upload fails. Works in {@link SDKMode.Uploader}, {@link SDKMode.Forms} and {@link SDKMode.Personal} modes. */
   onUploadError?: null | ((data: { fileName: string; message: string; uploadId?: number }) => void);
   /** Fired on file upload progress update. {@link SDKMode.Uploader} mode only. */
   onUploadProgress?: null | ((data: object) => void);

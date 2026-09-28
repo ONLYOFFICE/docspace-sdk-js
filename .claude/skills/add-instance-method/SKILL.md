@@ -31,10 +31,10 @@ ONLYOFFICE Apps client — the SDK only carries the call.
   ```typescript
   ...(session !== undefined && { session }),
   ```
-- Mode-specific methods start with a guard (pattern from `upload` /
-  `navigateSection` / `setCustomActions`):
+- Mode-specific methods start with a guard that **rejects, never throws** (pattern
+  from `upload` / `navigateSection` / `setCustomActions`):
   ```typescript
-  throw new SDKError(SDKErrorCode.ModeMismatch, "x is only available in Y mode");
+  return this.#rejectModeMismatch("x is only available in Y mode");
   ```
   `SDKError` / `SDKErrorCode` come from `src/errors`.
 - Typed return: reuse a type from `src/types` (`TFilesResponse`, `TUserInfo`, …) or
@@ -68,7 +68,7 @@ iframe). Cover:
 - the promise resolves on a simulated `onMethodReturn` message;
 - the promise rejects with `SDKErrorCode.Timeout` when no reply arrives
   (`methodTimeout`, default 30 000 ms — use fake timers);
-- the mode guard throws `SDKErrorCode.ModeMismatch` (separate case, if applicable).
+- the mode guard rejects with `SDKErrorCode.ModeMismatch` (separate case, if applicable).
 
 ## 5. Docs
 

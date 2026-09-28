@@ -585,7 +585,7 @@ describe("Forms events", () => {
 // ---------------------------------------------------------------------------
 
 describe("navigateSection — mode guard", () => {
-  test("throws SDKError with ModeMismatch when called outside Forms mode", () => {
+  test("rejects with SDKError ModeMismatch when called outside Forms mode", async () => {
     const el = document.createElement("div");
     el.id = "ds-manager";
     document.body.appendChild(el);
@@ -602,7 +602,7 @@ describe("navigateSection — mode guard", () => {
 
     let caught: unknown;
     try {
-      inst.navigateSection("library");
+      await inst.navigateSection("library");
     } catch (e) {
       caught = e;
     }
@@ -610,10 +610,24 @@ describe("navigateSection — mode guard", () => {
     expect(caught).toBeInstanceOf(SDKError);
     expect((caught as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
   });
+
+  test("does not throw synchronously — the guard is observable through .catch()", async () => {
+    setupTarget("ds-manager");
+    const config: TFrameConfig = { ...defaultConfig, src: BASE_SRC, frameId: "ds-manager", mode: "manager", checkCSP: false };
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    const onCatch = vi.fn();
+    const promise = inst.navigateSection("library").catch(onCatch);
+    await promise;
+
+    expect(onCatch).toHaveBeenCalledTimes(1);
+    expect((onCatch.mock.calls[0][0] as SDKError).code).toBe(SDKErrorCode.ModeMismatch);
+  });
 });
 
 describe("setCustomActions — mode guard", () => {
-  test("throws SDKError with ModeMismatch when called outside Forms mode", () => {
+  test("rejects with SDKError ModeMismatch when called outside Forms mode", async () => {
     const el = document.createElement("div");
     el.id = "ds-editor";
     document.body.appendChild(el);
@@ -630,7 +644,7 @@ describe("setCustomActions — mode guard", () => {
 
     let caught: unknown;
     try {
-      inst.setCustomActions({ contextMenu: {} });
+      await inst.setCustomActions({ contextMenu: {} });
     } catch (e) {
       caught = e;
     }
