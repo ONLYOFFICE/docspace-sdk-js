@@ -8,6 +8,7 @@
 - Added Chat mode
 - Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection`); `navigateSection` now also works in Personal mode
 - Added `SDKError` and `SDKErrorCode`
+- Added `RoomType`, the room types accepted by `createRoom` (form filling `1`, collaboration `2`, custom `5`, public `6`, virtual data `8`, AI `9`)
 - Added `SDKErrorCode.ApiError`, `TSDKErrorDetails` and the `status` / `data` fields of `SDKError`: a method call the portal flags as failed (`isError: true`, ONLYOFFICE Apps 4.0) now rejects with the HTTP status and the portal's error payload; the legacy `login` and `createRoom` keep resolving `{ status, message }`. A `"Wrong method for this mode"` reply rejects with `SDKErrorCode.ModeMismatch`
 - Added `methodTimeout` config field
 - Added `stylesUrl` and `integrationUrl` config fields
@@ -29,6 +30,7 @@
 
 ### Changed
 - Migrated from Jest to Vitest for testing
+- `createFile`: `templateId` and `formId` are optional and the title may carry an extension, matching the portal
 - Generated reference pages carry the source file URL as `custom_edit_url` front matter instead of a "View source on GitHub" link under the title, so the site's "Edit this page" link opens the source on GitHub; the section index pages point at `tools/docs/sections.mjs`. The `APITable` import is a plain MDX import line after the front matter and the `<APITable>` tags are no longer wrapped in `mdx-code-block` fences
 - The `Remarks` and `Deprecated` headings of the generated reference use TypeDoc's default text again, without a trailing colon
 - Type alias and variable pages of the generated reference open with the description; the `type X = …` / `const X: …` signature block follows it instead of preceding it, so the Markdown twins the site publishes for LLMs open with prose rather than code

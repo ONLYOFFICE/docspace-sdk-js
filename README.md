@@ -226,7 +226,7 @@ const rooms = await system.getRooms(filter);
 const selection = await system.getSelection();
 
 // Content management
-await system.createFile(folderId, title, templateId);
+await system.createFile(folderId, title);
 await system.createFolder(parentFolderId, title);
 await system.createRoom(title, roomType);
 

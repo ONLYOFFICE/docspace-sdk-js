@@ -1561,36 +1561,36 @@ export class SDKInstance {
    * Creates a new file in the specified folder.
    *
    * @param folderId - The ID of the target folder.
-   * @param title - The file title (without extension).
-   * @param templateId - The ID of the template to use for the new file.
-   * @param formId - The ID of the associated form, or an empty string if none.
+   * @param title - The file title. An extension is optional: `"Report.docx"` keeps it, `"Report"` gets `.docx` from the portal.
+   * @param templateId - The ID of a file to copy the content from. Omit for an empty document.
+   * @param formId - The ID of a form to create the file from. Omit when the file is not based on a form.
    * @returns A promise that resolves with {@link TFileInfo}.
    *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * const file = await instance.createFile('folder-123', 'Project Proposal', 'template-456', '');
+   * const file = await instance.createFile('folder-123', 'Project Proposal');
    * console.log(file);
    * ```
    *
    * @example
-   * Create a file and immediately open it in the editor using {@link SDKInstance.setConfig}.
+   * Create a file from a template and immediately open it in the editor using {@link SDKInstance.setConfig}.
    * ```typescript
-   * const file = await instance.createFile('folder-123', 'Report', 'template-456', '');
+   * const file = await instance.createFile('folder-123', 'Report.docx', 'template-456');
    * await instance.setConfig({ id: file.id, mode: SDKMode.Editor }, true);
    * ```
    */
   createFile(
     folderId: string,
     title: string,
-    templateId: string,
-    formId: string
+    templateId?: string,
+    formId?: string
   ): Promise<TFileInfo> {
     return this.#getMethodPromise<TFileInfo>(InstanceMethods.CreateFile, {
       folderId,
       title,
-      templateId,
-      formId,
+      ...(templateId !== undefined && { templateId }),
+      ...(formId !== undefined && { formId }),
     });
   }
   
@@ -1612,7 +1612,7 @@ export class SDKInstance {
    * Create a folder and immediately add a file inside it using {@link SDKInstance.createFile}.
    * ```typescript
    * const folder = await instance.createFolder('parent-123', 'Q1 Reports');
-   * await instance.createFile(folder.id, 'Summary', 'template-456', '');
+   * await instance.createFile(folder.id, 'Summary');
    * ```
    */
   createFolder(parentFolderId: string, title: string): Promise<TFolderInfo> {
@@ -1625,15 +1625,21 @@ export class SDKInstance {
   /**
    * Creates a new room with the given type and optional settings.
    *
+   * :::note
+   * The room type decides which access levels the room accepts: reviewing and commenting exist only in
+   * {@link RoomType.Custom}; a {@link RoomType.Collaboration} room offers editing and reading only.
+   * Creating a room requires the room admin role on the portal; a user without it gets a `403` result.
+   * :::
+   *
    * @param title - The room display name.
-   * @param roomType - The room type (e.g. `1` for custom, `2` for filling forms).
+   * @param roomType - The room type: a {@link RoomType} value or its numeric API value (`1` form filling, `2` collaboration, `5` custom, `6` public, `8` virtual data, `9` AI).
    * @param options - Optional room settings. See {@link TCreateRoomOptions}.
    * @returns A promise that resolves with {@link TRoomInfo}, or with `{ status, message }` when the portal
    *   reports a failure — unlike the other methods, `createRoom` does not reject on portal errors.
    *
    * @example
    * ```typescript
-   * const room = await instance.createRoom('Design Team', 1, { tags: ['design'] });
+   * const room = await instance.createRoom('Design Team', RoomType.Collaboration, { tags: ['design'] });
    * console.log(room);
    * ```
    *
@@ -1641,7 +1647,7 @@ export class SDKInstance {
    * Create a room, then create a new tag and apply it using {@link SDKInstance.createTag}
    * and {@link SDKInstance.addTagsToRoom}.
    * ```typescript
-   * const room = await instance.createRoom('Marketing', 1);
+   * const room = await instance.createRoom('Marketing', RoomType.Custom);
    * await instance.createTag('campaigns');
    * await instance.addTagsToRoom(room.id, ['campaigns']);
    * ```
@@ -1724,10 +1730,12 @@ export class SDKInstance {
    * session flag, but neither reaches it from the frame.
    *
    * :::note
-   * The result is **resolved, never rejected** — see {@link TLoginResult}. `url === "/"` means a
+   * A failed sign-in is **resolved, not rejected** — see {@link TLoginResult}. `url === "/"` means a
    * session exists; a `url` under `/confirm/` means the account needs a second factor and no
    * session was created — call `login` again with the same credentials and the one-time `code`;
-   * a `status` means the attempt failed. A portal whose SDK dispatcher predates the `code`
+   * a `status` (`401` for wrong credentials) with a `message` means the attempt failed. Only SDK-side
+   * failures reject: {@link SDKErrorCode.Timeout}, {@link SDKErrorCode.Disconnected},
+   * {@link SDKErrorCode.ModeMismatch}. A portal whose SDK dispatcher predates the `code`
    * argument ignores it and answers the challenge again; on such a portal the login page remains
    * the only way to complete a two-factor sign-in.
    * :::
@@ -1843,7 +1851,7 @@ export class SDKInstance {
    * to a newly created room via {@link SDKInstance.createRoom}.
    * ```typescript
    * await instance.createTag('design');
-   * const room = await instance.createRoom('Creative Hub', 'collaboration');
+   * const room = await instance.createRoom('Creative Hub', RoomType.Collaboration);
    * await instance.addTagsToRoom(room.id, ['design']);
    * ```
    */

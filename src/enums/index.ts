@@ -180,6 +180,32 @@ export const enum HeaderBannerDisplaying {
 }
 
 /**
+ * Room types accepted by {@link SDKInstance.createRoom} and returned as `roomType` in {@link TRoomInfo}
+ * and {@link TSelectedRoom.roomType}. The numeric values are the portal's `RoomType` API values.
+ *
+ * @example
+ * ```typescript
+ * import { RoomType } from '@onlyoffice/docspace-sdk-js';
+ *
+ * const room = await instance.createRoom('Contracts', RoomType.Custom);
+ * ```
+ */
+export const enum RoomType {
+  /** Form filling room: a room for filling out and collecting PDF forms. API value: `1` (`FillingFormsRoom`). */
+  FormFilling = 1,
+  /** Collaboration room: co-editing of documents. API value: `2` (`EditingRoom`). */
+  Collaboration = 2,
+  /** Custom room: every access level (including reviewing and commenting) can be assigned. API value: `5` (`CustomRoom`). */
+  Custom = 5,
+  /** Public room: files are shared through external links. API value: `6` (`PublicRoom`). */
+  Public = 6,
+  /** Virtual data room: indexing, watermarks and download restrictions. API value: `8` (`VirtualDataRoom`). */
+  VirtualData = 8,
+  /** AI room: an AI agent works with the room's files. API value: `9` (`AiRoom`). */
+  Ai = 9,
+}
+
+/**
  * Internal method identifiers sent to the ONLYOFFICE Apps iframe via `postMessage`.
  * These are used internally by {@link SDKInstance} — call the corresponding
  * public methods on the instance instead of using these values directly.

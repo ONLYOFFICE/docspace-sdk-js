@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { SDKInstance } from "../src/instance";
 import { defaultConfig, FRAME_NAME } from "../src/constants";
 import { SDKError, SDKErrorCode } from "../src/errors";
+import { RoomType } from "../src/enums";
 import type { TFrameConfig } from "../src/types";
 
 const BASE_SRC = "https://portal.example.com";
@@ -891,6 +892,43 @@ describe("getConfig — immutability", () => {
   });
 });
 
+describe("createFile", () => {
+  const initWithPostMessage = () => {
+    setupTarget();
+    const config = makeConfig();
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+    iframe.dispatchEvent(new Event("load"));
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    return { inst, postMessageSpy };
+  };
+
+  test("posts folderId and title only when templateId and formId are omitted", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.createFile("folder-1", "Report.docx");
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.methodName).toBe("createFile");
+    expect(sent.data.data).toEqual({ folderId: "folder-1", title: "Report.docx" });
+  });
+
+  test("posts templateId and formId when given", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.createFile("folder-1", "Report", "template-2", "form-3");
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.data).toEqual({ folderId: "folder-1", title: "Report", templateId: "template-2", formId: "form-3" });
+  });
+});
+
 describe("createRoom", () => {
   const initWithPostMessage = () => {
     setupTarget();
@@ -916,6 +954,15 @@ describe("createRoom", () => {
 
     const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
     expect(sent.data.data).toEqual({ title: "Team", roomType: 1, tags: ["x"], quota: 100 });
+  });
+
+  test("accepts a RoomType enum value and posts its numeric API value", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    inst.createRoom("Contracts", RoomType.Custom);
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.data).toEqual({ title: "Contracts", roomType: 5 });
   });
 
   test("sends only title and roomType when no options given", () => {

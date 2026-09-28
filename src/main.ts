@@ -42,6 +42,7 @@ export {
   FilterSortOrder,
   FilterSortBy,
   HeaderBannerDisplaying,
+  RoomType,
 } from "./enums";
 export type {
   TGetExternalDataRequest,

@@ -368,7 +368,7 @@ export type TFrameEvents = {
 export type TFrameConfig = {
   /** Skip the loading spinner. `true` = iframe appears immediately. Note: {@link SDKMode.Manager} and {@link SDKMode.System} force `false`. Default: `true`. */
   noLoader?: boolean;
-  /** Room type filter for selector modes. */
+  /** Room type filter for {@link SDKMode.RoomSelector}: a {@link RoomType} API value as a string (`"5"` for custom rooms). */
   roomType?: string;
   /** Custom label for the selector "Accept" button. */
   acceptButtonLabel?: string;
@@ -636,7 +636,7 @@ export type TSelectedRoom = {
   label: string;
   /** Room icon URL. */
   icon?: string;
-  /** Numeric room type. */
+  /** Numeric room type. See {@link RoomType}. */
   roomType?: number;
   /** Whether the room has an external link. */
   shared?: boolean;
@@ -763,7 +763,7 @@ export type TFolderInfo = TEntityBase & {
   indexing: boolean;
   /** Whether downloads are denied. */
   denyDownload: boolean;
-  /** Room type number. */
+  /** Room type number. See {@link RoomType}. */
   roomType?: number;
   /** Folder type number. */
   type?: number;
@@ -799,7 +799,7 @@ export type TLogo = {
 
 /** Room information returned by SDK methods. */
 export type TRoomInfo = TEntityBase & {
-  /** Numeric room type. */
+  /** Numeric room type. See {@link RoomType}. */
   roomType: number;
   /** Number of files inside. */
   filesCount: number;
