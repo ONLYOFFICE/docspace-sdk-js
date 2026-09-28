@@ -31,6 +31,9 @@
 
 ### Changed
 - Migrated from Jest to Vitest for testing
+- `editorCustomization.uiTheme` takes a `Theme` value (`"Base"`, `"Dark"`, `"System"`), the only values the portal maps to editor themes
+- Deprecated `buttonColor` and `viewAs`: ONLYOFFICE Apps 4.0 does not read them
+- Config field JSDoc states the modes each field applies to and the portal's actual behaviour (`id` optional in Forms, `requestToken` modes, `stylesUrl` URL rules, `viewTableColumns` precedence, `editorGoBack` values, `noLoader` and `waiting` per mode, `checkCSP` scope, `destroyText` as plain text, `onNoAccess` in Chat)
 - `createFile`: `templateId` and `formId` are optional and the title may carry an extension, matching the portal
 - Generated reference pages carry the source file URL as `custom_edit_url` front matter instead of a "View source on GitHub" link under the title, so the site's "Edit this page" link opens the source on GitHub; the section index pages point at `tools/docs/sections.mjs`. The `APITable` import is a plain MDX import line after the front matter and the `<APITable>` tags are no longer wrapped in `mdx-code-block` fences
 - The `Remarks` and `Deprecated` headings of the generated reference use TypeDoc's default text again, without a trailing colon

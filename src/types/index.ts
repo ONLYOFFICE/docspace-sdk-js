@@ -149,7 +149,7 @@ export type TEditorAnonymous = {
  *   editorCustomization: {
  *     compactToolbar: true,
  *     hideRulers: true,
- *     uiTheme: "theme-dark",
+ *     uiTheme: "Dark",
  *   },
  *   ...
  * });
@@ -172,7 +172,7 @@ export type TEditorCustomization = {
   forcesave?: boolean;
   /** Show "Help" button. Default: `true`. */
   help?: boolean;
-  /** Collapse the right panel on first load. Default: `true`. */
+  /** Collapse the right panel on first load. Unset by default: the editor keeps its own behaviour. */
   hideRightMenu?: boolean;
   /** Hide rulers. Available for document and presentation editors. Default: `false` (documents), `true` (presentations). */
   hideRulers?: boolean;
@@ -192,16 +192,8 @@ export type TEditorCustomization = {
   toolbarHideFileName?: boolean;
   /** Use flat (highlighted) toolbar tabs instead of distinct tabs. Default: `false`. */
   toolbarNoTabs?: boolean;
-  /** Editor theme ID or preset. Default: `"theme-classic-light"`. */
-  uiTheme?:
-    | "theme-light"
-    | "theme-classic-light"
-    | "theme-dark"
-    | "theme-contrast-dark"
-    | "theme-white"
-    | "theme-night"
-    | "default-dark"
-    | "default-light";
+  /** Editor color theme: a {@link Theme} value. The portal maps `"Base"` to its light and `"Dark"` to its dark editor theme, `"System"` follows the OS; any other string falls back to `"System"`. Unset by default: the editor follows {@link TFrameConfig.theme}. */
+  uiTheme?: TTheme;
   /** Ruler/dialog measurement units. Default: `"cm"`. */
   unit?: "cm" | "pt" | "inch";
   /** Zoom percentage. `> 0` for explicit zoom, `-1` = fit to page, `-2` = fit to width. Default: `100`. */
@@ -476,7 +468,7 @@ export type TFrameEvents = {
  * ```
  */
 export type TFrameConfig = {
-  /** Skip the loading spinner. `true` = iframe appears immediately. Note: {@link SDKMode.Manager} and {@link SDKMode.System} force `false`. Default: `true`. */
+  /** Skip the loading spinner. `true` = iframe appears immediately. Forced per mode: {@link SDKMode.Manager} and {@link SDKMode.System} always show the spinner (`false`), {@link SDKMode.Forms} and {@link SDKMode.Personal} never do (`true`). Default: `true`. */
   noLoader?: boolean;
   /** Room type filter for {@link SDKMode.RoomSelector}: a {@link RoomType} API value as a string (`"5"` for custom rooms). */
   roomType?: string;
@@ -484,13 +476,16 @@ export type TFrameConfig = {
   acceptButtonLabel?: string;
   /** Custom label for the selector "Cancel" button. */
   cancelButtonLabel?: string;
-  /** HEX color for the selector accept button. Default: `"#5299E0"`. */
+  /**
+   * HEX color for the selector accept button. Default: `"#5299E0"`.
+   * @deprecated ONLYOFFICE Apps 4.0 does not read it; the selector uses the portal theme. Kept for configs written for older versions.
+   */
   buttonColor?: string;
-  /** Validate CSP headers before loading the iframe. `false` skips the fetch to {@link CSPApiUrl}. Default: `true`. */
+  /** Validate the host against the portal's CSP allowlist before loading the iframe: the SDK fetches {@link CSPApiUrl} and compares the host name and port (scheme and path are ignored). `false` skips that request only; the portal still sends its `frame-ancestors` header, so a host missing from the allowlist gets a blank frame from the browser instead of the SDK's error page. Default: `true`. */
   checkCSP?: boolean;
-  /** HTML string inserted into the placeholder `div` after {@link SDKInstance.destroyFrame}. Default: `""`. */
+  /** Plain text shown in the placeholder `div` after {@link SDKInstance.destroyFrame}. Markup is not rendered. Default: `""`. */
   destroyText?: string;
-  /** Timeout in milliseconds for method calls to the iframe. If the iframe does not respond within this time, the call fails and {@link TFrameEvents.onAppError} fires. Default: `30000` (30 seconds). */
+  /** Timeout in milliseconds for method calls to the iframe. If the iframe does not respond within this time, the call rejects with {@link SDKErrorCode.Timeout} and {@link TFrameEvents.onAppError} fires. Does not apply to {@link SDKInstance.upload}, which has its own 120-second transfer timeout. Default: `30000` (30 seconds). */
   methodTimeout?: number;
   /** Hide the "Actions" button in {@link SDKMode.Manager}. Default: `false`. */
   disableActionButton?: boolean;
@@ -498,7 +493,7 @@ export type TFrameConfig = {
   downloadToEvent?: boolean;
   /** Editor UI customization. See {@link TEditorCustomization}. Default: `{}`. */
   editorCustomization?: TEditorCustomization;
-  /** Show "Open file location" in editor. `true` = show button, `"event"` = trigger {@link TFrameEvents.onEditorCloseCallback}. Default: `true`. */
+  /** The "Open file location" button of the editor. `true` = the button navigates to the file's folder; `"event"` = the button stays visible and fires {@link TFrameEvents.onEditorCloseCallback} instead of navigating (set automatically when that handler is registered); `false` = the button is hidden (also hidden for guests). Default: `true`. */
   editorGoBack?: boolean | "event";
   /** Editor UI layout sent to the backend. See {@link EditorType}. Default: `"desktop"`. */
   editorType?: TEditorType;
@@ -512,7 +507,7 @@ export type TFrameConfig = {
   frameId: string;
   /** Iframe height. CSS value: `"100%"`, `"600px"`, etc. Default: `"100%"`. */
   height?: string;
-  /** Entity ID (file, folder, or room) for modes that require it ({@link SDKMode.Editor}, {@link SDKMode.Viewer}, {@link SDKMode.Uploader}). Default: `null`. */
+  /** Entity ID: the file in {@link SDKMode.Editor} and {@link SDKMode.Viewer}, the target folder in {@link SDKMode.Uploader}, the room in {@link SDKMode.PublicRoom}, the folder to open in {@link SDKMode.Personal}, the form filling room in {@link SDKMode.Forms}. Required for Editor, Viewer, Uploader and PublicRoom; optional in Forms, where the room configured in the portal's Forms settings is used when unset. Default: `null`. */
   id?: string | number | null;
   /** Show info panel toggle in {@link SDKMode.Manager}. Default: `true`. */
   infoPanelVisible?: boolean;
@@ -520,13 +515,13 @@ export type TFrameConfig = {
   init?: boolean | null;
   /** URL of the integration page. Read from config to return the user back after navigating to external resources (e.g. billing). */
   integrationUrl?: string;
-  /** UI locale as a BCP 47 code (e.g. `"en-US"`). `null` = portal default. */
+  /** UI locale as a BCP 47 code (e.g. `"en-US"`). Applies to the frame only. `null` = the language configured on the portal or in the signed-in user's profile. */
   locale?: string | null;
   /** **Required.** SDK mode. Determines UI and available methods. See {@link SDKMode}. */
   mode: TFrameMode;
   /** Iframe `name` attribute prefix. Default: {@link FRAME_NAME}. */
   name?: string;
-  /** Auth token for public rooms ({@link SDKMode.PublicRoom}) and shared files. Default: `null`. */
+  /** Share key of an external link, for content that is not otherwise accessible: the room link in {@link SDKMode.PublicRoom} and {@link SDKMode.Manager} (`key`), the file link in {@link SDKMode.Editor} and {@link SDKMode.Viewer} (`share`). Ignored by every other mode. Obtain it from {@link TRequestTokenInfo.requestToken}. Default: `null`. */
   requestToken?: string | null;
   /**
    * OAuth access-token provider. Supplying `getToken` (or {@link TFrameConfig.accessToken})
@@ -563,7 +558,7 @@ export type TFrameConfig = {
   showFilter?: boolean;
   /** Show header bar in mobile manager view. Default: `false`. */
   showHeader?: boolean;
-  /** Header banner visibility. See {@link HeaderBannerDisplaying}. Default: `"none"`. */
+  /** Header banner visibility in {@link SDKMode.Manager}. See {@link HeaderBannerDisplaying}. Default: `"none"`. */
   showHeaderBanner?: TBannerDisplaying;
   /** Show left navigation menu in {@link SDKMode.Manager} and {@link SDKMode.Forms}. Default: `false`. */
   showMenu?: boolean;
@@ -601,17 +596,20 @@ export type TFrameConfig = {
   showTitle?: boolean;
   /** **Required.** ONLYOFFICE Apps portal URL. Used as the iframe `src` origin. */
   src: string;
-  /** URL to a custom stylesheet applied inside the frame. */
+  /** Absolute `http`/`https` URL of a stylesheet applied inside the frame, in every mode. A relative or non-HTTP URL is dropped silently. The portal loads it cross-origin, so the serving host must allow it with CORS. */
   stylesUrl?: string;
   /** Color theme. See {@link Theme}. Default: `"System"`. */
   theme?: TTheme;
   /** Platform layout. Affects iframe CSS (e.g. `"mobile"` sets `position: fixed`). See {@link EditorType}. Default: `"desktop"`. */
   type?: TEditorType;
-  /** Item layout in {@link SDKMode.Manager}. See {@link ManagerViewMode}. Default: `"row"`. */
+  /**
+   * Item layout in {@link SDKMode.Manager}. See {@link ManagerViewMode}. Default: `"row"`.
+   * @deprecated ONLYOFFICE Apps 4.0 does not read it: the layout is the one the user last chose. Call {@link SDKInstance.setListView} after {@link TFrameEvents.onAppReady} instead.
+   */
   viewAs?: TManagerViewMode;
-  /** Visible table columns when `viewAs` is `"table"`. Comma-separated: `"Index,Name,Size,Type,Tags"`. */
+  /** Visible table columns in {@link SDKMode.Manager}. Comma-separated: `"Index,Name,Size,Type,Tags"`. Applies in the table layout only (switch with {@link SDKInstance.setListView}) and only until the user changes the columns: a column set stored in the browser for the portal takes precedence. */
   viewTableColumns?: string;
-  /** Delay iframe append. When `true`, iframe is not rendered until {@link SDKInstance.setConfig} is called. Exception: {@link SDKMode.System} always renders. Default: `false`. */
+  /** Delay iframe append. When `true`, the iframe is not rendered until {@link SDKInstance.setConfig} is called with `reload = true`; a call without reload rejects with {@link SDKErrorCode.Disconnected} because no frame is connected yet. {@link SDKMode.System} ignores the flag and renders at once. Default: `false`. */
   waiting?: boolean;
   /** Iframe width. CSS value: `"100%"`, `"800px"`, etc. Default: `"100%"`. */
   width?: string;
@@ -619,7 +617,7 @@ export type TFrameConfig = {
   withBreadCrumbs?: boolean;
   /** Show search bar in selector modes. Default: `true`. */
   withSearch?: boolean;
-  /** Show subtitle with folder description in selector modes. Default: `true`. */
+  /** Show the subtitle with the folder description in {@link SDKMode.FileSelector}. Not passed to {@link SDKMode.RoomSelector}. Default: `true`. */
   withSubtitle?: boolean;
   /** Initial section to display in {@link SDKMode.Forms}. Determines which page loads when the frame is created, avoiding an extra {@link SDKInstance.navigateSection} call. See {@link TFormsSection}. Default: `"my-forms"`. */
   destination?: TFormsSection;
@@ -643,7 +641,7 @@ export type TFrameConfig = {
   maxPerUploadSize?: string;
   /** Max total upload size in {@link SDKMode.Uploader}. */
   maxTotalUploadSize?: string;
-  /** AI agent room ID. Optional in {@link SDKMode.Chat}: when set, the chat is bound to that agent; when omitted, the chat is bound to the current user. The chat renders its composer only for a signed-in user who is not a guest, on a portal with AI enabled; otherwise the page shows a no-access state without firing an event. */
+  /** AI agent room ID. Optional in {@link SDKMode.Chat}: when set, the chat is bound to that agent; when omitted, the chat is bound to the current user. The chat renders its composer only for a signed-in user who is not a guest; otherwise the page shows a no-access state and fires {@link TFrameEvents.onNoAccess}. AI disabled on the portal also hides the composer, without the event. */
   agentId?: string | number;
   /**
    * ID of the room or folder the chat is opened from — the user's current
