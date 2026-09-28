@@ -32,6 +32,7 @@ if (typeof window !== "undefined") {
 export { SDKError, SDKErrorCode };
 export type { TSDKErrorDetails } from "./errors";
 export { CSPApiUrl, FRAME_NAME, defaultConfig, cspErrorText, connectErrorText } from "./constants";
+export { SDK };
 export default SDK;
 export { SDKInstance } from "./instance";
 export {

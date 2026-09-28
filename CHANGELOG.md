@@ -58,6 +58,7 @@
 - The first paragraph of the README, the package description and `context7.json` name ONLYOFFICE DocSpace once as the previous name of ONLYOFFICE Apps, so searches and indexers by either name find the SDK; everywhere else the product stays ONLYOFFICE Apps
 
 ### Fixed
+- `SDK` is exported by name from the package entry, as the README and every `@example` show (`import { SDK } from "@onlyoffice/docspace-sdk-js"`); previously the class was available only as the default export
 - Error replies from portals that do not flag failures are sanitized: `config`, `request` and `stack` are removed before the promise resolves, so a failed `login` no longer exposes the password hash to the host page
 - `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with three arguments (the DocsAPI editor object, `window.Asc`, then `data`). The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. Documentation now states that the connector must be created by the callback (`editor.createConnector()`) and shows the `Asc.scope` channel for `callCommand`.
 - Personal mode now propagates `providerName`, `inviteKey`, `emplType`, and `uid` to the iframe URL, matching Forms and Chat. Previously these OAuth bootstrap params passed to `SDK.initPersonal` were silently dropped, so embedding hosts (e.g. Nextcloud) could not auto-authenticate the user via the configured provider.
