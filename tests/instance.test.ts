@@ -3,7 +3,14 @@ import { SDKInstance } from "../src/instance";
 import { defaultConfig, FRAME_NAME } from "../src/constants";
 import { SDKError, SDKErrorCode } from "../src/errors";
 import { RoomType } from "../src/enums";
-import type { TFrameConfig } from "../src/types";
+import type {
+  TFrameConfig,
+  TUploadError,
+  TUploadProgress,
+  TUploadResult,
+  TUploaderUploadError,
+  TUploaderUploadResult,
+} from "../src/types";
 
 const BASE_SRC = "https://portal.example.com";
 
@@ -764,6 +771,62 @@ describe("method errors reported by the portal", () => {
 
     await expect(promise).rejects.toBeInstanceOf(SDKError);
     expect(onAppError).not.toHaveBeenCalled();
+  });
+});
+
+describe("upload events — Uploader mode payloads", () => {
+  const initUploader = (events: Partial<TFrameConfig["events"]>) => {
+    setupTarget("ds-uploader");
+    const config = makeConfig({ frameId: "ds-uploader", mode: "uploader", events: { ...defaultConfig.events, ...events } });
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+    iframe.dispatchEvent(new Event("load"));
+    return inst;
+  };
+
+  const dispatchEvent = (event: string, data: unknown) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({ frameId: "ds-uploader", type: "onEventReturn", eventReturnData: { event, data } }),
+        origin: BASE_SRC,
+      }),
+    );
+  };
+
+  test("onUploadSuccess delivers the array of API envelopes untouched", () => {
+    const onUploadSuccess = vi.fn<(data: TUploadResult | TUploaderUploadResult[]) => void>();
+    initUploader({ onUploadSuccess });
+
+    const batch: TUploaderUploadResult[] = [
+      { response: { id: 7, folderId: 3, version: 1, title: "a.docx", uploaded: true }, count: 1, status: 0, statusCode: 200 },
+      { response: { id: 8, folderId: 3, version: 1, title: "b.pdf", uploaded: true }, count: 1, status: 0, statusCode: 200 },
+    ];
+    dispatchEvent("onUploadSuccess", batch);
+
+    expect(onUploadSuccess).toHaveBeenCalledWith(batch);
+  });
+
+  test("onUploadError delivers the error with rejected files", () => {
+    const onUploadError = vi.fn<(data: TUploadError | TUploaderUploadError) => void>();
+    initUploader({ onUploadError });
+
+    const payload: TUploaderUploadError = {
+      error: "Some files were rejected",
+      rejectedFiles: [{ fileName: "x.exe", fileSize: 10, fileType: "application/x-msdownload", errors: [{ code: "file-invalid-type", message: "Type not allowed" }] }],
+    };
+    dispatchEvent("onUploadError", payload);
+
+    expect(onUploadError).toHaveBeenCalledWith(payload);
+  });
+
+  test("onUploadProgress delivers the chunk progress", () => {
+    const onUploadProgress = vi.fn<(data: TUploadProgress) => void>();
+    initUploader({ onUploadProgress });
+
+    const progress: TUploadProgress = { sessionId: "s1", fileName: "a.docx", uploadedChunks: 2, totalChunks: 4, percent: 50 };
+    dispatchEvent("onUploadProgress", progress);
+
+    expect(onUploadProgress).toHaveBeenCalledWith(progress);
   });
 });
 

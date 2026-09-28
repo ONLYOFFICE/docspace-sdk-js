@@ -329,8 +329,9 @@ export class SDK {
    *   acceptExtensions: '.docx,.xlsx,.pdf',
    *   isMultipleUpload: true,
    *   events: {
-   *     onUploadSuccess: (file) => console.log('uploaded:', file),
-   *     onUploadError: (err) => console.error('error:', err),
+   *     onUploadSuccess: (files) => console.log('uploaded:', files.map((f) => f.response?.title)),
+   *     onUploadProgress: (p) => console.log(p.fileName, p.percent),
+   *     onUploadError: (err) => console.error(err.error, err.rejectedFiles),
    *   },
    * });
    * ```

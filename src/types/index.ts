@@ -267,10 +267,120 @@ export type TSetExternalDataPayload = {
 };
 
 /**
+ * Payload of {@link TFrameEvents.onUploadSuccess} in {@link SDKMode.Forms} and {@link SDKMode.Personal}:
+ * one object per file transferred with {@link SDKInstance.upload}. The same object is the resolved value of `upload`.
+ */
+export type TUploadResult = {
+  /** Name of the uploaded file. */
+  fileName: string;
+  /** Size of the uploaded file in bytes. */
+  fileSize: number;
+  /** Correlation ID the SDK assigned to the `upload` call. */
+  uploadId?: number;
+};
+
+/**
+ * Payload of {@link TFrameEvents.onUploadError} in {@link SDKMode.Forms} and {@link SDKMode.Personal}:
+ * the file transferred with {@link SDKInstance.upload} that the frame could not store.
+ */
+export type TUploadError = {
+  /** Name of the rejected file. */
+  fileName: string;
+  /** Error message reported by the frame. */
+  message: string;
+  /** Correlation ID the SDK assigned to the `upload` call. */
+  uploadId?: number;
+};
+
+/**
+ * Payload of {@link TFrameEvents.onUploadProgress} in {@link SDKMode.Uploader}: one event per uploaded chunk of each file.
+ */
+export type TUploadProgress = {
+  /** Upload session ID of the file. */
+  sessionId: string;
+  /** Name of the file being uploaded. */
+  fileName: string;
+  /** Chunks uploaded so far. */
+  uploadedChunks: number;
+  /** Total number of chunks of the file. */
+  totalChunks: number;
+  /** Progress of this file in percent (`0`–`100`). */
+  percent: number;
+};
+
+/**
+ * A file stored by the {@link SDKMode.Uploader} dialog: the upload session response of the portal.
+ * Nested in {@link TUploaderUploadResult.response}.
+ */
+export type TUploadedFile = {
+  /** Upload session ID. */
+  id?: number;
+  /** ID of the folder the file was uploaded to. */
+  folderId?: number;
+  /** Version number of the stored file. */
+  version?: number;
+  /** Title of the stored file, with extension. */
+  title?: string | null;
+  /** Key of the third-party storage provider, when the folder is a connected storage. */
+  providerKey?: string | null;
+  /** Whether the upload completed. */
+  uploaded?: boolean;
+  /** The stored file. See {@link TFileInfo}. */
+  file?: TFileInfo;
+};
+
+/**
+ * One element of the {@link TFrameEvents.onUploadSuccess} payload in {@link SDKMode.Uploader}:
+ * the portal's API envelope around the stored file.
+ */
+export type TUploaderUploadResult = {
+  /** The stored file. See {@link TUploadedFile}. */
+  response?: TUploadedFile;
+  /** Number of items in `response`. */
+  count?: number;
+  /** HTTP status of the portal's response. */
+  status?: number;
+  /** HTTP status of the portal's response (duplicate of `status`). */
+  statusCode?: number;
+};
+
+/** One reason a file was rejected by the {@link SDKMode.Uploader} dialog. Nested in {@link TRejectedFile.errors}. */
+export type TUploadRejection = {
+  /** Machine-readable reason (`"file-invalid-type"`, `"file-too-large"`, …). */
+  code: string;
+  /** Human-readable description. */
+  message: string;
+};
+
+/** A file the {@link SDKMode.Uploader} dialog refused before uploading. Nested in {@link TUploaderUploadError.rejectedFiles}. */
+export type TRejectedFile = {
+  /** Name of the rejected file. */
+  fileName: string;
+  /** Size of the rejected file in bytes. */
+  fileSize: number;
+  /** MIME type of the rejected file. */
+  fileType: string;
+  /** Why the file was rejected. See {@link TUploadRejection}. */
+  errors: TUploadRejection[];
+};
+
+/**
+ * Payload of {@link TFrameEvents.onUploadError} in {@link SDKMode.Uploader}: the batch failed or some files were refused.
+ */
+export type TUploaderUploadError = {
+  /** Error message. */
+  error: string;
+  /** Files refused by the dialog's validation, when the error is a validation failure. See {@link TRejectedFile}. */
+  rejectedFiles?: TRejectedFile[];
+};
+
+/**
  * Event handler map for the ONLYOFFICE Apps iframe. Passed via {@link TFrameConfig.events}.
  * All handlers are optional — set to `null` (default) to disable.
  *
  * Events are delivered from the iframe to the host via the `onEventReturn` postMessage type.
+ * Each handler's description names the modes that emit the event; an event the portal sends
+ * without data reaches the handler as an empty object (`{}`).
  *
  * @example
  * ```typescript
@@ -285,41 +395,41 @@ export type TSetExternalDataPayload = {
  * ```
  */
 export type TFrameEvents = {
-  /** Fired when ONLYOFFICE Apps encounters an initialization or runtime error. Receives the error message string. */
+  /** Fired by the SDK itself, in every mode, when it hits an error: CSP validation ({@link SDKErrorCode.CSPViolation}), an unparsable message, a call before or after the connection ({@link SDKErrorCode.Disconnected}), a method timeout ({@link SDKErrorCode.Timeout}) or a token failure. Receives the error message string. The portal never sends this event, so an API error of a method call does not fire it — the method's promise rejects instead. */
   onAppError?: null | ((message: string) => void);
-  /** Fired (OAuth mode) when the SDK cannot resolve an access token — {@link TFrameConfig.getToken} threw/rejected, or is missing. The host should re-authenticate or surface the failure. */
+  /** Fired (OAuth mode, every mode) when no access token can be used: the SDK could not resolve one ({@link TFrameConfig.getToken} threw, rejected or is missing; `code` is {@link SDKErrorCode.TokenResolveFailed}), or the portal still answered `401` after a fresh token (`code` is `"UNAUTHORIZED"`: the token expired or lacks the scope). The host should re-authenticate or surface the failure. */
   onAuthError?: null | ((error: { code?: string; message: string }) => void);
-  /** Fired once when the ONLYOFFICE Apps frame is fully initialized and ready. */
+  /** Fired once, in every mode, when the ONLYOFFICE Apps frame is fully initialized and ready. {@link SDKMode.PublicRoom} without a valid {@link TFrameConfig.id} renders an "Invalid link" page and never fires it. */
   onAppReady?: null | ((data: { frameId: string }) => void);
-  /** Fired after successful user authorization inside the iframe. */
+  /** Fired when the user completes a sign-in through a confirmation link opened inside the frame. Not fired by {@link SDKInstance.login} or the OAuth flow: there a loaded frame and {@link TFrameEvents.onAppReady} are the sign of success. */
   onAuthSuccess?: null | ((data: object) => void);
   /** Fired in selector modes ({@link SDKMode.RoomSelector}, {@link SDKMode.FileSelector}) when the dialog is closed or canceled. */
   onCloseCallback?: null | (() => void);
-  /** Fired when the iframe content is fully loaded and visible. Triggered internally by {@link SDKInstance.setIsLoaded}. */
+  /** Fired when the iframe content is fully loaded and visible, in every mode. With {@link TFrameConfig.noLoader} `true` the SDK fires it on the iframe's `load` event, otherwise when the portal calls {@link SDKInstance.setIsLoaded}; its order relative to {@link TFrameEvents.onAppReady} is not guaranteed. */
   onContentReady?: null | (() => void);
-  /** Fired on file download when {@link TFrameConfig.downloadToEvent} is `true`. Receives the download URL. */
+  /** Fired on file download when {@link TFrameConfig.downloadToEvent} is `true`, in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom} and {@link SDKMode.Personal}. Receives the download URL. */
   onDownload?: null | ((url: string) => void);
-  /** Fired when the document editor is closed (via UI button, hotkey, or programmatically). */
+  /** Fired in {@link SDKMode.Editor} and {@link SDKMode.Viewer} when the document editor is closed (via UI button, hotkey, or programmatically) while {@link TFrameConfig.editorGoBack} is `"event"`. */
   onEditorCloseCallback?: null | (() => void);
-  /** Fired when navigating to an inaccessible or deleted room/folder. */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to an inaccessible or deleted room/folder, and in {@link SDKMode.Chat} when the frame has no signed-in, non-guest user. */
   onNoAccess?: null | (() => void);
-  /** Fired when navigating to a non-existent room/folder (404). */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to a non-existent room/folder (404). */
   onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. {@link SDKMode.RoomSelector} passes an **array** of {@link TSelectedRoom} (one element for a single choice); {@link SDKMode.FileSelector} passes a single {@link TSelectedFile} object. */
   onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
-  /** Fired when the user signs out from the portal. */
+  /** Fired when the user signs out through the portal UI inside the frame ({@link SDKMode.Manager} and the other modes that show the profile menu). Not fired by {@link SDKInstance.logout}. */
   onSignOut?: null | (() => void);
-  /** Fired when the manager is about to open the editor (row activation, context menu, hotkey, the "Create" dialog). Receives the file with the requested action — see {@link TEditorOpenPayload}. Registering the handler suppresses the portal's own editor: open the file in a frame of your own. */
+  /** Fired in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Forms} and {@link SDKMode.Personal} when the frame is about to open the editor (row activation, context menu, hotkey, the "Create" dialog). Receives the file with the requested action — see {@link TEditorOpenPayload}. Registering the handler suppresses the portal's own editor: open the file in a frame of your own. */
   onEditorOpen?: null | ((file: TEditorOpenPayload) => void);
-  /** Fired when a file row is activated in the manager list. Files only — a folder click navigates into the folder instead. Receives the portal's file object ({@link TFileInfo}). Registering the handler suppresses the portal's own open action. */
+  /** Fired in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Forms} and {@link SDKMode.Personal} when a file row is activated in the list. Files only — a folder click navigates into the folder instead. Receives the portal's file object ({@link TFileInfo}). Registering the handler suppresses the portal's own open action. */
   onFileManagerClick?: null | ((file: TFileInfo) => void);
-  /** Fired when a file upload completes successfully. Works in {@link SDKMode.Uploader}, {@link SDKMode.Forms} and {@link SDKMode.Personal} modes. */
-  onUploadSuccess?: null | ((data: { fileName: string; fileSize: number; uploadId?: number }) => void);
-  /** Fired when a file upload fails. Works in {@link SDKMode.Uploader}, {@link SDKMode.Forms} and {@link SDKMode.Personal} modes. */
-  onUploadError?: null | ((data: { fileName: string; message: string; uploadId?: number }) => void);
-  /** Fired on file upload progress update. {@link SDKMode.Uploader} mode only. */
-  onUploadProgress?: null | ((data: object) => void);
-  /** Fired when a custom context menu action is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
+  /** Fired when files are stored. {@link SDKMode.Uploader}: once per batch of the dialog's own upload, with an array of {@link TUploaderUploadResult}. {@link SDKMode.Forms} and {@link SDKMode.Personal}: once per file transferred with {@link SDKInstance.upload}, with a {@link TUploadResult}; the frame's own upload UI does not fire it there. */
+  onUploadSuccess?: null | ((data: TUploadResult | TUploaderUploadResult[]) => void);
+  /** Fired when an upload fails. {@link SDKMode.Uploader}: a {@link TUploaderUploadError} for the dialog's own upload, including files refused by validation. {@link SDKMode.Forms} and {@link SDKMode.Personal}: a {@link TUploadError} for a file transferred with {@link SDKInstance.upload}. */
+  onUploadError?: null | ((data: TUploadError | TUploaderUploadError) => void);
+  /** Fired in {@link SDKMode.Uploader} only, after every uploaded chunk of every file of the dialog's own upload. Receives a {@link TUploadProgress}. Not fired for {@link SDKInstance.upload}. */
+  onUploadProgress?: null | ((data: TUploadProgress) => void);
+  /** Fired when a custom context menu action registered with {@link SDKInstance.setCustomActions} is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
   onCustomAction?: null | ((data: { action: string; type: string; item: object }) => void);
   /** Fired when the user navigates to a different section in {@link SDKMode.Forms} or {@link SDKMode.Personal}. Receives the active section. */
   onNavigate?: null | ((data: { section: TFormsSection | TPersonalSection }) => void);

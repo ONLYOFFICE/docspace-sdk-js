@@ -124,8 +124,8 @@ const uploader = sdk.initUploader({
   acceptExtensions: ".docx,.xlsx,.pdf",
   isMultipleUpload: true,
   events: {
-    onUploadSuccess: (file) => console.log("Uploaded:", file),
-    onUploadError: (err) => console.error("Upload failed:", err),
+    onUploadSuccess: (files) => console.log("Uploaded:", files),
+    onUploadError: (err) => console.error("Upload failed:", err.error),
   },
 });
 ```
