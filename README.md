@@ -37,6 +37,17 @@ const manager = sdk.initManager({
 
 The SDK provides both CommonJS and ES module builds, so it works with any modern bundler (Webpack, Vite, esbuild, etc.).
 
+To show only the rooms of one room group (for example, the rooms attached to a CRM deal), open the rooms list with `filter.groupId`. The group is pinned: search and filters inside the frame stay within it, and `getRooms({ groupId })` narrows the method the same way.
+
+```typescript
+const dealRooms = sdk.initManager({
+  frameId: "ds-frame",
+  src: "https://portal.example.com",
+  rootPath: "/rooms/shared/",
+  filter: { groupId: "42" },
+});
+```
+
 ### Script tag
 
 If you prefer not to use a package manager, include the *api.js* script directly from your ONLYOFFICE Apps workspace:

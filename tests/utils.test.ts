@@ -177,6 +177,13 @@ describe("getConfigFromParams", () => {
       expect(result).toHaveProperty("sortorder", "descending");
     });
 
+    test("groupId is routed into config.filter", () => {
+      registerScript("https://example.com/api.js?src=&mode=manager&groupId=42");
+      const result = getConfigFromParams();
+      expect(result?.filter?.groupId).toBe("42");
+      expect(result).not.toHaveProperty("groupId");
+    });
+
     test("legacy bracket syntax filter[...] is not mapped into config.filter", () => {
       registerScript(
         "https://example.com/api.js?src=&mode=manager&filter[count]=25&filter[sortorder]=descending"
@@ -240,6 +247,18 @@ describe("getFramePath", () => {
       };
       const path = getFramePath(config);
       expect(path).toContain("theme=Base");
+    });
+
+    test("Manager mode passes filter.groupId and omits it when unset", () => {
+      const withGroup = getFramePath({
+        ...defaultConfig,
+        mode: SDKMode.Manager,
+        filter: { ...defaultConfig.filter, groupId: "42" },
+      });
+      expect(withGroup).toContain("groupId=42");
+
+      const withoutGroup = getFramePath({ ...defaultConfig, mode: SDKMode.Manager });
+      expect(withoutGroup).not.toContain("groupId");
     });
 
     test("Manager mode with requestToken uses key query style", () => {

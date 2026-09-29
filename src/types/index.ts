@@ -202,7 +202,7 @@ export type TEditorCustomization = {
 
 /**
  * Filter and pagination parameters for the file list in {@link SDKMode.Manager} mode.
- * Passed via {@link TFrameConfig.filter}.
+ * Passed via {@link TFrameConfig.filter} and accepted by {@link SDKInstance.getRooms}.
  *
  * @example
  * ```typescript
@@ -212,12 +212,25 @@ export type TEditorCustomization = {
  *   ...
  * });
  * ```
+ *
+ * @example
+ * Only the rooms of one room group, e.g. the rooms attached to a CRM deal.
+ * ```typescript
+ * sdk.initManager({
+ *   frameId: "ds-frame",
+ *   src: "https://portal.example.com",
+ *   rootPath: "/rooms/shared/",
+ *   filter: { groupId: "42" },
+ * });
+ * ```
  */
 export type TFrameFilter = {
   /** Items per page. Default: `"100"`. */
   count?: string;
   /** Target folder ID. Set automatically when {@link TFrameConfig.id} is provided in manager mode. */
   folder?: string;
+  /** Room group ID (`GET /api/2.0/files/group`). On the rooms list of {@link SDKMode.Manager} (`rootPath` `/rooms/shared/`) only the rooms of that group are shown, and the group is pinned: search and filters inside the frame stay within it and the group chips are hidden. Also narrows {@link SDKInstance.getRooms}. Requires ONLYOFFICE Apps 4.0. Unset by default. */
+  groupId?: string;
   /** Page number (1-based). Default: `"1"`. */
   page?: string;
   /** Search query. Empty string = no search. */

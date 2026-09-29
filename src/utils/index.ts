@@ -238,7 +238,10 @@ export const getConfigFromParams = (): TFrameConfig => {
   const searchParams = new URL(decodeURIComponent(scriptElement.src))
     .searchParams;
 
-  const configTemplate: TFrameConfig = { ...defaultConfig };
+  const configTemplate: TFrameConfig = {
+    ...defaultConfig,
+    filter: { ...defaultConfig.filter },
+  };
 
   type TFilterParams = Record<string, string | number | boolean>;
 

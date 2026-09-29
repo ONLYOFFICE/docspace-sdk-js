@@ -9,6 +9,7 @@
 - Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection`); `navigateSection` now also works in Personal mode
 - Added `SDKError` and `SDKErrorCode`
 - Added OAuth mode: `getToken` (or a static `accessToken`) in the config switches the frame to `Authorization: Bearer` authentication instead of the session cookie, in every mode. The frame requests the token from the host through the `getAuthToken` command and receives it as `onAuthTokenReturn`; a JWT (or a token with `tokenExpiresAt`) is refreshed by the SDK one minute before expiry and pushed into the frame. Added the `onAuthError` event with `TAuthError` and `TAuthErrorCode` (`TOKEN_RESOLVE_FAILED`, `TOKEN_UNAVAILABLE`, `TOKEN_REFRESH_FAILED`, `UNAUTHORIZED`). `login` and `logout` reject with `SDKErrorCode.ModeMismatch` in OAuth mode; the README describes the flow
+- Added `TFrameFilter.groupId`: the rooms list in Manager mode shows only the rooms of that room group and keeps the group pinned across search and filters; `getRooms` accepts it too. Script-tag integrations pass it as `groupId=…`. Requires ONLYOFFICE Apps 4.0
 - Added `RoomType`, the room types accepted by `createRoom` (form filling `1`, collaboration `2`, custom `5`, public `6`, virtual data `8`, AI `9`)
 - Added `SDKErrorCode.ApiError`, `TSDKErrorDetails` and the `status` / `data` fields of `SDKError`: a method call the portal (ONLYOFFICE Apps 4.0) reports as failed rejects with the HTTP status and the error payload; `login` and `createRoom` keep resolving `{ status, message }`
 - A `"Wrong method for this mode"` reply rejects with `SDKErrorCode.ModeMismatch`
@@ -59,6 +60,7 @@
 - The first paragraph of the README, the package description and `context7.json` name ONLYOFFICE DocSpace once as the previous name of ONLYOFFICE Apps, so searches and indexers by either name find the SDK; everywhere else the product stays ONLYOFFICE Apps
 
 ### Fixed
+- `getConfigFromParams` copies `defaultConfig.filter` instead of writing the script-tag filter parameters into the shared defaults, so a second frame on the page no longer inherits the first one's `count`, `search` or `groupId`
 - `SDK` is exported by name from the package entry, as the README and every `@example` show (`import { SDK } from "@onlyoffice/docspace-sdk-js"`); previously the class was available only as the default export
 - Error replies from portals that do not flag failures are sanitized: `config`, `request` and `stack` are removed before the promise resolves, so a failed `login` no longer exposes the password hash to the host page
 - `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with three arguments (the DocsAPI editor object, `window.Asc`, then `data`). The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. Documentation now states that the connector must be created by the callback (`editor.createConnector()`) and shows the `Asc.scope` channel for `callCommand`.

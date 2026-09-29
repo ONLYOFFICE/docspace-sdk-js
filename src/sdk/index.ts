@@ -129,6 +129,17 @@ export class SDK {
    *   },
    * });
    * ```
+   *
+   * @example
+   * The rooms of one room group, pinned: search and filters inside the frame stay within the group.
+   * ```typescript
+   * const dealRooms = sdk.initManager({
+   *   frameId: 'ds-frame',
+   *   src: 'https://portal.example.com',
+   *   rootPath: '/rooms/shared/',
+   *   filter: { groupId: '42' },
+   * });
+   * ```
    */
   initManager = (config: TFrameConfig) =>
     this.init({ ...config, mode: SDKMode.Manager });

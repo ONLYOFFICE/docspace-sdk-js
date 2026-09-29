@@ -114,6 +114,7 @@ export const defaultConfig: TFrameConfig = {
     sortBy: FilterSortBy.ModifiedDate,
     search: "",
     withSubfolders: false,
+    groupId: undefined,
   },
   editorCustomization: {},
   events: {

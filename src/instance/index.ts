@@ -1553,6 +1553,13 @@ export class SDKInstance {
    *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
    * }
    * ```
+   *
+   * @example
+   * The rooms of one room group ({@link TFrameFilter.groupId}), e.g. the rooms attached to a deal.
+   * ```typescript
+   * const deal = await instance.getRooms({ groupId: '42' });
+   * console.log(deal.folders.map((room) => room.title));
+   * ```
    */
   getRooms(filter: TFrameFilter): Promise<TRoomsResponse> {
     return this.#getMethodPromise<TRoomsResponse>(InstanceMethods.GetRooms, filter);
