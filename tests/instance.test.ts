@@ -1313,3 +1313,268 @@ describe("external data events", () => {
     expect(postMessageSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("OAuth mode", () => {
+  const JWT_EXP_SECONDS = 1_700_000_000;
+  const jwtWithExp = (exp: number) => {
+    const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
+    return `eyJhbGciOiJIUzI1NiJ9.${payload}.sig`;
+  };
+
+  const initOAuthInstance = (overrides: Partial<TFrameConfig> = {}) => {
+    setupTarget();
+    const config = makeConfig(overrides);
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+    iframe.dispatchEvent(new Event("load"));
+
+    const postMessageSpy = vi.fn();
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      writable: true,
+    });
+
+    return { inst, iframe, postMessageSpy };
+  };
+
+  const dispatchCommand = (commandName: string, commandData?: object) => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({ frameId: "ds-frame", type: "onCallCommand", commandName, commandData }),
+        origin: BASE_SRC,
+      }),
+    );
+  };
+
+  const lastAuthReturn = (spy: ReturnType<typeof vi.fn>) => {
+    const call = spy.mock.calls.at(-1)!;
+    return { message: JSON.parse(call[0] as string), targetOrigin: call[1] };
+  };
+
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  test("getAuthToken: replies with the token from getToken, correlated by callId", async () => {
+    const getToken = vi.fn(async () => "access-token");
+    const { postMessageSpy } = initOAuthInstance({ getToken });
+
+    dispatchCommand("getAuthToken", { callId: 7 });
+    await flush();
+
+    expect(getToken).toHaveBeenCalledTimes(1);
+    const { message, targetOrigin } = lastAuthReturn(postMessageSpy);
+    expect(message).toEqual({
+      frameId: "ds-frame",
+      type: "onAuthTokenReturn",
+      callId: 7,
+      data: { accessToken: "access-token" },
+    });
+    expect(targetOrigin).toBe(BASE_SRC);
+  });
+
+  test("getAuthToken: a static accessToken is returned as is", async () => {
+    const { postMessageSpy } = initOAuthInstance({ accessToken: "static-token" });
+
+    dispatchCommand("getAuthToken", { callId: 1 });
+    await flush();
+
+    expect(lastAuthReturn(postMessageSpy).message.data).toEqual({ accessToken: "static-token" });
+  });
+
+  test("getAuthToken: passes the JWT expiry to the frame", async () => {
+    const token = jwtWithExp(JWT_EXP_SECONDS);
+    const { postMessageSpy } = initOAuthInstance({ getToken: () => token });
+
+    dispatchCommand("getAuthToken", { callId: 2 });
+    await flush();
+
+    expect(lastAuthReturn(postMessageSpy).message.data).toEqual({
+      accessToken: token,
+      expiresAt: JWT_EXP_SECONDS * 1000,
+    });
+  });
+
+  test("getAuthToken: fires onAuthError with TOKEN_RESOLVE_FAILED when getToken rejects", async () => {
+    const onAuthError = vi.fn();
+    const onAppError = vi.fn();
+    const { postMessageSpy } = initOAuthInstance({
+      getToken: () => Promise.reject(new Error("refresh failed")),
+      events: { ...defaultConfig.events, onAuthError, onAppError },
+    });
+
+    dispatchCommand("getAuthToken", { callId: 3 });
+    await flush();
+
+    expect(onAuthError).toHaveBeenCalledWith({
+      code: SDKErrorCode.TokenResolveFailed,
+      message: "refresh failed",
+    });
+    expect(onAppError).not.toHaveBeenCalled();
+    expect(postMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("getAuthToken: fires onAuthError when neither getToken nor accessToken is configured", async () => {
+    const onAuthError = vi.fn();
+    initOAuthInstance({ events: { ...defaultConfig.events, onAuthError } });
+
+    dispatchCommand("getAuthToken", { callId: 4 });
+    await flush();
+
+    expect(onAuthError).toHaveBeenCalledTimes(1);
+    expect(onAuthError.mock.calls[0][0].code).toBe(SDKErrorCode.TokenResolveFailed);
+  });
+
+  test("login() rejects with ModeMismatch in OAuth mode without posting to the frame", async () => {
+    const { inst, postMessageSpy } = initOAuthInstance({ getToken: () => "token" });
+
+    await expect(inst.login("user@example.com", "hash")).rejects.toMatchObject({
+      code: SDKErrorCode.ModeMismatch,
+    });
+    expect(postMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("logout() rejects with ModeMismatch in OAuth mode without posting to the frame", async () => {
+    const { inst, postMessageSpy } = initOAuthInstance({ accessToken: "token" });
+
+    await expect(inst.logout()).rejects.toMatchObject({ code: SDKErrorCode.ModeMismatch });
+    expect(postMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("login() and logout() still post to the frame without OAuth config", () => {
+    const loginInstance = initOAuthInstance();
+    void loginInstance.inst.login("user@example.com", "hash");
+    expect(loginInstance.postMessageSpy).toHaveBeenCalledTimes(1);
+    loginInstance.inst.destroyFrame();
+
+    const logoutInstance = initOAuthInstance();
+    void logoutInstance.inst.logout();
+    expect(logoutInstance.postMessageSpy).toHaveBeenCalledTimes(1);
+  });
+
+  describe("proactive refresh", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    test("pushes a fresh token one minute before tokenExpiresAt, without a callId", async () => {
+      const tokens = ["first", "second"];
+      const getToken = vi.fn(() => tokens.shift()!);
+      const expiresAt = Date.now() + 5 * 60_000;
+      const { postMessageSpy } = initOAuthInstance({ getToken, tokenExpiresAt: expiresAt });
+
+      dispatchCommand("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(getToken).toHaveBeenCalledTimes(1);
+      expect(lastAuthReturn(postMessageSpy).message.data).toEqual({ accessToken: "first", expiresAt });
+
+      await vi.advanceTimersByTimeAsync(4 * 60_000 - 1);
+      expect(getToken).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(getToken).toHaveBeenCalledTimes(2);
+
+      const { message } = lastAuthReturn(postMessageSpy);
+      expect(message.callId).toBeUndefined();
+      expect(message.type).toBe("onAuthTokenReturn");
+      expect(message.data).toEqual({ accessToken: "second" });
+    });
+
+    test("uses the JWT exp claim and keeps refreshing from each new token's expiry", async () => {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const first = jwtWithExp(nowSeconds + 300);
+      const second = jwtWithExp(nowSeconds + 300 + 600);
+      const tokens = [first, second, "third-opaque"];
+      const getToken = vi.fn(() => tokens.shift()!);
+      const { postMessageSpy } = initOAuthInstance({ getToken });
+
+      dispatchCommand("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(getToken).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(240_000);
+      expect(getToken).toHaveBeenCalledTimes(2);
+      expect(lastAuthReturn(postMessageSpy).message.data).toEqual({
+        accessToken: second,
+        expiresAt: (nowSeconds + 900) * 1000,
+      });
+
+      await vi.advanceTimersByTimeAsync(600_000);
+      expect(getToken).toHaveBeenCalledTimes(3);
+      expect(lastAuthReturn(postMessageSpy).message.data).toEqual({ accessToken: "third-opaque" });
+
+      await vi.advanceTimersByTimeAsync(60 * 60_000);
+      expect(getToken).toHaveBeenCalledTimes(3);
+    });
+
+    test("does not schedule a refresh for a static accessToken or an opaque token", async () => {
+      const staticInstance = initOAuthInstance({ accessToken: "static", tokenExpiresAt: Date.now() + 300_000 });
+      dispatchCommand("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(staticInstance.postMessageSpy).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(600_000);
+      expect(staticInstance.postMessageSpy).toHaveBeenCalledTimes(1);
+      staticInstance.inst.destroyFrame();
+
+      const getToken = vi.fn(() => "opaque");
+      const opaqueInstance = initOAuthInstance({ getToken });
+      dispatchCommand("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(60 * 60_000);
+      expect(getToken).toHaveBeenCalledTimes(1);
+      expect(opaqueInstance.postMessageSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test("a token already inside the lead window is refreshed on demand only", async () => {
+      const getToken = vi.fn(() => "short-lived");
+      initOAuthInstance({ getToken, tokenExpiresAt: Date.now() + 30_000 });
+
+      dispatchCommand("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(getToken).toHaveBeenCalledTimes(1);
+    });
+
+    test("destroyFrame cancels the scheduled refresh", async () => {
+      const getToken = vi.fn(() => "token");
+      const { inst } = initOAuthInstance({ getToken, tokenExpiresAt: Date.now() + 300_000 });
+
+      dispatchCommand("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      inst.destroyFrame();
+
+      await vi.advanceTimersByTimeAsync(600_000);
+      expect(getToken).toHaveBeenCalledTimes(1);
+    });
+
+    test("a failed proactive refresh fires onAuthError", async () => {
+      const onAuthError = vi.fn();
+      let calls = 0;
+      const getToken = vi.fn(() => {
+        calls += 1;
+        if (calls === 1) return "first";
+        throw new Error("backend down");
+      });
+      initOAuthInstance({
+        getToken,
+        tokenExpiresAt: Date.now() + 120_000,
+        events: { ...defaultConfig.events, onAuthError },
+      });
+
+      dispatchCommand("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(getToken).toHaveBeenCalledTimes(2);
+      expect(onAuthError).toHaveBeenCalledWith({
+        code: SDKErrorCode.TokenResolveFailed,
+        message: "backend down",
+      });
+    });
+  });
+});

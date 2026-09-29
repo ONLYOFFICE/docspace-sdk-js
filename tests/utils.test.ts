@@ -25,6 +25,7 @@ import {
   getCSPErrorBody,
   getLoaderStyle,
   getFramePath,
+  getJwtExpiry,
 } from "../src/utils";
 import { cspErrorText, defaultConfig } from "../src/constants";
 import type { TFrameConfig } from "../src/types";
@@ -496,5 +497,31 @@ describe("getFramePath", () => {
       const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "" } as TFrameConfig;
       expect(getFramePath(conf)).toBe("/");
     });
+  });
+});
+
+describe("getJwtExpiry", () => {
+  const jwt = (payload: object) =>
+    `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.sig`;
+
+  test("returns the exp claim in milliseconds", () => {
+    expect(getJwtExpiry(jwt({ exp: 1_700_000_000 }))).toBe(1_700_000_000_000);
+  });
+
+  test("decodes a base64url payload without padding", () => {
+    expect(getJwtExpiry(jwt({ exp: 1_700_000_000, sub: "u" }))).toBe(1_700_000_000_000);
+  });
+
+  test("returns undefined for an opaque token", () => {
+    expect(getJwtExpiry("opaque-access-token")).toBeUndefined();
+  });
+
+  test("returns undefined for a JWT without exp or with a non-numeric exp", () => {
+    expect(getJwtExpiry(jwt({ sub: "user" }))).toBeUndefined();
+    expect(getJwtExpiry(jwt({ exp: "soon" }))).toBeUndefined();
+  });
+
+  test("returns undefined when the payload is not JSON", () => {
+    expect(getJwtExpiry("a.not-json.c")).toBeUndefined();
   });
 });

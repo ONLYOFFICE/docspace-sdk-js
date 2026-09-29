@@ -192,7 +192,7 @@ All events are optional. Pass them via the `events` field in the configuration o
 | Event | Fires in |
 |---|---|
 | `onAppReady`, `onAppError`, `onContentReady`, `onAuthSuccess`, `onSignOut` | All modes |
-| `onAuthError` | All modes, only with OAuth authentication (`getToken` or `accessToken` set) |
+| `onAuthError` | All modes, only in [OAuth mode](#authorization) (`getToken` or `accessToken` set) |
 | `onGetExternalData`, `onSetExternalData` | Any mode, when the frame asks the host to read or persist a value in external storage |
 | `onEditorOpen`, `onFileManagerClick`, `onNoAccess`, `onNotFound` | Manager, Public room |
 | `onEditorCloseCallback` | Editor, Viewer |
@@ -248,9 +248,44 @@ const instance = sdk.frames["ds-frame"];
 
 ## Authorization
 
-The SDK uses the active ONLYOFFICE Apps session for authentication. If the user is already signed in to the workspace, the SDK uses that session automatically.
+The SDK supports two ways to authenticate the embedded frame.
 
-If the user is not authenticated, a sign-in page is displayed inside the iframe. You can also authenticate programmatically using the `login` method in [system mode](#sdk-modes), or supply an OAuth access token via the `getToken` or `accessToken` config fields.
+**Session (cookie) mode** is the default. The frame uses the active ONLYOFFICE Apps session: a user already signed in to the workspace is signed in inside the frame too. Otherwise a sign-in page is displayed inside the iframe, or the host signs the user in programmatically with `createHash` and `login` in [system mode](#sdk-modes). The session cookie the portal sets belongs to the browser, not to the host page: it survives a sign-out in the host application, and browsers that withhold third-party cookies from cross-origin iframes may not send it at all.
+
+**OAuth mode** avoids both problems. It switches on when the config carries `getToken` (or a static `accessToken`) and works in every mode:
+
+```typescript
+const instance = sdk.initManager({
+  frameId: "ds-frame",
+  src: "https://portal.example.com",
+  getToken: async () => {
+    // The host backend holds the refresh token and exchanges it for a short-lived access token.
+    const response = await fetch("/api/onlyoffice/token", { credentials: "include" });
+    const { accessToken } = await response.json();
+    return accessToken;
+  },
+  events: {
+    onAuthError: ({ code, message }) => {
+      console.warn(`ONLYOFFICE Apps auth failed: ${code} ${message}`);
+      instance.destroyFrame();
+    },
+  },
+});
+```
+
+How it works:
+
+1. The user authorizes the host application once through the portal's OAuth 2.0 authorization-code flow with a consent screen. The host backend stores the refresh token; the user's portal password is never seen or stored.
+2. The frame starts with `auth=oauth` and, instead of reading a cookie, asks the host for a token. The SDK calls `getToken`, the host backend exchanges the refresh token for an access token, and the SDK hands it to the frame. Every portal request then carries `Authorization: Bearer <token>`; no cookie is set.
+3. When the token is a JWT (or `tokenExpiresAt` is set), the SDK calls `getToken` again one minute before expiry and pushes the fresh token into the frame, so no request fails. An opaque token is refreshed after the first `401`.
+4. A sign-out in the host application ends the embedded session too: the backend stops issuing tokens and the host calls `destroyFrame`. Nothing remains in the browser that would open the portal in a new tab.
+
+Rules of OAuth mode:
+
+- Never expose the client secret or the refresh token to the browser; `getToken` returns only a short-lived access token.
+- The token must carry the scopes the embedded page needs. A token that cannot read the user's profile lands in a no-access state.
+- `login` and `logout` are not available: they reject with `SDKErrorCode.ModeMismatch`, because the host owns the session.
+- The frame never shows a sign-in page. If no usable token arrives, it stays on a loader and fires `onAuthError` with a `code` from `TAuthErrorCode`: `TOKEN_RESOLVE_FAILED` (`getToken` threw, rejected or is missing), `TOKEN_UNAVAILABLE` (the frame waited 10 seconds for its first token), `TOKEN_REFRESH_FAILED` (no fresh token after a `401`) or `UNAUTHORIZED` (the portal rejected a fresh token: expired, revoked or lacking scopes). Re-authenticate the user or destroy the frame.
 
 ## Documentation
 

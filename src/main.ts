@@ -52,6 +52,8 @@ export type {
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
+  TAuthError,
+  TAuthErrorCode,
   TUploadResult,
   TUploadError,
   TUploadProgress,

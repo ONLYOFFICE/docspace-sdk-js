@@ -21,7 +21,7 @@
  * @mergeModuleWith <project>
  */
 
-import { defaultConfig, FRAME_NAME, connectErrorText, wrongMethodText } from "../constants";
+import { defaultConfig, FRAME_NAME, connectErrorText, wrongMethodText, TOKEN_REFRESH_LEAD_MS } from "../constants";
 import { SDKError, SDKErrorCode } from "../errors";
 import type {
   TCreateRoomOptions,
@@ -45,12 +45,14 @@ import type {
   TLoginResult,
   TMethodError,
   TPersonalSection,
+  TAuthError,
 } from "../types";
 import {
   getCSPErrorBody,
   getLoaderStyle,
   validateCSP,
   getFramePath,
+  getJwtExpiry,
 } from "../utils";
 import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
 
@@ -383,6 +385,84 @@ export class SDKInstance {
   /** Single-flight guard for OAuth token resolution (the `getAuthToken` command). */
   #authTokenPromise: Promise<string> | null = null;
 
+  /** Timer of the proactive OAuth token refresh; `null` when none is scheduled. */
+  #tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Whether {@link TFrameConfig.tokenExpiresAt} still describes the token in use (only the first one). */
+  #configExpiryUsed = false;
+
+  /** Whether the frame runs in OAuth mode: a token provider or a static token is configured. */
+  #isOAuthMode(): boolean {
+    return Boolean(this.config.getToken || this.config.accessToken);
+  }
+
+  /**
+   * Fires {@link TFrameEvents.onAuthError} for a token the SDK could not resolve.
+   * Deliberately not {@link SDKInstance.#handleError}, which routes to `onAppError`.
+   */
+  #reportAuthError(error: unknown): void {
+    const code = error instanceof SDKError ? error.code : SDKErrorCode.TokenResolveFailed;
+    const message = (error as { message?: string })?.message ?? "Failed to resolve auth token";
+    const authError: TAuthError = { code, message };
+    this.config.events?.onAuthError?.(authError);
+  }
+
+  /**
+   * Expiry of the token just resolved: {@link TFrameConfig.tokenExpiresAt} for the first token,
+   * the JWT `exp` claim otherwise. `undefined` for an opaque token, which is then refreshed on demand only.
+   */
+  #tokenExpiry(token: string): number | undefined {
+    const { tokenExpiresAt } = this.config;
+    if (!this.#configExpiryUsed && typeof tokenExpiresAt === "number") {
+      this.#configExpiryUsed = true;
+      return tokenExpiresAt;
+    }
+    return getJwtExpiry(token);
+  }
+
+  /** Cancels a scheduled proactive refresh. */
+  #clearTokenRefresh(): void {
+    if (this.#tokenRefreshTimer !== null) {
+      clearTimeout(this.#tokenRefreshTimer);
+      this.#tokenRefreshTimer = null;
+    }
+  }
+
+  /**
+   * Schedules the proactive refresh {@link TOKEN_REFRESH_LEAD_MS} before `expiresAt`.
+   * A static {@link TFrameConfig.accessToken} cannot be refreshed, and a token already inside the
+   * lead window is left to the on-demand flow, so neither schedules anything.
+   */
+  #scheduleTokenRefresh(expiresAt: number | undefined): void {
+    this.#clearTokenRefresh();
+
+    if (!this.config.getToken || expiresAt === undefined) return;
+
+    const delay = expiresAt - Date.now() - TOKEN_REFRESH_LEAD_MS;
+    if (delay <= 0) return;
+
+    this.#tokenRefreshTimer = setTimeout(() => {
+      this.#tokenRefreshTimer = null;
+      this.#refreshTokenProactively();
+    }, delay);
+  }
+
+  /**
+   * Obtains a fresh token ahead of expiry and pushes it into the frame as an unsolicited
+   * `onAuthTokenReturn` (no `callId`), then schedules the next refresh from the new expiry.
+   */
+  #refreshTokenProactively(): void {
+    if (!this.#iframe?.contentWindow) return;
+
+    this.#resolveToken()
+      .then((accessToken) => {
+        const expiresAt = this.#tokenExpiry(accessToken);
+        this.#sendAuthTokenReturn(undefined, { accessToken, ...(expiresAt !== undefined && { expiresAt }) });
+        this.#scheduleTokenRefresh(expiresAt);
+      })
+      .catch((error: unknown) => this.#reportAuthError(error));
+  }
+
   /**
    * Resolves an OAuth access token via {@link TFrameConfig.getToken} (or the static
    * {@link TFrameConfig.accessToken}). Single-flight: concurrent requests share one
@@ -413,14 +493,15 @@ export class SDKInstance {
   };
 
   /**
-   * Posts a resolved OAuth access token back to the iframe (reply to `getAuthToken`).
+   * Posts an OAuth access token into the iframe: the reply to `getAuthToken` when `callId` is set,
+   * an unsolicited push of a proactively refreshed token when it is not.
    * Mirrors {@link SDKInstance.#sendExternalDataReturn}; targets the exact frame origin.
    *
-   * @param callId - Correlation ID copied from the incoming request.
+   * @param callId - Correlation ID copied from the incoming request, `undefined` for a push.
    * @param data - `{ accessToken, expiresAt? }` to deliver to the frame.
    */
   #sendAuthTokenReturn = (
-    callId: number,
+    callId: number | undefined,
     data: { accessToken: string; expiresAt?: number },
   ): void => {
     try {
@@ -432,7 +513,7 @@ export class SDKInstance {
         JSON.stringify({
           frameId,
           type: MessageTypes.AuthTokenReturn,
-          callId,
+          ...(callId !== undefined && { callId }),
           data,
         }),
         src,
@@ -836,21 +917,12 @@ export class SDKInstance {
       const req = (data.commandData ?? {}) as { callId: number };
 
       this.#resolveToken()
-        .then((accessToken) =>
-          this.#sendAuthTokenReturn(req.callId, { accessToken }),
-        )
-        .catch((error: unknown) => {
-          // Deliberately NOT #handleError (that routes to onAppError);
-          // token-resolution failures surface via onAuthError.
-          const code =
-            error instanceof SDKError
-              ? error.code
-              : SDKErrorCode.TokenResolveFailed;
-          const message =
-            (error as { message?: string })?.message ??
-            "Failed to resolve auth token";
-          this.config.events?.onAuthError?.({ code, message });
-        });
+        .then((accessToken) => {
+          const expiresAt = this.#tokenExpiry(accessToken);
+          this.#sendAuthTokenReturn(req.callId, { accessToken, ...(expiresAt !== undefined && { expiresAt }) });
+          this.#scheduleTokenRefresh(expiresAt);
+        })
+        .catch((error: unknown) => this.#reportAuthError(error));
       return;
     }
 
@@ -1147,6 +1219,9 @@ export class SDKInstance {
 
     this.#isConnected = false;
 
+    this.#clearTokenRefresh();
+    this.#configExpiryUsed = false;
+
     this.#clearAllPending(new SDKError(SDKErrorCode.Disconnected, "Frame reloaded"));
 
     const setupResult = this.#createContainer(this.config.frameId);
@@ -1172,8 +1247,9 @@ export class SDKInstance {
    *
    * Replaces the container with a plain `<div>` (preserving the original `frameId` and CSS classes,
    * showing {@link TFrameConfig.destroyText}), removes the `message` listener, rejects pending
-   * method calls with {@link SDKErrorCode.Disconnected}, and removes the instance from the global
-   * `DocSpace.SDK.frames` registry.
+   * method calls with {@link SDKErrorCode.Disconnected}, cancels the proactive OAuth token refresh,
+   * and removes the instance from the global `DocSpace.SDK.frames` registry. In OAuth mode this is
+   * how a host ends the embedded session: no cookie exists, so nothing outlives the frame.
    *
    * The call is synchronous and complete when it returns: the placeholder keeps the `frameId`, so
    * an `SDK.init*` call on the same `frameId` may follow immediately — there is nothing to await.
@@ -1212,6 +1288,7 @@ export class SDKInstance {
     }
 
     window.removeEventListener("message", this.#onMessage);
+    this.#clearTokenRefresh();
     this.#iframe = null;
 
     const loaderClassName = `${frameId}-loader__element`;
@@ -1735,7 +1812,9 @@ export class SDKInstance {
    * session was created — call `login` again with the same credentials and the one-time `code`;
    * a `status` (`401` for wrong credentials) with a `message` means the attempt failed. Only SDK-side
    * failures reject: {@link SDKErrorCode.Timeout}, {@link SDKErrorCode.Disconnected},
-   * {@link SDKErrorCode.ModeMismatch}. A portal whose SDK dispatcher predates the `code`
+   * {@link SDKErrorCode.ModeMismatch} — the latter also in OAuth mode ({@link TFrameConfig.getToken} or
+   * {@link TFrameConfig.accessToken} set), where the host owns the session and no cookie sign-in is
+   * possible. A portal whose SDK dispatcher predates the `code`
    * argument ignores it and answers the challenge again; on such a portal the login page remains
    * the only way to complete a two-factor sign-in.
    * :::
@@ -1775,6 +1854,12 @@ export class SDKInstance {
     session?: boolean,
     code?: string
   ): Promise<TLoginResult> {
+    if (this.#isOAuthMode()) {
+      return this.#rejectModeMismatch(
+        "login is not available in OAuth mode: the host supplies the access token via getToken"
+      );
+    }
+
     return this.#getMethodPromise(InstanceMethods.Login, {
       email,
       passwordHash,
@@ -1787,8 +1872,14 @@ export class SDKInstance {
   /**
    * Ends the current user session.
    *
+   * In OAuth mode ({@link TFrameConfig.getToken} or {@link TFrameConfig.accessToken} set) there is no
+   * portal session to end: the frame authenticates every request with the host's token. The call
+   * rejects with {@link SDKErrorCode.ModeMismatch}; revoke the token on the host and call
+   * {@link SDKInstance.destroyFrame} instead.
+   *
    * @returns A promise that resolves with the logout result.
-   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure,
+   *   and with {@link SDKErrorCode.ModeMismatch} in OAuth mode.
    *
    * @example
    * ```typescript
@@ -1806,6 +1897,12 @@ export class SDKInstance {
    * ```
    */
   logout(): Promise<object> {
+    if (this.#isOAuthMode()) {
+      return this.#rejectModeMismatch(
+        "logout is not available in OAuth mode: revoke the token on the host and call destroyFrame"
+      );
+    }
+
     return this.#getMethodPromise(InstanceMethods.Logout);
   }
   

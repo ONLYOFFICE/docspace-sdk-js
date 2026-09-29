@@ -26,6 +26,37 @@ import type { TFrameConfig } from "../types";
 import { SDKMode } from "../enums";
 
 /**
+ * Reads the expiry of a JWT access token from its `exp` claim.
+ *
+ * Best effort: the token is not verified, only its payload segment is decoded. Used by the
+ * proactive refresh in OAuth mode when {@link TFrameConfig.tokenExpiresAt} is not set.
+ *
+ * @param token - The access token as returned by {@link TFrameConfig.getToken}.
+ * @returns The expiry as epoch milliseconds, or `undefined` when the token is not a JWT or carries no `exp`.
+ *
+ * @example
+ * ```typescript
+ * getJwtExpiry("eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDB9.sig");
+ * // → 1700000000000
+ * ```
+ *
+ * @internal
+ */
+export const getJwtExpiry = (token: string): number | undefined => {
+  const segments = token.split(".");
+  if (segments.length !== 3) return undefined;
+
+  try {
+    const base64 = segments[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
  * Converts a record of primitive values into a URL query string.
  * Strips `null` and `undefined` entries before serialization.
  *

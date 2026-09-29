@@ -389,8 +389,8 @@ export type TUploaderUploadError = {
 export type TFrameEvents = {
   /** Fired by the SDK itself, in every mode, on a CSP, message parsing, connection, method timeout or token failure. Receives the error message string. A portal API error does not fire it: the method's promise rejects instead. */
   onAppError?: null | ((message: string) => void);
-  /** Fired (OAuth mode) when no access token can be used: the SDK could not resolve one (`code` {@link SDKErrorCode.TokenResolveFailed}: {@link TFrameConfig.getToken} threw, rejected or is missing), or the portal still answered `401` after a fresh token (`code` `"UNAUTHORIZED"`). The host should re-authenticate or surface the failure. */
-  onAuthError?: null | ((error: { code?: string; message: string }) => void);
+  /** Fired in OAuth mode only, when no access token can be used. Receives a {@link TAuthError} whose `code` names the failure: the SDK could not resolve a token, the frame waited for one in vain, or the portal rejected it. The host should re-authenticate the user or destroy the frame; the frame itself shows a loader and never a sign-in page. */
+  onAuthError?: null | ((error: TAuthError) => void);
   /** Fired once, in every mode, when the ONLYOFFICE Apps frame is fully initialized and ready. {@link SDKMode.PublicRoom} without a valid {@link TFrameConfig.id} renders an "Invalid link" page and never fires it. */
   onAppReady?: null | ((data: { frameId: string }) => void);
   /** Fired when the user completes a sign-in through a confirmation link opened inside the frame. Not fired by {@link SDKInstance.login} or the OAuth flow, where {@link TFrameEvents.onAppReady} is the sign of success. */
@@ -526,18 +526,22 @@ export type TFrameConfig = {
   /**
    * OAuth access-token provider. Supplying `getToken` (or {@link TFrameConfig.accessToken})
    * switches the frame into **OAuth mode**: the SDK obtains a short-lived access token from
-   * this callback (on the frame's request and on demand) and hands it to the embedded ONLYOFFICE Apps,
-   * which authorizes API calls with `Authorization: Bearer <token>` instead of the session cookie.
+   * this callback and hands it to the embedded ONLYOFFICE Apps, which authorizes API calls with
+   * `Authorization: Bearer <token>` instead of the session cookie. No cookie is set, so the
+   * portal session ends with the frame and cannot outlive a sign-out in the host application.
    *
    * The host backend should perform the OAuth authorization-code / refresh-token exchange and
    * return a fresh, minimally-scoped ONLYOFFICE Apps access token. Never expose `client_secret` or
-   * refresh tokens to the browser. Called again whenever the frame needs a fresh token.
+   * refresh tokens to the browser. The SDK calls `getToken` when the frame asks for a token
+   * (at start and after a `401`) and, for a JWT or with {@link TFrameConfig.tokenExpiresAt} set,
+   * one minute before the token expires, pushing the fresh token into the frame without a failed request.
    *
-   * The SDK forwards the returned string unchanged and never parses or refreshes it; the frame
-   * sends it as a `Bearer` credential, so it must be a token the portal accepts under that
-   * scheme. Because the frame authenticates with the header rather than the session cookie,
-   * OAuth mode also works where a browser withholds third-party cookies from a cross-origin
-   * iframe. A rejected or missing token surfaces through {@link TFrameEvents.onAuthError}.
+   * The SDK forwards the returned string unchanged; the frame sends it as a `Bearer` credential,
+   * so it must be a token the portal accepts under that scheme. Because the frame authenticates
+   * with the header rather than the session cookie, OAuth mode also works where a browser withholds
+   * third-party cookies from a cross-origin iframe. {@link SDKInstance.login} and
+   * {@link SDKInstance.logout} reject with {@link SDKErrorCode.ModeMismatch} in OAuth mode: the host
+   * owns the session. A rejected or missing token surfaces through {@link TFrameEvents.onAuthError}.
    */
   getToken?: () => string | Promise<string>;
   /**
@@ -546,8 +550,9 @@ export type TFrameConfig = {
    */
   accessToken?: string;
   /**
-   * Optional explicit access-token expiry (epoch ms), used by proactive refresh.
-   * When omitted, expiry is decoded from the JWT `exp` claim. *(Reserved for proactive refresh; not used by the on-demand flow.)*
+   * Expiry of the first access token as epoch milliseconds, for the proactive refresh in OAuth mode.
+   * When omitted, the expiry is read from the token's JWT `exp` claim. Tokens obtained by a refresh
+   * always use their own `exp` claim; an opaque token without one is refreshed on demand only, after a `401`.
    */
   tokenExpiresAt?: number;
   /** Base navigation path for {@link SDKMode.Manager}. Default: `"/rooms/shared/"`. */
@@ -1062,6 +1067,47 @@ export type THashSettings = {
   iterations: number;
   /** Base64-encoded salt. */
   salt: string;
+};
+
+/**
+ * Failure categories reported through {@link TFrameEvents.onAuthError} in OAuth mode.
+ *
+ * - `"TOKEN_RESOLVE_FAILED"` — the SDK could not obtain a token: {@link TFrameConfig.getToken} threw or
+ *   rejected, or neither `getToken` nor {@link TFrameConfig.accessToken} is set. Fired by the SDK itself.
+ * - `"TOKEN_UNAVAILABLE"` — the frame asked for its first token and received none within 10 seconds.
+ *   Fired by the portal; usually follows `"TOKEN_RESOLVE_FAILED"`.
+ * - `"TOKEN_REFRESH_FAILED"` — the frame asked for a fresh token after a `401` and received none.
+ *   Fired by the portal.
+ * - `"UNAUTHORIZED"` — the portal still answered `401` with a freshly obtained token: the token is not
+ *   accepted, expired or lacks the scopes the page needs. Fired by the portal.
+ *
+ * @example
+ * ```typescript
+ * events: {
+ *   onAuthError: ({ code }) => {
+ *     if (code === "UNAUTHORIZED") redirectToLogin();
+ *   },
+ * }
+ * ```
+ */
+export type TAuthErrorCode = "TOKEN_RESOLVE_FAILED" | "TOKEN_UNAVAILABLE" | "TOKEN_REFRESH_FAILED" | "UNAUTHORIZED";
+
+/**
+ * Payload of {@link TFrameEvents.onAuthError}.
+ *
+ * @example
+ * ```typescript
+ * const onAuthError = (error: TAuthError) => {
+ *   console.warn(`[${error.code}] ${error.message}`);
+ *   instance.destroyFrame();
+ * };
+ * ```
+ */
+export type TAuthError = {
+  /** The failure category. See {@link TAuthErrorCode}. A portal newer than the SDK may send a code that is not listed. */
+  code?: TAuthErrorCode | string;
+  /** Human-readable description of the failure. */
+  message: string;
 };
 
 /**

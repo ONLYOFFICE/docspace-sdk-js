@@ -158,3 +158,10 @@ export const connectErrorText = "Message bus is not connected with frame" as con
  * @internal
  */
 export const wrongMethodText = "Wrong method for this mode" as const;
+
+/**
+ * How long before an OAuth access token expires the SDK asks {@link TFrameConfig.getToken} for a
+ * fresh one and pushes it into the frame (proactive refresh), in milliseconds.
+ * @internal
+ */
+export const TOKEN_REFRESH_LEAD_MS = 60_000 as const;
