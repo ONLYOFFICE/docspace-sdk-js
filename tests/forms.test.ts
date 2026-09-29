@@ -626,8 +626,35 @@ describe("navigateSection — mode guard", () => {
   });
 });
 
+describe("setCustomActions — Manager and Personal", () => {
+  test.each(["manager", "personal"] as const)("is sent in %s mode", (mode) => {
+    const { inst, postMessageSpy } = initConnected({ mode });
+
+    const config = {
+      contextMenu: { room: [{ key: "unlink", label: "Unlink", roomTypes: [5] }] },
+      createMenu: [{ key: "upload", label: "Upload from CRM" }],
+    };
+    inst.setCustomActions(config);
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.methodName).toBe("setCustomActions");
+    expect(sent.data.data).toEqual(config);
+  });
+
+  test("keeps the applied set in the config so a reload sends it again", async () => {
+    const { inst, config: frameConfig } = initConnected({ mode: "manager" });
+
+    const config = { createMenu: [{ key: "upload", label: "Upload from CRM" }] };
+    const pending = inst.setCustomActions(config);
+    dispatchResponse(frameConfig.frameId);
+    await pending;
+
+    expect(inst.getConfig().customActions).toEqual(config);
+  });
+});
+
 describe("setCustomActions — mode guard", () => {
-  test("rejects with SDKError ModeMismatch when called outside Forms mode", async () => {
+  test("rejects with SDKError ModeMismatch when called outside Manager, Personal and Forms modes", async () => {
     const el = document.createElement("div");
     el.id = "ds-editor";
     document.body.appendChild(el);

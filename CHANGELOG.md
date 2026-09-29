@@ -20,6 +20,7 @@
 - Added new types: `TGetExternalDataRequest`, `TSetExternalDataPayload`
 - Added the upload event payload types `TUploadResult`, `TUploadError`, `TUploadProgress`, `TUploaderUploadResult`, `TUploadedFile`, `TUploaderUploadError`, `TRejectedFile` and `TUploadRejection`; every `TFrameEvents` handler names the modes that emit the event
 - Added new instance methods: `navigateSection`, `setCustomActions`, `upload`. `upload` works in Forms and Personal mode; a mode-guarded method called in any other mode rejects its promise with `SDKErrorCode.ModeMismatch` instead of throwing
+- Added custom actions in Manager, Personal and Forms mode: context menu items for files, folders and rooms and create menu items, set with the `customActions` config field or `setCustomActions`. Items can be limited by section, file extension, room type and access flags; `onCustomAction` receives the item, the whole selection and the current folder id
 - Added unit tests for SDK instance class
 - Added edge case tests for utils and new modes
 - Exported the documented constants `CSPApiUrl`, `FRAME_NAME`, `defaultConfig`, `cspErrorText` and `connectErrorText` from the package entry point

@@ -200,7 +200,7 @@ All events are optional. Pass them via the `events` field in the configuration o
 | `onSelectCallback`, `onCloseCallback` | Room selector, File selector |
 | `onUploadSuccess`, `onUploadError` | Uploader, Forms |
 | `onUploadProgress` | Uploader |
-| `onCustomAction` | Forms |
+| `onCustomAction` | Manager, Personal, Forms |
 | `onNavigate` | Forms, Personal |
 
 ## Instance Methods
@@ -216,7 +216,7 @@ After initialization, the returned `SDKInstance` object provides methods to inte
 | `getFiles`, `getFolders`, `getList` | Manager, Personal, Forms |
 | `getRooms`, `createRoom`, `createTag`, `addTagsToRoom`, `removeTagsFromRoom` | Manager |
 | `navigateSection`, `upload` | Personal, Forms |
-| `setCustomActions` | Forms |
+| `setCustomActions` | Manager, Personal, Forms |
 | `executeInEditor` | Editor, Viewer |
 
 ```typescript

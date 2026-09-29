@@ -31,6 +31,7 @@ import {
   type HeaderBannerDisplaying,
   type FilterSortBy,
   type MessageTypes,
+  type RoomType,
 } from "../enums";
 import type { SDKInstance } from "../instance";
 
@@ -434,8 +435,8 @@ export type TFrameEvents = {
   onUploadError?: null | ((data: TUploadError | TUploaderUploadError) => void);
   /** Fired in {@link SDKMode.Uploader} only, after every uploaded chunk of every file of the dialog's own upload. Receives a {@link TUploadProgress}. Not fired for {@link SDKInstance.upload}. */
   onUploadProgress?: null | ((data: TUploadProgress) => void);
-  /** Fired when a custom context menu action registered with {@link SDKInstance.setCustomActions} is clicked in {@link SDKMode.Forms}. Receives action key and item data. */
-  onCustomAction?: null | ((data: { action: string; type: string; item: object }) => void);
+  /** Fired when a custom action from {@link TFrameConfig.customActions} or {@link SDKInstance.setCustomActions} is clicked in {@link SDKMode.Manager}, {@link SDKMode.Personal} or {@link SDKMode.Forms}. Receives a {@link TCustomActionEvent}. */
+  onCustomAction?: null | ((data: TCustomActionEvent) => void);
   /** Fired when the user navigates to a different section in {@link SDKMode.Forms} or {@link SDKMode.Personal}. Receives the active section. */
   onNavigate?: null | ((data: { section: TFormsSection | TPersonalSection }) => void);
   /**
@@ -496,6 +497,8 @@ export type TFrameConfig = {
   buttonColor?: string;
   /** Validate the host against the portal's CSP allowlist before loading the iframe (host name and port only). `false` skips the request to {@link CSPApiUrl}; the browser still enforces the portal's `frame-ancestors` header. Default: `true`. */
   checkCSP?: boolean;
+  /** Custom items for the context menus and the create menu in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}, applied when the frame loads. Clicks fire {@link TFrameEvents.onCustomAction}. Replace them later with {@link SDKInstance.setCustomActions}. Not available through the script-tag parameters. Default: `undefined`. */
+  customActions?: TCustomActionsConfig;
   /** Plain text shown in the placeholder `div` after {@link SDKInstance.destroyFrame}. Markup is not rendered. Default: `""`. */
   destroyText?: string;
   /** Timeout in milliseconds for method calls to the iframe. If the iframe does not respond within this time, the call rejects with {@link SDKErrorCode.Timeout} and {@link TFrameEvents.onAppError} fires. Does not apply to {@link SDKInstance.upload}, which has its own 120-second transfer timeout. Default: `30000` (30 seconds). */
@@ -1257,8 +1260,27 @@ export type TFormsSection = "my-forms" | "in-progress" | "completed-forms" | "li
 export type TPersonalSection = "my-documents" | "favorites" | "recent" | "trash" | "settings";
 
 /**
- * A custom context menu action registered via {@link SDKInstance.setCustomActions}.
- * Displayed in the file/folder context menu in {@link SDKMode.Forms}.
+ * Sections of {@link SDKMode.Manager} a custom action can be limited to, named after the root folder
+ * the user is in: `rooms`, `archive`, `my-documents`, `recent`, `favorites`, `shared` (shared with me) and `trash`.
+ */
+export type TManagerSection =
+  | "rooms"
+  | "archive"
+  | "my-documents"
+  | "recent"
+  | "favorites"
+  | "shared"
+  | "trash";
+
+/**
+ * A section a custom action can be limited to: a {@link TManagerSection}, a {@link TPersonalSection}
+ * or a {@link TFormsSection}, matched against the mode the frame runs in.
+ */
+export type TCustomActionSection = TManagerSection | TPersonalSection | TFormsSection;
+
+/**
+ * A custom context menu item. Every condition that is set must hold for the item to be shown;
+ * conditions on the host's own data are checked in {@link TFrameEvents.onCustomAction}.
  *
  * @example
  * ```typescript
@@ -1266,19 +1288,50 @@ export type TPersonalSection = "my-documents" | "favorites" | "recent" | "trash"
  *   key: "send-to-crm",
  *   label: "Send to CRM",
  *   icon: "https://example.com/icon.svg",
- *   section: ["completed-forms"],
+ *   extensions: ["docx", "pdf"],
+ *   requireSecurity: ["Download"],
  * };
  * ```
  */
 export type TCustomContextMenuAction = {
-  /** Unique action identifier. Returned in {@link TFrameEvents.onCustomAction}. */
+  /** Unique action identifier. Returned as `action` in {@link TCustomActionEvent}. */
   key: string;
   /** Display label in the context menu. */
   label: string;
-  /** URL of the action icon. Optional. */
+  /** URL of the action icon. The portal's content security policy must allow images from its origin. */
   icon?: string;
-  /** Sections where this action is visible. If omitted, shown in all sections. */
-  section?: TFormsSection[];
+  /** Sections where the action is shown. If omitted, it is shown in every section. */
+  section?: TCustomActionSection[];
+  /** File extensions the action is shown for, with or without the leading dot, case-insensitive. Applies to file actions only. */
+  extensions?: string[];
+  /** Room types the action is shown for. Applies to room actions only. See {@link RoomType}. */
+  roomTypes?: RoomType[];
+  /** Access flags of the item's `security` object that must all be `true`, for example `["Download"]` or `["EditRoom"]`. */
+  requireSecurity?: string[];
+};
+
+/**
+ * A custom item of the create ("+") menu. Clicking it fires {@link TFrameEvents.onCustomAction}
+ * with `type: "create"` and the id of the folder the user is in.
+ *
+ * @example
+ * ```typescript
+ * const action: TCustomCreateAction = {
+ *   key: "upload-from-crm",
+ *   label: "Upload from CRM",
+ *   section: ["my-documents"],
+ * };
+ * ```
+ */
+export type TCustomCreateAction = {
+  /** Unique action identifier. Returned as `action` in {@link TCustomActionEvent}. */
+  key: string;
+  /** Display label in the create menu. */
+  label: string;
+  /** URL of the action icon. The portal's content security policy must allow images from its origin. */
+  icon?: string;
+  /** Sections where the action is shown. If omitted, it is shown in every section that has a create menu. */
+  section?: TCustomActionSection[];
 };
 
 /**
@@ -1290,6 +1343,7 @@ export type TCustomContextMenuAction = {
  * const contextMenu: TCustomContextMenuActions = {
  *   file: [{ key: "export", label: "Export to CRM" }],
  *   folder: [{ key: "share", label: "Share folder" }],
+ *   room: [{ key: "unlink", label: "Unlink from deal", requireSecurity: ["EditRoom"] }],
  * };
  * await instance.setCustomActions({ contextMenu });
  * ```
@@ -1299,26 +1353,52 @@ export type TCustomContextMenuActions = {
   file?: TCustomContextMenuAction[];
   /** Custom actions for folder context menus. */
   folder?: TCustomContextMenuAction[];
+  /** Custom actions for room context menus. Available in {@link SDKMode.Manager}. */
+  room?: TCustomContextMenuAction[];
 };
 
 /**
- * Configuration for custom context menu actions, passed to {@link SDKInstance.setCustomActions}.
+ * Custom actions of a frame, set with {@link TFrameConfig.customActions} or {@link SDKInstance.setCustomActions}.
  *
  * @example
  * ```typescript
  * await instance.setCustomActions({
  *   contextMenu: {
- *     file: [
- *       { key: "export", label: "Export to CRM" },
- *     ],
- *     folder: [
- *       { key: "share", label: "Share folder" },
- *     ],
+ *     file: [{ key: "send", label: "Send to CRM" }],
+ *     room: [{ key: "share-contacts", label: "Share to CRM contacts" }],
  *   },
+ *   createMenu: [{ key: "upload-from-crm", label: "Upload from CRM" }],
  * });
  * ```
  */
 export type TCustomActionsConfig = {
   /** Context menu actions grouped by entity type. See {@link TCustomContextMenuActions}. */
   contextMenu?: TCustomContextMenuActions;
+  /** Items added to the create ("+") menu. Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}. */
+  createMenu?: TCustomCreateAction[];
+};
+
+/**
+ * Payload of {@link TFrameEvents.onCustomAction}.
+ *
+ * @example
+ * ```typescript
+ * const events = {
+ *   onCustomAction: ({ action, type, items }: TCustomActionEvent) => {
+ *     if (action === "send" && type === "file") sendToCrm(items.map((file) => file.id));
+ *   },
+ * };
+ * ```
+ */
+export type TCustomActionEvent = {
+  /** Key of the clicked action. */
+  action: string;
+  /** What the action was applied to: `file`, `folder` or `room` from a context menu, `create` from the create menu. */
+  type: "file" | "folder" | "room" | "create";
+  /** The item the context menu was opened for, in the form the data methods return it. Absent for `create`. */
+  item?: object;
+  /** Every selected item when the action was applied to a selection, otherwise the single `item`. Absent for `create`. */
+  items?: object[];
+  /** Id of the folder or room the user is in. */
+  folderId?: number | string;
 };

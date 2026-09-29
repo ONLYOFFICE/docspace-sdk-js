@@ -2142,12 +2142,16 @@ export class SDKInstance {
   }
 
   /**
-   * Registers custom context menu actions for files and/or folders.
-   * Only works in {@link SDKMode.Forms} mode.
-   * When a custom action is clicked, {@link TFrameEvents.onCustomAction} fires with the action key and item data.
+   * Replaces the custom actions of the frame: context menu items for files, folders and rooms and
+   * items of the create ("+") menu. Groups left out of `config` are cleared; pass `{}` to remove all items.
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}.
+   * Room actions are shown in {@link SDKMode.Manager} only, create menu items in {@link SDKMode.Manager}
+   * and {@link SDKMode.Personal}. When an action is clicked, {@link TFrameEvents.onCustomAction} fires
+   * with a {@link TCustomActionEvent}. To show the items from the first render, set
+   * {@link TFrameConfig.customActions} instead.
    *
    * @param config - Custom actions configuration. See {@link TCustomActionsConfig}.
-   * @returns A promise that resolves when actions are registered.
+   * @returns A promise that resolves when the actions are applied.
    *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure,
    *   or with {@link SDKErrorCode.ModeMismatch} in any other mode.
    *
@@ -2157,34 +2161,41 @@ export class SDKInstance {
    *   contextMenu: {
    *     file: [
    *       { key: "send-to-crm", label: "Send to CRM", icon: "https://example.com/icon.svg" },
-   *       { key: "export", label: "Export", section: ["completed-forms"] },
+   *       { key: "export", label: "Export", extensions: ["pdf"] },
    *     ],
+   *     room: [{ key: "unlink", label: "Unlink from deal", requireSecurity: ["EditRoom"] }],
    *   },
+   *   createMenu: [{ key: "upload-from-crm", label: "Upload from CRM" }],
    * });
    * ```
    *
    * @example
    * Handle the custom action event on the host page.
    * ```typescript
-   * const forms = sdk.initForms({
-   *   frameId: 'ds-forms',
+   * const manager = sdk.initManager({
+   *   frameId: 'ds-frame',
    *   src: 'https://portal.example.com',
-   *   id: 'room-42',
    *   events: {
-   *     onCustomAction: (data) => console.log('action:', data),
+   *     onCustomAction: ({ action, items }) => console.log(action, items),
    *   },
    * });
-   * await forms.setCustomActions({
+   * await manager.setCustomActions({
    *   contextMenu: { file: [{ key: "approve", label: "Approve" }] },
    * });
    * ```
    */
   setCustomActions(config: TCustomActionsConfig): Promise<object> {
-    if (this.config.mode !== SDKMode.Forms) {
-      return this.#rejectModeMismatch("setCustomActions is only available in Forms mode");
+    const { mode } = this.config;
+    if (mode !== SDKMode.Manager && mode !== SDKMode.Personal && mode !== SDKMode.Forms) {
+      return this.#rejectModeMismatch(
+        "setCustomActions is only available in Manager, Personal and Forms modes"
+      );
     }
 
-    return this.#getMethodPromise(InstanceMethods.SetCustomActions, config);
+    return this.#getMethodPromise(InstanceMethods.SetCustomActions, config).then((result) => {
+      this.config.customActions = config;
+      return result;
+    });
   }
 
   /**
