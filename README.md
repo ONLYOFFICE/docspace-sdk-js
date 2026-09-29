@@ -205,7 +205,19 @@ All events are optional. Pass them via the `events` field in the configuration o
 
 ## Instance Methods
 
-After initialization, the returned `SDKInstance` object provides methods to interact with ONLYOFFICE Apps:
+After initialization, the returned `SDKInstance` object provides methods to interact with ONLYOFFICE Apps. Each method works in the modes listed below; in any other mode its promise rejects with `SDKErrorCode.ModeMismatch`.
+
+| Methods | Modes |
+|---|---|
+| `setConfig`, `getConfig`, `destroyFrame`, `setIsLoaded` | All modes |
+| `login`, `logout`, `createHash`, `getHashSettings` | System, Manager (not in OAuth mode) |
+| `getUserInfo` | Manager, System, Personal, Forms |
+| `getFolderInfo`, `getSelection`, `openModal`, `createFile`, `createFolder`, `setListView` | Manager, Personal |
+| `getFiles`, `getFolders`, `getList` | Manager, Personal, Forms |
+| `getRooms`, `createRoom`, `createTag`, `addTagsToRoom`, `removeTagsFromRoom` | Manager |
+| `navigateSection`, `upload` | Personal, Forms |
+| `setCustomActions` | Forms |
+| `executeInEditor` | Editor, Viewer |
 
 ```typescript
 const system = sdk.initSystem({
@@ -214,25 +226,27 @@ const system = sdk.initSystem({
   events: { onAppReady: () => console.log("ready") },
 });
 
-// Authentication
+// Authentication (system mode)
 await system.login(email, passwordHash);
 await system.logout();
 
-// Data retrieval
-const user = await system.getUserInfo();
-const files = await system.getFiles();
-const folders = await system.getFolders();
-const rooms = await system.getRooms(filter);
-const selection = await system.getSelection();
+const manager = sdk.initManager({ frameId: "ds-frame", src: "https://portal.example.com" });
 
-// Content management
-await system.createFile(folderId, title);
-await system.createFolder(parentFolderId, title);
-await system.createRoom(title, roomType);
+// Data retrieval (manager mode)
+const user = await manager.getUserInfo();
+const files = await manager.getFiles();
+const folders = await manager.getFolders();
+const rooms = await manager.getRooms(filter);
+const selection = await manager.getSelection();
 
-// Frame control
-system.setConfig({ theme: "Dark" });
-system.destroyFrame();
+// Content management (manager mode)
+await manager.createFile(folderId, title);
+await manager.createFolder(parentFolderId, title);
+await manager.createRoom(title, roomType);
+
+// Frame control (all modes)
+manager.setConfig({ theme: "Dark" });
+manager.destroyFrame();
 
 // Forms mode (via initForms)
 await forms.navigateSection("library");

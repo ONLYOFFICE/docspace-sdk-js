@@ -1404,6 +1404,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns metadata about the folder currently open in the frame.
    *
    * @returns A promise that resolves with {@link TFolderInfo}.
@@ -1429,6 +1431,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns the items currently selected in the frame.
    *
    * @returns A promise that resolves with an array of {@link TFileInfo}.
@@ -1454,6 +1458,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns the files in the folder currently open in the frame.
    *
    * @returns A promise that resolves with {@link TFilesResponse}.
@@ -1479,6 +1485,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns the subfolders of the folder currently open in the frame.
    *
    * @returns A promise that resolves with {@link TFilesResponse}.
@@ -1504,6 +1512,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns all files and folders in the folder currently open in the frame.
    *
    * Use {@link SDKInstance.getFiles} or {@link SDKInstance.getFolders}
@@ -1529,6 +1539,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns a list of rooms, filtered by `filter`.
    *
    * @param filter - Filter and sort criteria. See {@link TFrameFilter}.
@@ -1566,6 +1578,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.System}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns information about the currently authenticated user.
    *
    * @returns A promise that resolves with {@link TUserInfo}.
@@ -1591,6 +1605,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Returns the server's password hash settings needed by {@link SDKInstance.createHash}.
    *
    * @returns A promise that resolves with {@link THashSettings}.
@@ -1615,6 +1631,8 @@ export class SDKInstance {
   }
   
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Opens a modal dialog of the specified type inside the frame.
    *
    * @param type - The modal type identifier.
@@ -1642,6 +1660,8 @@ export class SDKInstance {
   }
   
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Creates a new file in the specified folder.
    *
    * @param folderId - The ID of the target folder.
@@ -1679,6 +1699,8 @@ export class SDKInstance {
   }
   
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Creates a new folder inside the specified parent folder.
    *
    * @param parentFolderId - The ID of the parent folder.
@@ -1707,6 +1729,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Creates a new room with the given type and optional settings.
    *
    * :::note
@@ -1749,6 +1773,8 @@ export class SDKInstance {
   }  
   
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Switches the file list display mode.
    *
    * @param viewType - The view mode: `"row"`, `"table"`, or `"tile"`.
@@ -1774,6 +1800,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Creates a password hash using the provided hash settings.
    *
    * Obtain `hashSettings` from {@link SDKInstance.getHashSettings} before calling this method.
@@ -1806,6 +1834,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Authenticates a user using email and a hashed password.
    *
    * Obtain `passwordHash` from {@link SDKInstance.createHash}. The portal's SDK dispatcher
@@ -1877,6 +1907,8 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Ends the current user session.
    *
    * In OAuth mode ({@link TFrameConfig.getToken} or {@link TFrameConfig.accessToken} set) there is no
@@ -1914,6 +1946,8 @@ export class SDKInstance {
   }
   
   /**
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Creates a new tag with the given name.
    *
    * @param name - The tag name.
@@ -1938,6 +1972,8 @@ export class SDKInstance {
   }
   
   /**
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Adds the specified tags to a room.
    *
    * @param roomId - The room ID.
@@ -1967,6 +2003,8 @@ export class SDKInstance {
   }
   
   /**
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Removes the specified tags from a room.
    *
    * @param roomId - The room ID.
