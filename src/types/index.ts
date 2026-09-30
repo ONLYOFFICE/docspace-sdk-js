@@ -423,7 +423,7 @@ export type TFrameEvents = {
   onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. {@link SDKMode.RoomSelector} passes an **array** of {@link TSelectedRoom} (one element for a single choice); {@link SDKMode.FileSelector} passes a single {@link TSelectedFile} object. */
   onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
-  /** Fired when the user signs out through the portal's profile menu inside the frame. Not fired by {@link SDKInstance.logout}. */
+  /** Fired when the user signs out through the portal's profile menu inside the frame. Not fired by {@link SDKInstance.logout}. In OAuth mode the frame then stops asking for tokens until it is loaded again. */
   onSignOut?: null | (() => void);
   /** Fired in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Forms} and {@link SDKMode.Personal} when the frame is about to open the editor (row activation, context menu, hotkey, the "Create" dialog). Receives the file with the requested action — see {@link TEditorOpenPayload}. Registering the handler suppresses the portal's own editor: open the file in a frame of your own. */
   onEditorOpen?: null | ((file: TEditorOpenPayload) => void);
@@ -1084,8 +1084,9 @@ export type THashSettings = {
  *   Fired by the portal; usually follows `"TOKEN_RESOLVE_FAILED"`.
  * - `"TOKEN_REFRESH_FAILED"` — the frame asked for a fresh token after a `401` and received none.
  *   Fired by the portal.
- * - `"UNAUTHORIZED"` — the portal still answered `401` with a freshly obtained token: the token is not
- *   accepted, expired or lacks the scopes the page needs. Fired by the portal.
+ * - `"UNAUTHORIZED"` — the portal did not accept the token: it answered `401` again with a freshly
+ *   obtained token, or treated the frame as anonymous on start. The token is invalid, expired or lacks the
+ *   scopes the page needs. Fired by the portal.
  *
  * @example
  * ```typescript
@@ -1303,8 +1304,8 @@ export type TCustomContextMenuAction = {
 /**
  * A custom item of the create ("+") menu. Clicking it fires {@link TFrameEvents.onCustomAction}
  * with `type: "create"` and the id of the folder the user is in. In {@link SDKMode.Manager} the create
- * menu is the **New** button of the filter toolbar, shown with {@link TFrameConfig.showFilter}; the rooms
- * list has no create menu, its button creates a room.
+ * menu is the **New** button of the filter toolbar on desktop, shown with {@link TFrameConfig.showFilter},
+ * and the floating create button on mobile devices; the rooms list has no create menu, its button creates a room.
  *
  * @example
  * ```typescript
@@ -1387,9 +1388,9 @@ export type TCustomActionEvent = {
   action: string;
   /** What the action was applied to: `file`, `folder` or `room` from a context menu, `create` from the create menu. */
   type: "file" | "folder" | "room" | "create";
-  /** The item the context menu was opened for, in the form the data methods return it. Absent for `create`. */
+  /** The item the context menu was opened for, in the form the data methods return it. Absent for `create` and for an action applied to a selection. */
   item?: object;
-  /** Every selected item when the action was applied to a selection, otherwise the single `item`. Absent for `create`. */
+  /** Every selected item when the action was applied to a selection of items of one type, otherwise the single `item`. Absent for `create`. */
   items?: object[];
   /** Id of the folder or room the user is in. */
   folderId?: number | string;
