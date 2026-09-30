@@ -100,6 +100,27 @@ const editor = sdk.initEditor({
 });
 ```
 
+**Rooms of one deal with custom actions:**
+
+```typescript
+const manager = sdk.initManager({
+  frameId: "ds-frame",
+  src: "https://portal.example.com",
+  rootPath: "/rooms/shared/",
+  filter: { groupId: dealRoomGroupId }, // search and filters stay inside the group
+  customActions: {
+    contextMenu: {
+      file: [{ key: "send", label: "Send to CRM", extensions: ["docx", "pdf"] }],
+      room: [{ key: "unlink", label: "Unlink from deal", requireSecurity: ["EditRoom"] }],
+    },
+    createMenu: [{ key: "upload-from-crm", label: "Upload from CRM" }],
+  },
+  events: {
+    onCustomAction: ({ action, type, items, folderId }) => console.log(action, type, items, folderId),
+  },
+});
+```
+
 **File selector:**
 
 ```typescript
@@ -198,7 +219,7 @@ All events are optional. Pass them via the `events` field in the configuration o
 | `onEditorCloseCallback` | Editor, Viewer |
 | `onDownload` | Manager, Public room, Editor, Viewer — with `downloadToEvent: true` |
 | `onSelectCallback`, `onCloseCallback` | Room selector, File selector |
-| `onUploadSuccess`, `onUploadError` | Uploader, Forms |
+| `onUploadSuccess`, `onUploadError` | Uploader, Forms, Personal |
 | `onUploadProgress` | Uploader |
 | `onCustomAction` | Manager, Personal, Forms |
 | `onNavigate` | Forms, Personal |

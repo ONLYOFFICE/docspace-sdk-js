@@ -540,24 +540,14 @@ export type TFrameConfig = {
   /** Share key of an external link: the room link in {@link SDKMode.PublicRoom} and {@link SDKMode.Manager}, the file link in {@link SDKMode.Editor} and {@link SDKMode.Viewer}. Ignored by other modes. Obtain it from {@link TRequestTokenInfo.requestToken}. Default: `null`. */
   requestToken?: string | null;
   /**
-   * OAuth access-token provider. Supplying `getToken` (or {@link TFrameConfig.accessToken})
-   * switches the frame into **OAuth mode**: the SDK obtains a short-lived access token from
-   * this callback and hands it to the embedded ONLYOFFICE Apps, which authorizes API calls with
-   * `Authorization: Bearer <token>` instead of the session cookie. No cookie is set, so the
-   * portal session ends with the frame and cannot outlive a sign-out in the host application.
-   *
-   * The host backend should perform the OAuth authorization-code / refresh-token exchange and
-   * return a fresh, minimally-scoped ONLYOFFICE Apps access token. Never expose `client_secret` or
-   * refresh tokens to the browser. The SDK calls `getToken` when the frame asks for a token
-   * (at start and after a `401`) and, for a JWT or with {@link TFrameConfig.tokenExpiresAt} set,
-   * one minute before the token expires, pushing the fresh token into the frame without a failed request.
-   *
-   * The SDK forwards the returned string unchanged; the frame sends it as a `Bearer` credential,
-   * so it must be a token the portal accepts under that scheme. Because the frame authenticates
-   * with the header rather than the session cookie, OAuth mode also works where a browser withholds
-   * third-party cookies from a cross-origin iframe. {@link SDKInstance.login} and
-   * {@link SDKInstance.logout} reject with {@link SDKErrorCode.ModeMismatch} in OAuth mode: the host
-   * owns the session. A rejected or missing token surfaces through {@link TFrameEvents.onAuthError}.
+   * OAuth access-token provider. Setting it (or {@link TFrameConfig.accessToken}) switches the frame into
+   * **OAuth mode**: the frame authorizes API calls with `Authorization: Bearer <token>` instead of the session
+   * cookie, so no cookie is set and the portal session cannot outlive a sign-out in the host application.
+   * The host backend runs the authorization-code and refresh-token exchange and returns a fresh access token;
+   * `client_secret` and refresh tokens never reach the browser. The SDK calls it at start, after a `401` and,
+   * for a JWT or with {@link TFrameConfig.tokenExpiresAt}, one minute before expiry. {@link SDKInstance.login}
+   * and {@link SDKInstance.logout} reject with {@link SDKErrorCode.ModeMismatch} in OAuth mode, and token
+   * failures surface through {@link TFrameEvents.onAuthError}. Default: `undefined`.
    */
   getToken?: () => string | Promise<string>;
   /**
@@ -575,7 +565,7 @@ export type TFrameConfig = {
   rootPath?: string;
   /** Content filter for selector modes. See {@link SelectorFilterType}. Default: `"all"`. */
   selectorType?: TSelectorType;
-  /** Show filter toolbar in {@link SDKMode.Manager}. Default: `false`. */
+  /** Show filter toolbar in {@link SDKMode.Manager}, with the create menu that holds {@link TCustomActionsConfig.createMenu} items. Default: `false`. */
   showFilter?: boolean;
   /** Show header bar in mobile manager view. Default: `false`. */
   showHeader?: boolean;
@@ -1257,7 +1247,7 @@ export type TFormsSection = "my-forms" | "in-progress" | "completed-forms" | "li
  * await personal.navigateSection("trash");
  * ```
  */
-export type TPersonalSection = "my-documents" | "favorites" | "recent" | "trash" | "settings";
+export type TPersonalSection = "my-documents" | "favorites" | "recent" | "shared-with-me" | "trash" | "settings";
 
 /**
  * Sections of {@link SDKMode.Manager} a custom action can be limited to, named after the root folder
@@ -1312,7 +1302,9 @@ export type TCustomContextMenuAction = {
 
 /**
  * A custom item of the create ("+") menu. Clicking it fires {@link TFrameEvents.onCustomAction}
- * with `type: "create"` and the id of the folder the user is in.
+ * with `type: "create"` and the id of the folder the user is in. In {@link SDKMode.Manager} the create
+ * menu is the **New** button of the filter toolbar, shown with {@link TFrameConfig.showFilter}; the rooms
+ * list has no create menu, its button creates a room.
  *
  * @example
  * ```typescript

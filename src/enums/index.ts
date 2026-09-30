@@ -51,7 +51,7 @@ export enum SDKMode {
   Forms = "forms",
   /** AI chat interface. Full-page conversation UI, bound to an AI agent when {@link TFrameConfig.agentId} is set, to the current user otherwise. */
   Chat = "chat",
-  /** Personal files browser. File/folder manager for the user's personal space (My Documents, Favorites, Recent, Trash). Uses {@link TFrameConfig.personalDestination} to pick the initial section. */
+  /** Personal files browser. File/folder manager for the user's personal space (My Documents, Favorites, Recent, Shared with me, Trash). Uses {@link TFrameConfig.personalDestination} to pick the initial section. */
   Personal = "personal",
 }
 

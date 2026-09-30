@@ -6,7 +6,7 @@
 - Added Uploader mode
 - Added Forms mode
 - Added Chat mode
-- Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection`); `navigateSection` now also works in Personal mode
+- Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection` with the sections `my-documents`, `favorites`, `recent`, `shared-with-me`, `trash` and `settings`); `navigateSection` now also works in Personal mode
 - Added `SDKError` and `SDKErrorCode`
 - Added OAuth mode: `getToken` (or a static `accessToken`) in the config switches the frame to `Authorization: Bearer` authentication instead of the session cookie, in every mode. The frame requests the token from the host through the `getAuthToken` command and receives it as `onAuthTokenReturn`; a JWT (or a token with `tokenExpiresAt`) is refreshed by the SDK one minute before expiry and pushed into the frame. Added the `onAuthError` event with `TAuthError` and `TAuthErrorCode` (`TOKEN_RESOLVE_FAILED`, `TOKEN_UNAVAILABLE`, `TOKEN_REFRESH_FAILED`, `UNAUTHORIZED`). `login` and `logout` reject with `SDKErrorCode.ModeMismatch` in OAuth mode; the README describes the flow
 - Added `TFrameFilter.groupId`: the rooms list in Manager mode shows only the rooms of that room group and keeps the group pinned across search and filters; `getRooms` accepts it too. Script-tag integrations pass it as `groupId=…`. Requires ONLYOFFICE Apps 4.0
