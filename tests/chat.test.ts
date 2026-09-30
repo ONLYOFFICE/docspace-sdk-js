@@ -187,8 +187,8 @@ describe("mode-guarded methods — Chat mode", () => {
   test("setCustomActions rejects with SDKError ModeMismatch", async () => {
     const inst = initChatInstance();
 
-    await expect(inst.setCustomActions([])).rejects.toBeInstanceOf(SDKError);
-    await expect(inst.setCustomActions([])).rejects.toMatchObject({ code: SDKErrorCode.ModeMismatch });
+    await expect(inst.setCustomActions({})).rejects.toBeInstanceOf(SDKError);
+    await expect(inst.setCustomActions({})).rejects.toMatchObject({ code: SDKErrorCode.ModeMismatch });
   });
 
   test("upload rejects with SDKError ModeMismatch", async () => {

@@ -641,6 +641,22 @@ describe("setCustomActions — Manager and Personal", () => {
     expect(sent.data.data).toEqual(config);
   });
 
+  test("sends TFrameConfig.customActions to the frame when it requests the config", () => {
+    const customActions = { contextMenu: { file: [{ key: "send", label: "Send to CRM" }] } };
+    const { postMessageSpy, config } = initConnected({ mode: "manager", customActions });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({ frameId: config.frameId, type: "onCallCommand", commandName: "setConfig" }),
+        origin: new URL(BASE_SRC).origin,
+      }),
+    );
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.methodName).toBe("setConfig");
+    expect(sent.data.data.customActions).toEqual(customActions);
+  });
+
   test("keeps the applied set in the config so a reload sends it again", async () => {
     const { inst, config: frameConfig } = initConnected({ mode: "manager" });
 
@@ -654,16 +670,25 @@ describe("setCustomActions — Manager and Personal", () => {
 });
 
 describe("setCustomActions — mode guard", () => {
-  test("rejects with SDKError ModeMismatch when called outside Manager, Personal and Forms modes", async () => {
+  test.each([
+    "editor",
+    "viewer",
+    "system",
+    "room-selector",
+    "file-selector",
+    "public-room",
+    "uploader",
+    "chat",
+  ] as const)("rejects with SDKError ModeMismatch in %s mode", async (mode) => {
     const el = document.createElement("div");
-    el.id = "ds-editor";
+    el.id = `ds-${mode}`;
     document.body.appendChild(el);
 
     const config: TFrameConfig = {
       ...defaultConfig,
       src: BASE_SRC,
-      frameId: "ds-editor",
-      mode: "editor",
+      frameId: `ds-${mode}`,
+      mode,
       checkCSP: false,
     };
     const inst = new SDKInstance(config);

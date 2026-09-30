@@ -2254,7 +2254,9 @@ export class SDKInstance {
 
     const { frameId, src } = this.config;
 
-    if (!this.#iframe?.contentWindow) {
+    const frameWindow = this.#iframe?.contentWindow;
+
+    if (!frameWindow) {
       throw new SDKError(SDKErrorCode.Disconnected, "Frame not connected");
     }
 
@@ -2271,7 +2273,7 @@ export class SDKInstance {
       this.#pendingUploads.set(uploadId, { fileName: file.name, resolve, reject, timer });
     });
 
-    this.#iframe!.contentWindow!.postMessage(
+    frameWindow.postMessage(
       {
         frameId,
         type: MessageTypes.UploadFileData,
