@@ -99,6 +99,6 @@ pnpm run docs
 - [ ] Timeout path and mode guard (if any) covered by tests.
 - [ ] Method visible in TypeDoc with two `@example` blocks.
 - [ ] Follow-ups recorded in the PR description: impact on `@onlyoffice/docspace-react`
-      (bundles its own SDK copy); the minimum portal version; and the public `embed-sdk`
+      (depends on the SDK and reads `dist/types/instance` and `dist/types/types`); the minimum portal version; and the public `embed-sdk`
       skill in the `ONLYOFFICE/agent-skills` repository: its `methods.md`,
       `config-reference.md` and the validator dictionary (`sync-sdk.mjs --check` there).

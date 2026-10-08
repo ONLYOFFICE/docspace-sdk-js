@@ -52,7 +52,7 @@ If you prefer not to use a package manager, include the *api.js* script directly
   <body>
     <div id="ds-frame"></div>
     <script>
-      const instance = DocSpace.SDK.initFrame({
+      const instance = DocSpace.SDK.init({
         frameId: "ds-frame",
         src: "https://portal.example.com",
         mode: "manager",
@@ -81,7 +81,7 @@ The SDK supports 11 modes, each rendering a different part of ONLYOFFICE Apps in
 | `uploader` | [`initUploader`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#inituploader) | File upload interface for a specific folder. Requires `id` (target folder identifier) |
 | `forms` | [`initForms`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initforms) | Forms gallery for a room. Requires `id` (room identifier). Supports `showMenu`, custom actions, and file upload |
 | `chat` | [`initChat`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initchat) | AI chat interface. Bound to an AI agent when `agentId` is set, to the current user otherwise. Supports `entityId` to pass the room or folder the chat is opened from (the AI scopes tool calls to it), `fileId` and `threadId` to attach files or resume threads |
-| `personal` | [`initPersonal`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initpersonal) | Personal files browser: My Documents, Favorites, Recent, Trash. Supports `personalDestination` to pick the initial section and `navigateSection` to switch it |
+| `personal` | [`initPersonal`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initpersonal) | Personal files browser: My Documents, Favorites, Recent, Shared with me, Trash. Has no navigation menu of its own: `personalDestination` picks the initial section and `navigateSection` switches it |
 
 ### Examples
 
@@ -146,7 +146,7 @@ const uploader = sdk.initUploader({
   isMultipleUpload: true,
   events: {
     onUploadSuccess: (files) => console.log("Uploaded:", files),
-    onUploadError: (err) => console.error("Upload failed:", err.error),
+    onUploadError: (err) => console.error("Upload failed:", "error" in err ? err.error : err.message),
   },
 });
 ```
@@ -215,9 +215,13 @@ All events are optional. Pass them via the `events` field in the configuration o
 | `onAppReady`, `onAppError`, `onContentReady`, `onAuthSuccess`, `onSignOut` | All modes |
 | `onAuthError` | All modes, only in [OAuth mode](#authorization) (`getToken` or `accessToken` set) |
 | `onGetExternalData`, `onSetExternalData` | Any mode, when the frame asks the host to read or persist a value in external storage |
-| `onEditorOpen`, `onFileManagerClick`, `onNoAccess`, `onNotFound` | Manager, Public room |
+| `onFileManagerClick` | Manager, Public room, Forms, Personal |
+| `onEditorOpen` | Manager, Public room, Personal — opening a file from the list; the "Create" dialog only in Manager |
+| `onNotFound` | Manager, Public room |
+| `onNoAccess` | Manager, Public room, Chat |
 | `onEditorCloseCallback` | Editor, Viewer |
-| `onDownload` | Manager, Public room, Editor, Viewer — with `downloadToEvent: true` |
+| `onDownload` | Manager, Public room, Personal — with `downloadToEvent: true` |
+| `onFilterSearch` | Personal, Public room |
 | `onSelectCallback`, `onCloseCallback` | Room selector, File selector |
 | `onUploadSuccess`, `onUploadError` | Uploader, Forms, Personal |
 | `onUploadProgress` | Uploader |
@@ -302,7 +306,7 @@ const instance = sdk.initManager({
 ## Documentation
 
 - [Getting Started](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/) — prerequisites, quickstart, authentication and security
-- [API Reference](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/) — full configuration, methods, and events reference
+- [API Reference](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/) — full configuration, methods, and events reference
 - [React Component](https://api.onlyoffice.com/docspace/javascript-sdk/samples/react-samples/) — integration guide for React projects
 - [Changelog](./CHANGELOG.md) — version history and release notes
 
