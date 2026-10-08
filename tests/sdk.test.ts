@@ -25,17 +25,18 @@ import { SDKInstance } from "../src/instance";
 import type { TFrameConfig } from "../src/types";
 import { SDK } from "../src/sdk/index";
 
-type MockInst = { initFrame: Mock; config?: TFrameConfig } & Record<
+type TMockInst = { initFrame: Mock; config?: TFrameConfig } & Record<
   string,
   unknown
 >;
 
-const mockInstanceFactory = (): MockInst => ({
+const mockInstanceFactory = (): TMockInst => ({
   initFrame: vi.fn(),
   config: undefined,
 });
 
-const setMockReturn = (instance: MockInst) => {
+const setMockReturn = (instance: TMockInst) => {
+  // eslint-disable-next-line prefer-arrow-callback
   (SDKInstance as unknown as Mock).mockImplementation(function () {
     return instance as any;
   });
@@ -66,6 +67,8 @@ describe("SDK class wrappers", () => {
     ["initUploader", SDKMode.Uploader],
     ["initForms", SDKMode.Forms],
     ["initChat", SDKMode.Chat],
+    ["initPublicRoom", SDKMode.PublicRoom],
+    ["initPersonal", SDKMode.Personal],
   ])("%s sets mode to %s and calls initFrame", (methodName, mode) => {
     const instance = setMockReturn(mockInstanceFactory());
     const result = (sdk as any)[methodName]({ ...baseConfig, mode: "WRONG" });

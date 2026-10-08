@@ -62,8 +62,8 @@
     "dist"
   ],
   "scripts": {
-    "lint": "eslint src/",
-    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ tests/",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "docs": "node tools/update-revision.mjs && typedoc --options typedoc.config.mjs && node tools/docs/index.mjs --strict && node tools/update-sidebar.mjs",
