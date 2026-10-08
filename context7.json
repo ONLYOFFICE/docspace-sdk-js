@@ -15,8 +15,8 @@
     ".github"
   ],
   "rules": [
-    "Install @onlyoffice/docspace-sdk-js, create `new SDK()` and call a mode wrapper: initManager, initEditor, initViewer, initRoomSelector, initFileSelector, initSystem, initPublicRoom, initUploader, initForms, initChat or initPersonal. In a <script> tag the same API is `DocSpace.SDK.initFrame` with a `mode` field.",
-    "`frameId` and `src` (the ONLYOFFICE Apps portal URL) are the only required TFrameConfig fields; editor, viewer, uploader and forms modes also need `id`, public-room needs `requestToken`.",
+    "Install @onlyoffice/docspace-sdk-js, create `new SDK()` and call a mode wrapper: initManager, initEditor, initViewer, initRoomSelector, initFileSelector, initSystem, initPublicRoom, initUploader, initForms, initChat or initPersonal. In a <script> tag the same API is `DocSpace.SDK.init` with a `mode` field.",
+    "`frameId` and `src` (the ONLYOFFICE Apps portal URL) are the only required fields for the init* wrappers (TInitConfig); `SDK.init` and the <script> tag also need `mode`. Editor, viewer, uploader and forms modes also need `id`, public-room needs `requestToken`.",
     "The host application's domain must be added to the workspace allowlist (Developer Tools -> Embed SDK), otherwise the frame does not load.",
     "Instance methods return promises that reject with SDKError (SDKErrorCode) after `methodTimeout`, 30 s by default; `login` and `createRoom` resolve with a `status` field that must be checked.",
     "Event handlers go into `events` in the config (onAppReady, onAppError, onSelectCallback, onNavigate, ...); do not attach window `message` listeners yourself."

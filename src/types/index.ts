@@ -33,15 +33,12 @@ import {
   type MessageTypes,
   type RoomType,
 } from "../enums";
-import type { SDKInstance } from "../instance";
+import type { SDK } from "../sdk";
 
 declare global {
   interface Window {
     DocSpace: {
-      SDK: {
-        init: (config: TFrameConfig | null) => HTMLIFrameElement;
-        frames: Record<string, SDKInstance>;
-      };
+      SDK: SDK;
     };
   }
 }
@@ -54,12 +51,26 @@ declare global {
  *
  * @example
  * ```typescript
- * sdk.initFrame({ frameId: 'ds-frame', src: 'https://portal.example.com', mode: 'manager' });
+ * sdk.init({ frameId: 'ds-frame', src: 'https://portal.example.com', mode: 'manager' });
  * // equivalent to:
- * sdk.initFrame({ frameId: 'ds-frame', src: 'https://portal.example.com', mode: SDKMode.Manager });
+ * sdk.init({ frameId: 'ds-frame', src: 'https://portal.example.com', mode: SDKMode.Manager });
  * ```
  */
 export type TFrameMode = `${SDKMode}`;
+
+/**
+ * Configuration accepted by the mode-specific `SDK.init*` wrappers ({@link SDK.initManager},
+ * {@link SDK.initPersonal}, ...): a {@link TFrameConfig} whose `mode` is optional because the
+ * wrapper sets it. Only `frameId` and `src` are required. {@link SDK.init} takes a full
+ * {@link TFrameConfig} with `mode`.
+ *
+ * @example
+ * ```typescript
+ * const config: TInitConfig = { frameId: "ds-frame", src: "https://portal.example.com" };
+ * sdk.initManager(config);
+ * ```
+ */
+export type TInitConfig = Omit<TFrameConfig, "mode"> & { mode?: TFrameMode };
 
 /**
  * String literal union of all {@link SelectorFilterType} values.
@@ -145,7 +156,7 @@ export type TEditorAnonymous = {
  *
  * @example
  * ```typescript
- * sdk.initFrame({
+ * sdk.init({
  *   mode: "editor",
  *   editorCustomization: {
  *     compactToolbar: true,
@@ -207,7 +218,7 @@ export type TEditorCustomization = {
  *
  * @example
  * ```typescript
- * sdk.initFrame({
+ * sdk.init({
  *   mode: "manager",
  *   filter: { count: "50", sortBy: "AZ", sortOrder: "ascending" },
  *   ...
@@ -234,7 +245,7 @@ export type TFrameFilter = {
   groupId?: string;
   /** Page number (1-based). Default: `"1"`. */
   page?: string;
-  /** Search query. Empty string = no search. */
+  /** Search query. Empty string = no search. Default: `""`. */
   search?: string;
   /** Sort criterion. See {@link FilterSortBy}. Default: {@link FilterSortBy.ModifiedDate}. */
   sortBy?: TFilterSortBy;
@@ -390,7 +401,7 @@ export type TUploaderUploadError = {
  *
  * @example
  * ```typescript
- * sdk.initFrame({
+ * sdk.init({
  *   events: {
  *     onAppReady: () => console.log("ONLYOFFICE Apps loaded"),
  *     onAppError: (err) => console.error("Init error:", err),
@@ -401,12 +412,12 @@ export type TUploaderUploadError = {
  * ```
  */
 export type TFrameEvents = {
-  /** Fired by the SDK itself, in every mode, on a CSP, message parsing, connection, method timeout or token failure. Receives the error message string. A portal API error does not fire it: the method's promise rejects instead. */
+  /** Fired in every mode. The SDK fires it on a CSP, message parsing, connection or method timeout failure; the frame fires it with its own message when a page fails to load (e.g. the chat). Receives the error message string. A token failure fires {@link TFrameEvents.onAuthError} instead, and a portal API error does not fire it: the method's promise rejects. */
   onAppError?: null | ((message: string) => void);
   /** Fired in OAuth mode only, when no access token can be used. Receives a {@link TAuthError} whose `code` names the failure: the SDK could not resolve a token, the frame waited for one in vain, or the portal rejected it. The host should re-authenticate the user or destroy the frame; the frame itself shows a loader and never a sign-in page. */
   onAuthError?: null | ((error: TAuthError) => void);
   /** Fired once, in every mode, when the ONLYOFFICE Apps frame is fully initialized and ready. {@link SDKMode.PublicRoom} without a valid {@link TFrameConfig.id} renders an "Invalid link" page and never fires it. */
-  onAppReady?: null | ((data: { frameId: string }) => void);
+  onAppReady?: null | ((data: TAppReadyPayload) => void);
   /** Fired when the user completes a sign-in through a confirmation link opened inside the frame. Not fired by {@link SDKInstance.login} or the OAuth flow, where {@link TFrameEvents.onAppReady} is the sign of success. */
   onAuthSuccess?: null | ((data: object) => void);
   /** Fired in selector modes ({@link SDKMode.RoomSelector}, {@link SDKMode.FileSelector}) when the dialog is closed or canceled. */
@@ -425,7 +436,7 @@ export type TFrameEvents = {
   onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
   /** Fired when the user signs out through the portal's profile menu inside the frame. Not fired by {@link SDKInstance.logout}. In OAuth mode the frame then stops asking for tokens until it is loaded again. */
   onSignOut?: null | (() => void);
-  /** Fired in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Forms} and {@link SDKMode.Personal} when the frame is about to open the editor (row activation, context menu, hotkey, the "Create" dialog). Receives the file with the requested action — see {@link TEditorOpenPayload}. Registering the handler suppresses the portal's own editor: open the file in a frame of your own. */
+  /** Fired in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom} and {@link SDKMode.Personal} when the user opens a file from the list (row activation, context menu, hotkey), and in {@link SDKMode.Manager} also for a document created from the "Create" dialog. Not fired by {@link SDKMode.Forms}, which embeds the editor in the frame, and not for a newly created document in {@link SDKMode.PublicRoom} and {@link SDKMode.Personal} (ONLYOFFICE Apps 4.0), where the portal opens its editor itself. Receives the file with the requested action — see {@link TEditorOpenPayload}. Registering the handler suppresses the portal's own editor: open the file in a frame of your own. */
   onEditorOpen?: null | ((file: TEditorOpenPayload) => void);
   /** Fired in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Forms} and {@link SDKMode.Personal} when a file row is activated in the list. Files only — a folder click navigates into the folder instead. Receives the portal's file object ({@link TFileInfo}). Registering the handler suppresses the portal's own open action. */
   onFileManagerClick?: null | ((file: TFileInfo) => void);
@@ -438,7 +449,9 @@ export type TFrameEvents = {
   /** Fired when a custom action from {@link TFrameConfig.customActions} or {@link SDKInstance.setCustomActions} is clicked in {@link SDKMode.Manager}, {@link SDKMode.Personal} or {@link SDKMode.Forms}. Receives a {@link TCustomActionEvent}. */
   onCustomAction?: null | ((data: TCustomActionEvent) => void);
   /** Fired when the user navigates to a different section in {@link SDKMode.Forms} or {@link SDKMode.Personal}. Receives the active section. */
-  onNavigate?: null | ((data: { section: TFormsSection | TPersonalSection }) => void);
+  onNavigate?: null | ((data: TNavigatePayload) => void);
+  /** Fired in {@link SDKMode.Personal} and {@link SDKMode.PublicRoom} when the search text of the file list changes, and with an empty string when the search is reset. Receives a {@link TFilterSearchPayload}. */
+  onFilterSearch?: null | ((data: TFilterSearchPayload) => void);
   /**
    * Fired when the ONLYOFFICE Apps iframe asks the host to read a value from external storage.
    *
@@ -467,6 +480,7 @@ export type TFrameEvents = {
  * Passed to {@link SDKInstance.initFrame} or any `SDK.init*` wrapper.
  *
  * Only `frameId`, `mode`, and `src` are required — all other fields have defaults from {@link defaultConfig}.
+ * The `SDK.init*` wrappers set `mode` themselves and take a {@link TInitConfig}, where only `frameId` and `src` are required.
  *
  * @example
  * ```typescript
@@ -478,7 +492,7 @@ export type TFrameEvents = {
  *   height: "700px",
  *   theme: "Dark",
  * };
- * sdk.initFrame(config);
+ * sdk.init(config);
  * ```
  */
 export type TFrameConfig = {
@@ -497,7 +511,7 @@ export type TFrameConfig = {
   buttonColor?: string;
   /** Validate the host against the portal's CSP allowlist before loading the iframe (host name and port only). `false` skips the request to {@link CSPApiUrl}; the browser still enforces the portal's `frame-ancestors` header. Default: `true`. */
   checkCSP?: boolean;
-  /** Custom items for the context menus and the create menu in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}, applied when the frame loads. Clicks fire {@link TFrameEvents.onCustomAction}. Replace them later with {@link SDKInstance.setCustomActions}. Not available through the script-tag parameters. Default: `undefined`. */
+  /** Custom items for the context menus and the create menu in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}, applied when the frame loads. Clicks fire {@link TFrameEvents.onCustomAction}. Replace them later with {@link SDKInstance.setCustomActions}. Not available through the script-tag parameters. Unset by default. */
   customActions?: TCustomActionsConfig;
   /** Plain text shown in the placeholder `div` after {@link SDKInstance.destroyFrame}. Markup is not rendered. Default: `""`. */
   destroyText?: string;
@@ -505,7 +519,7 @@ export type TFrameConfig = {
   methodTimeout?: number;
   /** Hide the "Actions" button in {@link SDKMode.Manager}. Default: `false`. */
   disableActionButton?: boolean;
-  /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly. Default: `false`. */
+  /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly, in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom} and {@link SDKMode.Personal}. Default: `false`. */
   downloadToEvent?: boolean;
   /** Editor UI customization. See {@link TEditorCustomization}. Default: `{}`. */
   editorCustomization?: TEditorCustomization;
@@ -513,11 +527,13 @@ export type TFrameConfig = {
   editorGoBack?: boolean | "event";
   /** Editor UI layout sent to the backend. See {@link EditorType}. Default: `"desktop"`. */
   editorType?: TEditorType;
+  /** Where a file opens from the list in {@link SDKMode.Forms} and {@link SDKMode.Personal} when {@link TFrameEvents.onEditorOpen} is not set: `true` navigates the host page to the editor, `false` opens a new tab. Unset = the portal's "Open in the same tab" setting. */
+  openEditorInSameTab?: boolean;
   /** Event handlers. See {@link TFrameEvents}. */
   events?: TFrameEvents;
   /** Filter/sort/pagination for the file list. See {@link TFrameFilter}. */
   filter?: TFrameFilter;
-  /** File type filter for {@link SDKMode.FileSelector}. `"ALL"` = no restriction. */
+  /** File type filter for {@link SDKMode.FileSelector}. `"ALL"` = no restriction. Default: `"ALL"`. */
   filterParam?: string;
   /** **Required.** Unique frame identifier. Used as the DOM `id` and the postMessage routing key. Default: `"ds-frame"`. */
   frameId: string;
@@ -529,9 +545,12 @@ export type TFrameConfig = {
   infoPanelVisible?: boolean;
   /** Reserved. Controls whether the frame should auto-initialize. */
   init?: boolean | null;
-  /** URL of the integration page. Read from config to return the user back after navigating to external resources (e.g. billing). */
+  /**
+   * URL of the integration page.
+   * @deprecated ONLYOFFICE Apps 4.0 does not read it: the frame returns the user to its own origin after external navigation (e.g. billing).
+   */
   integrationUrl?: string;
-  /** UI locale as a BCP 47 code (e.g. `"en-US"`). Applies to the frame only. `null` = the language configured on the portal or in the signed-in user's profile. */
+  /** UI locale as a BCP 47 code (e.g. `"en-US"`). Applies to the frame only. `null` = the language configured on the portal or in the signed-in user's profile. Default: `null`. */
   locale?: string | null;
   /** **Required.** SDK mode. Determines UI and available methods. See {@link SDKMode}. */
   mode: TFrameMode;
@@ -567,11 +586,11 @@ export type TFrameConfig = {
   selectorType?: TSelectorType;
   /** Show filter toolbar in {@link SDKMode.Manager}, with the create menu that holds {@link TCustomActionsConfig.createMenu} items. Default: `false`. */
   showFilter?: boolean;
-  /** Show header bar in mobile manager view. Default: `false`. */
+  /** Show the header bar in the mobile view of {@link SDKMode.Manager}. Not read by other modes. Default: `false`. */
   showHeader?: boolean;
   /** Header banner visibility in {@link SDKMode.Manager}. See {@link HeaderBannerDisplaying}. Default: `"none"`. */
   showHeaderBanner?: TBannerDisplaying;
-  /** Show left navigation menu in {@link SDKMode.Manager} and {@link SDKMode.Forms}. Default: `false`. */
+  /** Show the left navigation menu in {@link SDKMode.Manager} and {@link SDKMode.Forms}. Forms reads it when the frame loads, so a later {@link SDKInstance.setConfig} can hide the menu but not show it. {@link SDKMode.Personal} has no navigation menu: switch its sections with {@link SDKInstance.navigateSection}. Default: `false`. */
   showMenu?: boolean;
   /** Inline-start padding (in px) added to header rows so host overlays
    *  on the left edge (e.g. Nextcloud floating menu) don't cover the
@@ -587,13 +606,13 @@ export type TFrameConfig = {
    *  Currently honored in {@link SDKMode.Forms}, {@link SDKMode.Personal}
    *  and {@link SDKMode.Chat}. */
   headerHeight?: number;
-  /** OAuth provider name for automatic authentication in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. E.g. `"nextcloud"`. */
+  /** Third-party sign-in provider (e.g. `"nextcloud"`) for automatic sign-in and sign-up in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}: a visitor without a portal session is sent through that provider and returned to the frame. A cookie-based flow, unrelated to OAuth mode ({@link TFrameConfig.getToken}). */
   providerName?: string;
-  /** Invitation key for signup via OAuth in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
+  /** Invitation key for the sign-up through {@link TFrameConfig.providerName} in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
   inviteKey?: string;
-  /** Employee type for signup via OAuth in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
+  /** Employee type for the sign-up through {@link TFrameConfig.providerName} in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
   emplType?: string;
-  /** User identifier for {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
+  /** User identifier passed to the sign-in through {@link TFrameConfig.providerName} in {@link SDKMode.Forms}, {@link SDKMode.Chat} and {@link SDKMode.Personal}. */
   uid?: string;
   /** Show "Cancel" button in selector modes. Default: `false`. */
   showSelectorCancel?: boolean;
@@ -618,7 +637,7 @@ export type TFrameConfig = {
    * @deprecated ONLYOFFICE Apps 4.0 does not read it: the layout is the one the user last chose. Call {@link SDKInstance.setListView} after {@link TFrameEvents.onAppReady} instead.
    */
   viewAs?: TManagerViewMode;
-  /** Visible table columns in {@link SDKMode.Manager}. Comma-separated: `"Index,Name,Size,Type,Tags"`. Applies in the table layout only ({@link SDKInstance.setListView}); a column set the user saved in the browser takes precedence. */
+  /** Visible table columns in {@link SDKMode.Manager}, comma-separated. Applies in the table layout only ({@link SDKInstance.setListView}); a column set the user saved in the browser takes precedence. Default: `"Index,Name,Size,Type,Tags"`. */
   viewTableColumns?: string;
   /** Delay iframe append. When `true`, the iframe is not rendered until {@link SDKInstance.setConfig} is called with `reload = true` (without reload the call rejects with {@link SDKErrorCode.Disconnected}). {@link SDKMode.System} ignores the flag. Default: `false`. */
   waiting?: boolean;
@@ -721,14 +740,14 @@ export type TEntityBase = {
 export type TEditorAction = "view" | "fill" | "edit";
 
 /**
- * Payload of {@link TFrameEvents.onEditorOpen}: the file the manager is about to open plus the
- * requested action. When the user creates a new document, the payload is the created file and
- * `action` is absent.
+ * Payload of {@link TFrameEvents.onEditorOpen}: the file the frame is about to open plus the
+ * requested action. When the user creates a new document in {@link SDKMode.Manager}, the payload
+ * is the created file and `action` is absent.
  */
 export type TEditorOpenPayload = TFileInfo & {
   /** Share key of the room when it was opened by an external link; empty otherwise. */
   share?: string;
-  /** Requested editor action. Absent for a freshly created document. */
+  /** Requested editor action. Absent for a document created in {@link SDKMode.Manager}. */
   action?: TEditorAction;
 };
 
@@ -788,8 +807,9 @@ export type TSelectedFile = {
  * Three shapes (client 4.0.0): a signed-in session resolves with `url: "/"`; an account that
  * needs a second factor resolves with `url` pointing at the portal's confirmation page
  * (`/confirm/TfaAuth…` or `/confirm/PhoneAuth…`) and no session — call `login` again with the
- * one-time `code`; a failed attempt resolves with the error the portal caught, carrying `status`
- * and `message`.
+ * one-time `code`; a failed attempt resolves with the error the portal caught, carrying `message`
+ * and, for an HTTP error, `status`. A missing `url` is the reliable sign of failure: a portal that
+ * rejects the credentials with a plain message sends no `status`.
  */
 export type TLoginResult = {
   /** Where the portal would navigate next: `"/"` after a successful sign-in, or the second-factor page (`/confirm/…`) when a code is still required and no session exists. */
@@ -798,7 +818,7 @@ export type TLoginResult = {
   user?: string;
   /** Echo of the password hash when a second factor is required. */
   hash?: string;
-  /** HTTP status of a failed attempt (`401` for wrong credentials); absent on success. */
+  /** HTTP status of a failed attempt (`401` for wrong credentials); absent on success and when the portal reported the failure as a plain message. */
   status?: number;
   /** Error message of a failed attempt. */
   message?: string;
@@ -1012,8 +1032,8 @@ export type TUserInfo = {
   activationStatus?: number;
   /** UI culture/locale (e.g. `"en-US"`). */
   cultureName?: string;
-  /** User groups. */
-  groups?: { id: string; name: string; manager: string }[];
+  /** User groups. See {@link TUserGroup}. */
+  groups?: TUserGroup[];
   /** Job title. */
   title?: string;
   /** Department. */
@@ -1223,6 +1243,42 @@ export type TCreateRoomOptions = {
 };
 
 /**
+ * Payload of {@link TFrameEvents.onAppReady}.
+ */
+export type TAppReadyPayload = {
+  /** The {@link TFrameConfig.frameId} of the frame that became ready. */
+  frameId: string;
+};
+
+/**
+ * Payload of {@link TFrameEvents.onNavigate}.
+ */
+export type TNavigatePayload = {
+  /** The section the frame navigated to: a {@link TFormsSection} in {@link SDKMode.Forms}, a {@link TPersonalSection} in {@link SDKMode.Personal}. */
+  section: TFormsSection | TPersonalSection;
+};
+
+/**
+ * Payload of {@link TFrameEvents.onFilterSearch}.
+ */
+export type TFilterSearchPayload = {
+  /** The current search text; empty when the search was reset. */
+  search: string;
+};
+
+/**
+ * A group the user belongs to, as listed in {@link TUserInfo.groups}.
+ */
+export type TUserGroup = {
+  /** Group ID. */
+  id: string;
+  /** Group name. */
+  name: string;
+  /** ID of the group manager. */
+  manager: string;
+};
+
+/**
  * Navigation sections available in {@link SDKMode.Forms} mode.
  * Used by {@link SDKInstance.navigateSection}.
  *
@@ -1289,7 +1345,7 @@ export type TCustomContextMenuAction = {
   key: string;
   /** Display label in the context menu. */
   label: string;
-  /** URL of the action icon. The portal's content security policy must allow images from its origin. */
+  /** URL of the action icon, or a `data:` URI. The portal fetches an `.svg` URL and inlines it, so the icon host must answer cross-origin requests with `Access-Control-Allow-Origin` (as for {@link TFrameConfig.stylesUrl}) and the portal's content security policy must allow the connection; any other image URL is loaded as an image and needs the policy to allow images from its origin. */
   icon?: string;
   /** Sections where the action is shown. If omitted, it is shown in every section. */
   section?: TCustomActionSection[];
@@ -1321,7 +1377,7 @@ export type TCustomCreateAction = {
   key: string;
   /** Display label in the create menu. */
   label: string;
-  /** URL of the action icon. The portal's content security policy must allow images from its origin. */
+  /** URL of the action icon, or a `data:` URI. The portal fetches an `.svg` URL and inlines it, so the icon host must answer cross-origin requests with `Access-Control-Allow-Origin` (as for {@link TFrameConfig.stylesUrl}) and the portal's content security policy must allow the connection; any other image URL is loaded as an image and needs the policy to allow images from its origin. */
   icon?: string;
   /** Sections where the action is shown. If omitted, it is shown in every section that has a create menu. */
   section?: TCustomActionSection[];

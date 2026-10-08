@@ -58,7 +58,7 @@ export const FRAME_NAME = "frameDocSpace" as const;
  * @example
  * ```typescript
  * // Minimal config — everything else comes from defaultConfig
- * sdk.initFrame({
+ * sdk.init({
  *   frameId: "ds-frame",
  *   src: "https://portal.example.com",
  *   mode: "manager",
@@ -137,6 +137,9 @@ export const defaultConfig: TFrameConfig = {
     onUploadProgress: null,
     onCustomAction: null,
     onNavigate: null,
+    onFilterSearch: null,
+    onGetExternalData: null,
+    onSetExternalData: null,
   },
 } as const;
 
@@ -165,4 +168,10 @@ export const wrongMethodText = "Wrong method for this mode" as const;
  * fresh one and pushes it into the frame (proactive refresh), in milliseconds.
  * @internal
  */
+/**
+ * Longest delay `setTimeout` accepts (2^31 - 1 ms); longer waits are split into slices.
+ * @internal
+ */
+export const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 export const TOKEN_REFRESH_LEAD_MS = 60_000 as const;

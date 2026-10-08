@@ -47,10 +47,17 @@
       "types": "./dist/types/main.d.ts",
       "import": "./dist/esm/main.js",
       "require": "./dist/cjs/main.js"
-    }
+    },
+    "./dist/types/instance": {
+      "types": "./dist/types/instance/index.d.ts"
+    },
+    "./dist/types/types": {
+      "types": "./dist/types/types/index.d.ts"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
   },
   "types": "dist/types/main.d.ts",
-  "sideEffects": false,
   "files": [
     "dist"
   ],

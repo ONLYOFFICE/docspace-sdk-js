@@ -27,31 +27,31 @@
  *
  * @example
  * ```typescript
- * sdk.initFrame({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://portal.example.com" });
+ * sdk.init({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://portal.example.com" });
  * ```
  */
 export enum SDKMode {
-  /** File/folder browser. Displays a list of entities at `rootPath`. Supports CRUD operations on rooms, folders, and files. Forces `noLoader: false`. */
+  /** File/folder browser. Displays a list of entities at {@link TFrameConfig.rootPath}. Supports CRUD operations on rooms, folders, and files. Forces {@link TFrameConfig.noLoader} to `false`. */
   Manager = "manager",
-  /** Document editor. Requires `id` — the file identifier to open for editing. */
+  /** Document editor. Requires {@link TFrameConfig.id} — the file identifier to open for editing. */
   Editor = "editor",
-  /** Read-only document viewer. Requires `id` — the file identifier to open for viewing. */
+  /** Read-only document viewer. Requires {@link TFrameConfig.id} — the file identifier to open for viewing. */
   Viewer = "viewer",
-  /** Room picker dialog. Returns the selected room via `onSelectCallback`. */
+  /** Room picker dialog. Returns the selected room via {@link TFrameEvents.onSelectCallback}. */
   RoomSelector = "room-selector",
-  /** File picker dialog. Returns the selected file via `onSelectCallback`. Filterable by `selectorType`. */
+  /** File picker dialog. Returns the selected file via {@link TFrameEvents.onSelectCallback}. Filterable by {@link TFrameConfig.selectorType}. */
   FileSelector = "file-selector",
-  /** Headless mode. Renders a blank page with a loader; used to call system methods (e.g. `login`, `logout`) without UI. Forces `noLoader: false`. */
+  /** Headless mode. Renders a blank page with a loader; used to call session methods ({@link SDKInstance.login}, {@link SDKInstance.logout}) without UI. Forces {@link TFrameConfig.noLoader} to `false`. */
   System = "system",
-  /** Public room view. Grants anonymous access to view, edit, comment on, and review documents. Requires `requestToken`. */
+  /** Public room view. Grants anonymous access to view, edit, comment on, and review documents. Requires {@link TFrameConfig.requestToken}. */
   PublicRoom = "public-room",
-  /** File upload interface. Uploads files to the folder specified by `id`. */
+  /** File upload interface. Uploads files to the folder specified by {@link TFrameConfig.id}. */
   Uploader = "uploader",
   /** Forms gallery. Displays forms for the room specified by {@link TFrameConfig.id}. Supports {@link TFrameConfig.showMenu} to toggle the side panel. */
   Forms = "forms",
   /** AI chat interface. Full-page conversation UI, bound to an AI agent when {@link TFrameConfig.agentId} is set, to the current user otherwise. */
   Chat = "chat",
-  /** Personal files browser. File/folder manager for the user's personal space (My Documents, Favorites, Recent, Shared with me, Trash). Uses {@link TFrameConfig.personalDestination} to pick the initial section. */
+  /** Personal files browser. File/folder manager for the user's personal space (My Documents, Favorites, Recent, Shared with me, Trash). Uses {@link TFrameConfig.personalDestination} to pick the initial section; has no navigation menu of its own, so the host switches sections with {@link SDKInstance.navigateSection}. */
   Personal = "personal",
 }
 
@@ -61,7 +61,7 @@ export enum SDKMode {
  *
  * @example
  * ```typescript
- * sdk.initFrame({ mode: SDKMode.FileSelector, selectorType: SelectorFilterType.RoomsOnly, ... });
+ * sdk.init({ mode: SDKMode.FileSelector, selectorType: SelectorFilterType.RoomsOnly, ... });
  * ```
  */
 export const enum SelectorFilterType {
@@ -80,7 +80,7 @@ export const enum SelectorFilterType {
  *
  * @example
  * ```typescript
- * sdk.initFrame({ mode: SDKMode.Editor, type: EditorType.Mobile, editorType: EditorType.Mobile, ... });
+ * sdk.init({ mode: SDKMode.Editor, type: EditorType.Mobile, editorType: EditorType.Mobile, ... });
  * ```
  */
 export const enum EditorType {
@@ -98,13 +98,13 @@ export const enum EditorType {
  *
  * @example
  * ```typescript
- * sdk.initFrame({ mode: SDKMode.Manager, viewAs: ManagerViewMode.Table, ... });
+ * sdk.init({ mode: SDKMode.Manager, viewAs: ManagerViewMode.Table, ... });
  * ```
  */
 export const enum ManagerViewMode {
   /** Vertical list — one item per row with details. */
   Row = "row",
-  /** Table with sortable columns. Column visibility is controlled by `viewTableColumns`. */
+  /** Table with sortable columns. Column visibility is controlled by {@link TFrameConfig.viewTableColumns}. */
   Table = "table",
   /** Grid of visual tiles with thumbnails. */
   Tile = "tile",
@@ -115,7 +115,7 @@ export const enum ManagerViewMode {
  *
  * @example
  * ```typescript
- * sdk.initFrame({ theme: Theme.Dark, ... });
+ * sdk.init({ theme: Theme.Dark, ... });
  * ```
  */
 export const enum Theme {
@@ -203,6 +203,8 @@ export const enum RoomType {
   VirtualData = 8,
   /** AI room: an AI agent works with the room's files. API value: `9` (`AiRoom`). */
   Ai = 9,
+  /** Private room: end-to-end encrypted. Returned by {@link SDKInstance.getRooms} and {@link TFrameEvents.onSelectCallback}; not accepted by {@link SDKInstance.createRoom}. API value: `13` (`RoomsTypePrivate`). */
+  Private = 13,
 }
 
 /**
@@ -263,7 +265,7 @@ export const enum InstanceMethods {
   SetListView = "setListView",
   /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a serialized callback inside the editor context as `callback(editor, asc, data)`. */
   ExecuteInEditor = "executeInEditor",
-  /** Calls `SDKInstance.navigateSection(section)`. Navigates Forms to a specific section. */
+  /** Calls `SDKInstance.navigateSection(section)`. Navigates the Forms or Personal frame to a section. */
   NavigateSection = "navigateSection",
   /** Calls `SDKInstance.setCustomActions(config)`. Registers custom context menu actions. */
   SetCustomActions = "setCustomActions",

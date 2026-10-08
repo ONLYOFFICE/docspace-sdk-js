@@ -45,7 +45,7 @@ export enum SDKErrorCode {
   Disconnected = "DISCONNECTED",
   /** The host domain is blocked by the ONLYOFFICE Apps Content Security Policy. */
   CSPViolation = "CSP_VIOLATION",
-  /** A method was called in an incompatible {@link SDKMode} (e.g. {@link SDKInstance.setCustomActions} outside {@link SDKMode.Forms}), the portal answered that the current mode has no such method, or a session method ({@link SDKInstance.login}, {@link SDKInstance.logout}) was called in OAuth mode, where the host owns the session. The promise rejects; nothing is thrown synchronously. */
+  /** A method was called in an incompatible {@link SDKMode} (e.g. {@link SDKInstance.getRooms} outside {@link SDKMode.Manager}), the portal answered that the current mode has no such method, or a session method ({@link SDKInstance.login}, {@link SDKInstance.logout}) was called in OAuth mode, where the host owns the session. The promise rejects; nothing is thrown synchronously. */
   ModeMismatch = "MODE_MISMATCH",
   /** The provided {@link TFrameConfig} is missing required fields or has invalid values. */
   InvalidConfig = "INVALID_CONFIG",
