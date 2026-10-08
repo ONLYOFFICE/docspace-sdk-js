@@ -63,15 +63,20 @@ function firstSentence(text) {
   return text;
 }
 
+/** A Markdown backslash escape of an ASCII punctuation character (`\_`, `\<`, `\>`, `\|`, ...). */
+const MARKDOWN_ESCAPE = /\\([!-/:-@[-`{-~])/g;
+
 /**
- * H1 title of a generated page (falls back to the given name).
+ * H1 title of a generated page (falls back to the given name). TypeDoc escapes Markdown
+ * punctuation in the heading (`FRAME\_NAME`, `TListResponse\<TFolder\>`); the index wraps the
+ * title in a code span, where the escapes would render literally, so they are removed.
  * @param {string} pagePath
  * @param {string} fallback
  */
 function readPageTitle(pagePath, fallback) {
   const content = readFileSync(pagePath, "utf-8");
   const titleMatch = content.match(/^# (.+)$/m);
-  return titleMatch ? titleMatch[1].trim().replace(/\\_/g, "_") : fallback;
+  return titleMatch ? titleMatch[1].trim().replace(MARKDOWN_ESCAPE, "$1") : fallback;
 }
 
 /**

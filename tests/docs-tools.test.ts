@@ -25,10 +25,10 @@ import { PAGE_TRANSFORMS } from "../tools/docs/page-transforms.mjs";
 import { applyApiTables } from "../tools/docs/api-tables.mjs";
 import { generateIndexPage } from "../tools/docs/section-index.mjs";
 
-type Transform = (content: string, filePath: string) => string;
+type TTransform = (content: string, filePath: string) => string;
 
 const runPageTransforms = (content: string, filePath = "page.md") =>
-  (PAGE_TRANSFORMS as Transform[]).reduce((acc, transform) => transform(acc, filePath), content);
+  (PAGE_TRANSFORMS as TTransform[]).reduce((acc, transform) => transform(acc, filePath), content);
 
 let tempDir: string;
 
@@ -221,6 +221,41 @@ describe("api-tables", () => {
     expect(configOutput).toContain("[x](#nope)");
   });
 
+  it("moves the optional marker out of a deprecated row's strikethrough so links to it resolve", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const configContent = runPageTransforms(
+      [
+        "# TFrameConfig",
+        "",
+        "## Properties",
+        "",
+        table([
+          "| <a id=\"rootpath\"></a> `rootPath?` | `string` | Root. |",
+          "| <a id=\"viewas\"></a> ~~`viewAs?`~~ | `string` | Layout. **Deprecated** See [rootPath](#rootpath). |",
+        ]),
+        "",
+      ].join("\n"),
+      "TFrameConfig.md"
+    );
+    const config = writePage("type-aliases/TFrameConfig.md", configContent);
+    const viewMode = writePage(
+      "type-aliases/TManagerViewMode.md",
+      "# TManagerViewMode\n\nAccepted by [TFrameConfig.viewAs](TFrameConfig.md#viewas).\n"
+    );
+
+    applyApiTables([config, viewMode]);
+
+    const configOutput = readFileSync(config, "utf-8");
+    expect(configOutput).toContain("| ~~`viewAs`~~? | `string` |");
+    expect(configOutput).toContain("| `rootPath`? | `string` |");
+    expect(configOutput).not.toContain("`viewAs?`");
+    const deprecatedRow = configOutput.split("\n").find((line) => line.includes("viewAs"));
+    expect(deprecatedRow?.match(/`([^`]+)`/)?.[1]).toBe("viewAs");
+    expect(readFileSync(viewMode, "utf-8")).toContain("(TFrameConfig.md#viewAs)");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("wraps parameter tables too, prefixing ids by method when parameter names repeat", () => {
     const page = writePage(
       "classes/SDK.md",
@@ -362,6 +397,33 @@ describe("section-index", () => {
     expect(index).toContain(
       "| [`FRAME_NAME`](FRAME_NAME.md) | The prefix for the iframe `name` attribute. |"
     );
+  });
+
+  it("unescapes the Markdown escapes of a generic title before wrapping it in a code span", () => {
+    writePage(
+      "type-aliases/TListResponse.md",
+      "# TListResponse\\<TFolder\\>\n\n```ts\ntype TListResponse<T> = { items: T[] };\n```\n\nResponse wrapper for paginated listing methods.\n"
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    generateIndexPage(
+      {
+        docsDir: "type-aliases",
+        sidebarLabel: "Types",
+        title: "Types",
+        description: "Exported types.",
+        tableCaption: "The following types are available:",
+        tableHeaderName: "Type",
+      },
+      tempDir
+    );
+
+    log.mockRestore();
+    const index = readFileSync(join(tempDir, "type-aliases", "index.md"), "utf-8");
+    expect(index).toContain(
+      "| [`TListResponse<TFolder>`](TListResponse.md) | Response wrapper for paginated listing methods. |"
+    );
+    expect(index).not.toContain("\\<");
   });
 });
 

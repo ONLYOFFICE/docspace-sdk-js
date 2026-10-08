@@ -27,7 +27,8 @@ const FRONTMATTER_FENCE = "---";
 const ROW_ANCHOR = /^\| <a id="([^"]+)"><\/a> /;
 const HEADING = /^(#{1,6}) (.+)$/;
 const FIRST_CELL = /^\| ((?:\\\||[^|])+?) \|/;
-const OPTIONAL_FIRST_CELL = /^\| `([^`]+)\?` /;
+// A deprecated member is rendered as `| ~~`name?`~~ |`; the `?` has to leave both the code span and the strikethrough.
+const OPTIONAL_FIRST_CELL = /^\| (~~)?`([^`]+)\?`(~~)? /;
 const LINK_WITH_FRAGMENT = /\]\(([^)#\s]*)#([^)\s]+)\)/g;
 
 const GROUP_HEADINGS = new Set([
@@ -175,7 +176,7 @@ function wrapMemberTables(filePath) {
       if (row.oldId) anchorMap.set(row.oldId, newId);
       lines[row.lineNumber] = lines[row.lineNumber]
         .replace(ROW_ANCHOR, "| ")
-        .replace(OPTIONAL_FIRST_CELL, "| `$1`? ");
+        .replace(OPTIONAL_FIRST_CELL, "| $1`$2`$3? ");
     }
   }
 

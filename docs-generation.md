@@ -24,7 +24,7 @@ pnpm run docs:sync   # full pipeline + copy into ../api.onlyoffice.com
 
 `pnpm run docs` executes four steps in sequence (see `package.json`):
 
-1. **`tools/update-revision.mjs`** — reads the current Git branch and writes it into `typedoc.config.mjs` → `gitRevision`, so the `custom_edit_url` of every page points at the branch being documented.
+1. **`tools/update-revision.mjs`** — resolves the Git revision being documented and writes it into `typedoc.config.mjs` → `gitRevision`, so the `custom_edit_url` of every page points at it. Resolution order: the tag checked out exactly (`git describe --tags --exact-match`, a release build from a `v*` tag), else the current branch name, else `master` when HEAD is detached without a tag (`git rev-parse --abbrev-ref HEAD` would print the literal `HEAD` and produce `blob/HEAD/...` URLs).
 2. **`typedoc`** — parses the entry points and generates raw Markdown into `docs/`.
 3. **`tools/docs/index.mjs`** — rewrites every generated page (see [Post-processing](#post-processing)) and builds an `index.md` per section.
 4. **`tools/update-sidebar.mjs`** — prefixes sidebar doc ids with the site path, points each category at its section index, and reverts `gitRevision` back to `master`.
@@ -104,7 +104,7 @@ Layout of `tools/`:
 `applyApiTables` (`api-tables.mjs`) runs after the page transforms have validated the original anchors. It wraps every table of a symbol page — member tables (rows carry TypeDoc's `<a id>` anchors) and the parameter tables under method headings — in the docs site's `<APITable>` component (bare JSX tags; one `import APITable from '@site/src/components/APITable/APITable'` line is inserted after the front matter), strips the `<a id>` anchors, and rewrites all fragment links — in-page and cross-page — to the ids the component derives at runtime:
 
 - the row id is the **text of the code span in the first cell** (case-sensitive): `<a id="manager">` becomes `#Manager`, `<a id="rootpath">` becomes `#rootPath`;
-- TypeDoc's optional marker is moved outside the code span (`` `rootPath`? `` instead of `` `rootPath?` ``), so the id carries no `?` — a `?` in a fragment reads as a query string to Docusaurus' anchor checker;
+- TypeDoc's optional marker is moved outside the code span (`` `rootPath`? `` instead of `` `rootPath?` ``), so the id carries no `?` — a `?` in a fragment reads as a query string to Docusaurus' anchor checker; a deprecated member, which TypeDoc wraps in strikethrough, gets the marker outside that too (`` ~~`viewAs`~~? `` instead of `` ~~`viewAs?`~~ ``), so `#viewAs` still resolves;
 - on pages where row names collide across tables (a class page, where `roomId` is a parameter of several methods), every table gets a `name="Symbol"` prop and ids become `Symbol-member`: `#createRoom-roomId`, `#SDKInstance-config`;
 - the component makes rows clickable and highlights the row targeted by the URL hash.
 
@@ -177,7 +177,7 @@ A new kind directory (say TypeDoc starts emitting `functions/`) requires one edi
 - `docs/` is regenerated from scratch and gitignored — manual edits are lost; fix the JSDoc or a `tools/` script.
 - The `tools/` transforms are regex-based rewrites of TypeDoc's Markdown; a TypeDoc/plugin version bump can silently change the output shape and break them — diff `docs/` against a pre-bump run. `tests/docs-tools.test.ts` covers the transforms on fixtures.
 - `typedoc-plugin-markdown`, `typedoc-docusaurus-theme` and `typedoc-plugin-frontmatter` move together: the theme and the frontmatter plugin declare a minimum plugin-markdown version. A plugin bump can change the rendered Markdown without touching the structure — 4.8.1 → 4.13.0 rewrapped signatures, marked parameters with default values as optional and parenthesised function types inside unions in tables. Regenerate before and after, `diff -r` the two `docs/` trees, and hand the diff to the site team before `docs:sync`.
-- `update-revision.mjs` mutates `typedoc.config.mjs` and `update-sidebar.mjs` reverts it. An interrupted run can leave `gitRevision` on your branch name — re-run `pnpm run docs` or reset it to `master` before committing.
+- `update-revision.mjs` mutates `typedoc.config.mjs` and `update-sidebar.mjs` reverts it to `master`. An interrupted run can leave `gitRevision` on your branch name or tag — re-run `pnpm run docs` or reset it to `master` before committing.
 - `docs:sync` requires the `api.onlyoffice.com` checkout as a sibling directory of the repo.
 
 ## Fixing output problems
