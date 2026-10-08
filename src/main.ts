@@ -1,5 +1,5 @@
 /**
- * (c) Copyright Ascensio System SIA 2025
+ * (c) Copyright Ascensio System SIA 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,93 @@
  * @license
  */
 
+/**
+ * @module
+ * @mergeModuleWith <project>
+ */
+
 import { SDK } from "./sdk";
+import { SDKError, SDKErrorCode } from "./errors";
 
-window.DocSpace = window.DocSpace || {};
+if (typeof window !== "undefined") {
+  window.DocSpace = window.DocSpace || {};
+  window.DocSpace.SDK = window.DocSpace.SDK || new SDK();
+}
 
-window.DocSpace.SDK = window.DocSpace.SDK || new SDK();
-
+export { SDKError, SDKErrorCode };
+export type { TSDKErrorDetails } from "./errors";
+export { CSPApiUrl, FRAME_NAME, defaultConfig, cspErrorText, connectErrorText } from "./constants";
+export { SDK };
 export default SDK;
+export { SDKInstance } from "./instance";
+export {
+  SDKMode,
+  SelectorFilterType,
+  EditorType,
+  ManagerViewMode,
+  Theme,
+  FilterSortOrder,
+  FilterSortBy,
+  HeaderBannerDisplaying,
+  RoomType,
+} from "./enums";
+export type {
+  TGetExternalDataRequest,
+  TSetExternalDataPayload,
+  TFrameConfig,
+  TFrameEvents,
+  TFrameFilter,
+  TAuthError,
+  TAuthErrorCode,
+  TUploadResult,
+  TUploadError,
+  TUploadProgress,
+  TUploadedFile,
+  TUploaderUploadResult,
+  TUploadRejection,
+  TRejectedFile,
+  TUploaderUploadError,
+  TEditorCustomization,
+  TEditorAnonymous,
+  TCreateRoomOptions,
+  TFormsSection,
+  TPersonalSection,
+  TInitConfig,
+  TAppReadyPayload,
+  TNavigatePayload,
+  TFilterSearchPayload,
+  TUserGroup,
+  TCustomActionsConfig,
+  TCustomContextMenuActions,
+  TCustomContextMenuAction,
+  TCustomCreateAction,
+  TCustomActionEvent,
+  TCustomActionSection,
+  TManagerSection,
+  TEntityBase,
+  TFileInfo,
+  TFolderInfo,
+  TRoomInfo,
+  TUserInfo,
+  TEditorAction,
+  TEditorOpenPayload,
+  TRequestTokenInfo,
+  TSelectedRoom,
+  TSelectedFile,
+  TLoginResult,
+  TListResponse,
+  TFilesResponse,
+  TRoomsResponse,
+  THashSettings,
+  TPathParts,
+  TCreatedBy,
+  TLogo,
+  TFrameMode,
+  TManagerViewMode,
+  TTheme,
+  TEditorType,
+  TSelectorType,
+  TBannerDisplaying,
+  TFilterSortBy,
+  TFilterSortOrder,
+} from "./types";

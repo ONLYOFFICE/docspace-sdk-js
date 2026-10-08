@@ -1,5 +1,5 @@
 /**
- * (c) Copyright Ascensio System SIA 2025
+ * (c) Copyright Ascensio System SIA 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,182 +22,277 @@
  */
 
 /**
- * The available modes for initializing the SDK.
- * Defines the context in which the SDK operates.
+ * The SDK initialization mode. Passed via {@link TFrameConfig.mode}.
+ * Determines the UI and available functionality of the embedded frame.
+ *
+ * @example
+ * ```typescript
+ * sdk.init({ mode: SDKMode.Manager, frameId: "ds-frame", src: "https://portal.example.com" });
+ * ```
  */
 export enum SDKMode {
-  /** Displays a list of entities based on the specified `rootPath`. Supports creating and managing rooms, folders, and files. */
+  /** File/folder browser. Displays a list of entities at {@link TFrameConfig.rootPath}. Supports CRUD operations on rooms, folders, and files. Forces {@link TFrameConfig.noLoader} to `false`. */
   Manager = "manager",
-  /** Opens the document editor for the file specified by its `id` parameter. */
+  /** Document editor. Requires {@link TFrameConfig.id} — the file identifier to open for editing. */
   Editor = "editor",
-  /** Opens the document viewer for the file specified by its `id` parameter. */
+  /** Read-only document viewer. Requires {@link TFrameConfig.id} — the file identifier to open for viewing. */
   Viewer = "viewer",
-  /** Opens the room selector for selecting a room from the available list. */
+  /** Room picker dialog. Returns the selected room via {@link TFrameEvents.onSelectCallback}. */
   RoomSelector = "room-selector",
-  /** Opens the file selector for selecting a file from the available list. */
+  /** File picker dialog. Returns the selected file via {@link TFrameEvents.onSelectCallback}. Filterable by {@link TFrameConfig.selectorType}. */
   FileSelector = "file-selector",
-  /** Displays a blank page with a loader and provides access to system methods. */
+  /** Headless mode. Renders a blank page with a loader; used to call session methods ({@link SDKInstance.login}, {@link SDKInstance.logout}) without UI. Forces {@link TFrameConfig.noLoader} to `false`. */
   System = "system",
-  /** Displays a public room that provides access to view, edit, comment on, and review documents without registration. */
+  /** Public room view. Grants anonymous access to view, edit, comment on, and review documents. Requires {@link TFrameConfig.requestToken}. */
   PublicRoom = "public-room",
+  /** File upload interface. Uploads files to the folder specified by {@link TFrameConfig.id}. */
+  Uploader = "uploader",
+  /** Forms gallery. Displays forms for the room specified by {@link TFrameConfig.id}. Supports {@link TFrameConfig.showMenu} to toggle the side panel. */
+  Forms = "forms",
+  /** AI chat interface. Full-page conversation UI, bound to an AI agent when {@link TFrameConfig.agentId} is set, to the current user otherwise. */
+  Chat = "chat",
+  /** Personal files browser. File/folder manager for the user's personal space (My Documents, Favorites, Recent, Shared with me, Trash). Uses {@link TFrameConfig.personalDestination} to pick the initial section; has no navigation menu of its own, so the host switches sections with {@link SDKInstance.navigateSection}. */
+  Personal = "personal",
 }
 
 /**
- * The filter type used in the selector views.
+ * The content filter for selector modes ({@link SDKMode.RoomSelector}, {@link SDKMode.FileSelector}).
+ * Passed via {@link TFrameConfig.selectorType}.
+ *
+ * @example
+ * ```typescript
+ * sdk.init({ mode: SDKMode.FileSelector, selectorType: SelectorFilterType.RoomsOnly, ... });
+ * ```
  */
 export const enum SelectorFilterType {
-  /** Shows all available items. */
+  /** No filter — shows rooms and user folders. */
   All = "all",
   /** Shows only rooms. */
   RoomsOnly = "roomsOnly",
-  /** Shows only user folders. */
+  /** Shows only the current user's personal folders. API value: `"userFolderOnly"`. */
   UserOnly = "userFolderOnly",
 }
 
 /**
- * The available types of editor interface.
+ * The editor/viewer platform layout. Used in two config fields:
+ * - {@link TFrameConfig.type} — the iframe platform type (affects CSS and touch behavior).
+ * - {@link TFrameConfig.editorType} — the editor UI layout sent to the ONLYOFFICE Apps backend.
+ *
+ * @example
+ * ```typescript
+ * sdk.init({ mode: SDKMode.Editor, type: EditorType.Mobile, editorType: EditorType.Mobile, ... });
+ * ```
  */
 export const enum EditorType {
-  /** The desktop editor optimized to access the document from a desktop or laptop computer. */
+  /** Standard desktop/laptop layout. Default value. */
   Desktop = "desktop",
-  /** The embedded editor specifically formed to be easily embedded into a web page. */
+  /** Compact layout for embedding into third-party web pages. */
   Embedded = "embedded",
-  /** The mobile editor optimized to access the document from a tablet or a smartphone. */
+  /** Touch-optimized layout for tablets and smartphones. Sets `position: fixed` and `overflow: hidden` on the iframe. */
   Mobile = "mobile",
 }
 
 /**
- * The view modes available in the manager.
+ * The item layout in {@link SDKMode.Manager} mode.
+ * Passed via {@link TFrameConfig.viewAs}.
+ *
+ * @example
+ * ```typescript
+ * sdk.init({ mode: SDKMode.Manager, viewAs: ManagerViewMode.Table, ... });
+ * ```
  */
 export const enum ManagerViewMode {
-  /** Displays items in a vertical list, showing details for each entry in a row. */
+  /** Vertical list — one item per row with details. */
   Row = "row",
-  /** Displays items in a table layout with columns for structured comparison. */
+  /** Table with sortable columns. Column visibility is controlled by {@link TFrameConfig.viewTableColumns}. */
   Table = "table",
-  /** Displays items as tiles, emphasizing visual previews and key information. */
+  /** Grid of visual tiles with thumbnails. */
   Tile = "tile",
 }
 
 /**
- * The available application themes.
+ * The UI color theme. Passed via {@link TFrameConfig.theme}.
+ *
+ * @example
+ * ```typescript
+ * sdk.init({ theme: Theme.Dark, ... });
+ * ```
  */
 export const enum Theme {
-  /** The light/base theme. */
+  /** Light theme. */
   Base = "Base",
-  /** The dark mode theme. */
+  /** Dark theme. */
   Dark = "Dark",
-  /** Follows the system UI theme. */
+  /** Follows the OS / browser preferred color scheme. */
   System = "System",
 }
 
 /**
- * The item sorting order.
+ * The sort direction for file/folder lists. Passed via {@link TFrameFilter.sortOrder}.
  */
 export const enum FilterSortOrder {
-  /** Ascending order: items sorted from smallest to largest, A–Z, etc. */
+  /** A-Z, oldest first, smallest first. */
   Ascending = "ascending",
-  /** Descending order: items sorted from largest to smallest, Z–A, etc. */
+  /** Z-A, newest first, largest first. */
   Descending = "descending",
 }
 
 /**
- * The criteria for filtering and sorting items.
+ * The sort criterion for file/folder lists. Passed via {@link TFrameFilter.sortBy}.
+ *
+ * Note: string values are API identifiers and may differ from the enum key names.
  */
 export const enum FilterSortBy {
-  /** Sorts items by author name. */
+  /** Sort by author name. API value: `"Author"`. */
   Author = "Author",
-  /** Sorts items by creation date. */
+  /** Sort by creation date. API value: `"DateAndTimeCreation"`. */
   CreationDate = "DateAndTimeCreation",
-  /** Sorts items by the last opened date. */
+  /** Sort by last opened date. API value: `"LastOpened"`. */
   LastOpened = "LastOpened",
-  /** Sorts items by modification date. */
+  /** Sort by last modification date. API value: `"DateAndTime"`. */
   ModifiedDate = "DateAndTime",
-  /** Sorts items by name. */
+  /** Sort alphabetically by name. API value: `"AZ"`. */
   Name = "AZ",
-  /** Sorts items by room. */
+  /** Sort by room. API value: `"Room"`. */
   Room = "Room",
-  /** Sorts items by room type. */
+  /** Sort by room type. API value: `"roomType"`. */
   RoomType = "roomType",
-  /** Sorts items by size. */
+  /** Sort by file size. API value: `"Size"`. */
   Size = "Size",
-  /** Sorts items by tags. */
+  /** Sort by tags. API value: `"Tags"`. */
   Tags = "Tags",
-  /** Sorts items by type. */
+  /** Sort by file type/extension. API value: `"Type"`. */
   Type = "Type",
-  /** Sorts items by used space. */
+  /** Sort by used storage space. API value: `"usedspace"`. */
   UsedSpace = "usedspace",
 }
 
 /**
- * The display settings of the header banner.
+ * The header banner visibility. Passed via {@link TFrameConfig.showHeaderBanner}.
  */
 export const enum HeaderBannerDisplaying {
-  /** Displays all header banners. */
+  /** Show all banners (informational + promotional). */
   All = "all",
-  /** Displays only informational header banners. */
+  /** Show only informational banners. */
   Info = "info",
-  /** Does not display any header banners. */
+  /** Hide all banners. */
   None = "none",
 }
 
 /**
- * Available instance methods in the SDK for file management, user information, and settings.
+ * Room types accepted by {@link SDKInstance.createRoom} and returned as `roomType` in {@link TRoomInfo}
+ * and {@link TSelectedRoom.roomType}. The numeric values are the portal's `RoomType` API values.
+ *
+ * @example
+ * ```typescript
+ * import { RoomType } from '@onlyoffice/docspace-sdk-js';
+ *
+ * const room = await instance.createRoom('Contracts', RoomType.Custom);
+ * ```
  */
-export const enum InstanceMethods {
-  /** Adds the specified tags to the room with the specified ID. */
-  AddTagsToRoom = "addTagsToRoom",
-  /** Creates a new file with the specified parameters. */
-  CreateFile = "createFile",
-  /** Creates a new folder with the specified parameters. */
-  CreateFolder = "createFolder",
-  /** Generates the hash string based on the specified hash settings. */
-  CreateHash = "createHash",
-  /** Creates a new room with the specified parameters. */
-  CreateRoom = "createRoom",
-  /** Creates a new tag with the specified name. */
-  CreateTag = "createTag",
-  /** Returns the information about all files in the SDK frame. */
-  GetFiles = "getFiles",
-  /** Returns the information about the current directory opened in the SDK frame. */
-  GetFolderInfo = "getFolderInfo",
-  /** Returns the information about all the folders in the SDK frame. */
-  GetFolders = "getFolders",
-  /** Returns the DocSpace hash settings for generating a password hash. */
-  GetHashSettings = "getHashSettings",
-  /** Returns the information about all files and folders in the SDK frame. */
-  GetList = "getList",
-  /** Returns the information about rooms according to the specified filter parameters. */
-  GetRooms = "getRooms",
-  /** Returns the information about the selected elements in the SDK frame. */
-  GetSelection = "getSelection",
-  /** Returns the information about the current DocSpace user or null if there are no authorized users. */
-  GetUserInfo = "getUserInfo",
-  /** Logs in to the DocSpace account using the specified email and password hash. */
-  Login = "login",
-  /** Logs out from the DocSpace account of the current user. */
-  Logout = "logout",
-  /** Opens the DocSpace modal window of the specified type. */
-  OpenModal = "openModal",
-  /** Removes the specified tags from the room with the specified ID. */
-  RemoveTagsFromRoom = "removeTagsFromRoom",
-  /** Sets the specified config for the current SDK entity. */
-  SetConfig = "setConfig",
-  /** Sets the display of entity lists according to the specified type. */
-  SetListView = "setListView",
-  /** Executes the specified callback within the editor context. */
-  ExecuteInEditor = "executeInEditor",
+export const enum RoomType {
+  /** Form filling room: a room for filling out and collecting PDF forms. API value: `1` (`FillingFormsRoom`). */
+  FormFilling = 1,
+  /** Collaboration room: co-editing of documents. API value: `2` (`EditingRoom`). */
+  Collaboration = 2,
+  /** Custom room: every access level (including reviewing and commenting) can be assigned. API value: `5` (`CustomRoom`). */
+  Custom = 5,
+  /** Public room: files are shared through external links. API value: `6` (`PublicRoom`). */
+  Public = 6,
+  /** Virtual data room: indexing, watermarks and download restrictions. API value: `8` (`VirtualDataRoom`). */
+  VirtualData = 8,
+  /** AI room: an AI agent works with the room's files. API value: `9` (`AiRoom`). */
+  Ai = 9,
+  /** Private room: end-to-end encrypted. Returned by {@link SDKInstance.getRooms} and {@link TFrameEvents.onSelectCallback}; not accepted by {@link SDKInstance.createRoom}. API value: `13` (`RoomsTypePrivate`). */
+  Private = 13,
 }
 
 /**
- * The types of messages exchanged between SDK components and the host application.
+ * Internal method identifiers sent to the ONLYOFFICE Apps iframe via `postMessage`.
+ * These are used internally by {@link SDKInstance} — call the corresponding
+ * public methods on the instance instead of using these values directly.
+ *
+ * @internal
+ * @example
+ * ```typescript
+ * // Do this:
+ * const files = await instance.getFiles();
+ *
+ * // NOT this:
+ * instance.#executeMethod(InstanceMethods.GetFiles, null, callback);
+ * ```
+ */
+export const enum InstanceMethods {
+  /** Calls `SDKInstance.addTagsToRoom(roomId, tags)`. */
+  AddTagsToRoom = "addTagsToRoom",
+  /** Calls `SDKInstance.createFile(folderId, title, templateId, formId)`. */
+  CreateFile = "createFile",
+  /** Calls `SDKInstance.createFolder(parentFolderId, title)`. */
+  CreateFolder = "createFolder",
+  /** Calls `SDKInstance.createHash(password, hashSettings)`. */
+  CreateHash = "createHash",
+  /** Calls `SDKInstance.createRoom(title, roomType)`. */
+  CreateRoom = "createRoom",
+  /** Calls `SDKInstance.createTag(name)`. */
+  CreateTag = "createTag",
+  /** Calls `SDKInstance.getFiles()`. Returns all files in the current folder. */
+  GetFiles = "getFiles",
+  /** Calls `SDKInstance.getFolderInfo()`. Returns metadata of the current directory. */
+  GetFolderInfo = "getFolderInfo",
+  /** Calls `SDKInstance.getFolders()`. Returns all sub-folders. */
+  GetFolders = "getFolders",
+  /** Calls `SDKInstance.getHashSettings()`. Returns settings for password hashing. */
+  GetHashSettings = "getHashSettings",
+  /** Calls `SDKInstance.getList()`. Returns all files and folders. */
+  GetList = "getList",
+  /** Calls `SDKInstance.getRooms(filter)`. Returns rooms matching the filter. */
+  GetRooms = "getRooms",
+  /** Calls `SDKInstance.getSelection()`. Returns currently selected items. */
+  GetSelection = "getSelection",
+  /** Calls `SDKInstance.getUserInfo()`. Returns current user or `null` if not authorized. */
+  GetUserInfo = "getUserInfo",
+  /** Calls `SDKInstance.login(email, passwordHash, code?)`. With `code` set, finishes a two-factor login. */
+  Login = "login",
+  /** Calls `SDKInstance.logout()`. */
+  Logout = "logout",
+  /** Calls `SDKInstance.openModal(type, options)`. */
+  OpenModal = "openModal",
+  /** Calls `SDKInstance.removeTagsFromRoom(roomId, tags)`. */
+  RemoveTagsFromRoom = "removeTagsFromRoom",
+  /** Calls `SDKInstance.setConfig(config, reload?)`. Updates the frame configuration. */
+  SetConfig = "setConfig",
+  /** Calls `SDKInstance.setListView(viewType)`. Changes the file list layout. */
+  SetListView = "setListView",
+  /** Calls `SDKInstance.executeInEditor(callback, data?)`. Runs a serialized callback inside the editor context as `callback(editor, asc, data)`. */
+  ExecuteInEditor = "executeInEditor",
+  /** Calls `SDKInstance.navigateSection(section)`. Navigates the Forms or Personal frame to a section. */
+  NavigateSection = "navigateSection",
+  /** Calls `SDKInstance.setCustomActions(config)`. Registers custom context menu actions. */
+  SetCustomActions = "setCustomActions",
+}
+
+/**
+ * The `postMessage` message types in the iframe ↔ host protocol.
+ * Most messages flow **from the ONLYOFFICE Apps iframe to the host page** and are processed
+ * in `SDKInstance.#onMessage`. The {@link MessageTypes.UploadFileData} and
+ * {@link MessageTypes.ExternalDataReturn} types travel in the opposite direction —
+ * the host posts them into the iframe.
+ *
+ * @internal
  */
 export const enum MessageTypes {
-  /** The message sent when a method returns a result. */
+  /** The iframe returns the result of a method call (e.g. `getFiles`). The host resolves the pending promise with `methodReturnData`. */
   OnMethodReturn = "onMethodReturn",
-  /** The message sent when an event occurs. */
+  /** The iframe fires a subscribed event (e.g. `onAppReady`). The host calls the matching handler from `config.events`. */
   OnEventReturn = "onEventReturn",
-  /** The message sent when a command is called. */
+  /** The iframe requests the host to call a public method on the instance (e.g. `setIsLoaded`). */
   OnCallCommand = "onCallCommand",
-  /** The message sent when an error occurs. */
+  /** The iframe reports an error. The host passes it to `config.events.onAppError`. */
   Error = "error",
+  /** Binary file upload from the host to the iframe. Used by {@link SDKInstance.upload}. */
+  UploadFileData = "uploadFileData",
+  /** Host reply to the iframe's `getExternalData` command. Carries the value resolved by {@link TFrameEvents.onGetExternalData} along with the original `callId`. */
+  ExternalDataReturn = "onExternalDataReturn",
+  /** Host reply to the iframe's `getAuthToken` command (OAuth mode). Carries `{ accessToken, expiresAt? }` resolved from {@link TFrameConfig.getToken}, correlated by `callId`. */
+  AuthTokenReturn = "onAuthTokenReturn",
 }

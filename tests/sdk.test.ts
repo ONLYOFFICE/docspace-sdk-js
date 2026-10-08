@@ -1,5 +1,5 @@
 /**
- * (c) Copyright Ascensio System SIA 2025
+ * (c) Copyright Ascensio System SIA 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,30 @@
  * @license
  */
 
-jest.mock("../src/instance");
+import { vi, type Mock } from "vitest";
+
+vi.mock("../src/instance");
 
 import { SDKMode } from "../src/enums";
 import { SDKInstance } from "../src/instance";
 import type { TFrameConfig } from "../src/types";
 import { SDK } from "../src/sdk/index";
 
-type MockInst = { initFrame: jest.Mock; config?: TFrameConfig } & Record<
+type TMockInst = { initFrame: Mock; config?: TFrameConfig } & Record<
   string,
   unknown
 >;
 
-const mockInstanceFactory = (): MockInst => ({
-  initFrame: jest.fn(),
+const mockInstanceFactory = (): TMockInst => ({
+  initFrame: vi.fn(),
   config: undefined,
 });
 
-const setMockReturn = (instance: MockInst) => {
-  (SDKInstance as unknown as jest.Mock).mockReturnValue(instance as any);
+const setMockReturn = (instance: TMockInst) => {
+  // eslint-disable-next-line prefer-arrow-callback
+  (SDKInstance as unknown as Mock).mockImplementation(function () {
+    return instance as any;
+  });
   return instance;
 };
 
@@ -49,7 +54,7 @@ describe("SDK class wrappers", () => {
       mode: SDKMode.Viewer,
       src: "https://example.com",
     };
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
   });
 
   test.each([
@@ -59,6 +64,11 @@ describe("SDK class wrappers", () => {
     ["initRoomSelector", SDKMode.RoomSelector],
     ["initFileSelector", SDKMode.FileSelector],
     ["initSystem", SDKMode.System],
+    ["initUploader", SDKMode.Uploader],
+    ["initForms", SDKMode.Forms],
+    ["initChat", SDKMode.Chat],
+    ["initPublicRoom", SDKMode.PublicRoom],
+    ["initPersonal", SDKMode.Personal],
   ])("%s sets mode to %s and calls initFrame", (methodName, mode) => {
     const instance = setMockReturn(mockInstanceFactory());
     const result = (sdk as any)[methodName]({ ...baseConfig, mode: "WRONG" });
@@ -79,10 +89,24 @@ describe("SDK class wrappers", () => {
   test("reusing same frameId with different wrapper keeps same instance", () => {
     const first = setMockReturn(mockInstanceFactory());
     sdk.initViewer(baseConfig);
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
     const returned = sdk.initManager({ ...baseConfig, mode: SDKMode.Viewer });
     expect(returned).toBe(first);
     expect(first.initFrame).toHaveBeenCalledTimes(2);
+  });
+
+  test("initForms defaults showMenu to true", () => {
+    const instance = setMockReturn(mockInstanceFactory());
+    sdk.initForms({ ...baseConfig, frameId: "ds-forms" });
+    const calledWith = instance.initFrame.mock.calls[0][0];
+    expect(calledWith.showMenu).toBe(true);
+  });
+
+  test("initForms respects explicit showMenu: false", () => {
+    const instance = setMockReturn(mockInstanceFactory());
+    sdk.initForms({ ...baseConfig, frameId: "ds-forms", showMenu: false });
+    const calledWith = instance.initFrame.mock.calls[0][0];
+    expect(calledWith.showMenu).toBe(false);
   });
 
   test("multiple frameIds tracked independently", () => {
@@ -106,7 +130,7 @@ describe("SDK init core", () => {
       mode: SDKMode.Viewer,
       src: "https://example.com",
     };
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
   });
 
   test("creates new instance when frameId absent", () => {
@@ -120,7 +144,7 @@ describe("SDK init core", () => {
   test("reuses existing instance when frameId present", () => {
     const inst = setMockReturn(mockInstanceFactory());
     sdk.init(config);
-    (SDKInstance as unknown as jest.Mock).mockReset();
+    (SDKInstance as unknown as Mock).mockReset();
     const result = sdk.init({ ...config, src: "https://changed.example.com" });
     expect(result).toBe(inst);
     expect(inst.initFrame).toHaveBeenCalledTimes(2);

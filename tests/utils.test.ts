@@ -1,5 +1,5 @@
 /**
- * (c) Copyright Ascensio System SIA 2025
+ * (c) Copyright Ascensio System SIA 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
  * @license
  */
 
+import { vi } from "vitest";
+
 import {
   customUrlSearchParams,
   validateCSP,
@@ -23,10 +25,11 @@ import {
   getCSPErrorBody,
   getLoaderStyle,
   getFramePath,
+  getJwtExpiry,
 } from "../src/utils";
 import { cspErrorText, defaultConfig } from "../src/constants";
 import type { TFrameConfig } from "../src/types";
-import { SDKMode } from "../src/enums";
+import { SDKMode, Theme } from "../src/enums";
 
 const registerScript = (src: string) => {
   const script = document.createElement("script");
@@ -36,13 +39,18 @@ const registerScript = (src: string) => {
   return script;
 };
 
+const originalLocation = window.location;
+
 afterEach(() => {
   const scripts = Array.from(document.querySelectorAll("script"));
   scripts.forEach((s) => s.parentElement?.removeChild(s));
 
-  // @ts-ignore
-  delete (window as any).location;
-  jest.restoreAllMocks();
+  Object.defineProperty(window, "location", {
+    value: originalLocation,
+    writable: true,
+    configurable: true,
+  });
+  vi.restoreAllMocks();
 });
 
 describe("customUrlSearchParams", () => {
@@ -58,8 +66,13 @@ describe("customUrlSearchParams", () => {
   });
 
   test("should omit undefined & null values", () => {
-    const result = customUrlSearchParams({ a: "1", b: undefined, c: null } as any);
+    const result = customUrlSearchParams({ a: "1", b: undefined, c: null });
     expect(result).toBe("a=1");
+  });
+
+  test("returns empty string for falsy input", () => {
+    expect(customUrlSearchParams(null as any)).toBe("");
+    expect(customUrlSearchParams(undefined as any)).toBe("");
   });
 });
 
@@ -68,45 +81,45 @@ describe("validateCSP", () => {
   const host = window.location.host;
 
   beforeEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   test("passes when origin includes targetSrc (short-circuit) and skips fetch", async () => {
-    (global as any).fetch = jest.fn();
-    await expect(validateCSP(defaultOrigin)).resolves.not.toThrow();
-    expect(global.fetch).not.toHaveBeenCalled();
+    const fetchSpy = vi.spyOn(global, "fetch");
+    await expect(validateCSP(defaultOrigin)).resolves.toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   test("passes when host is in fetched domains", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
-      json: async () => ({ response: { domains: [host, `https://${host}/path`] } }),
-    });
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      json: () => Promise.resolve({ response: { domains: [host, `https://${host}/path`] } }),
+    } as Response);
     await expect(validateCSP("https://remote.example"))
-      .resolves.not.toThrow();
+      .resolves.toBeUndefined();
   });
 
   test("passes when host is empty but origin host matches (simulated by domains including origin host)", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
-      json: async () => ({ response: { domains: [new URL(defaultOrigin).host] } }),
-    });
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      json: () => Promise.resolve({ response: { domains: [new URL(defaultOrigin).host] } }),
+    } as Response);
     await expect(validateCSP("https://remote.example"))
-      .resolves.not.toThrow();
+      .resolves.toBeUndefined();
   });
 
   test("throws when host not included", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
-      json: async () => ({ response: { domains: ["other.com"] } }),
-    });
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      json: () => Promise.resolve({ response: { domains: ["other.com"] } }),
+    } as Response);
     await expect(validateCSP("https://remote.example"))
       .rejects.toThrow(cspErrorText);
   });
 
   test("throws on invalid JSON", async () => {
-    (global as any).fetch = jest.fn().mockResolvedValue({
-      json: async () => { throw "Invalid JSON"; },
-    });
+    vi.spyOn(global, "fetch").mockResolvedValue({
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    } as unknown as Response);
     await expect(validateCSP("https://remote.example"))
-      .rejects.toThrow("CSP validation failed: Invalid JSON");
+      .rejects.toThrow("CSP validation failed: Error: Invalid JSON");
   });
 });
 
@@ -146,6 +159,53 @@ describe("getConfigFromParams", () => {
     const result = getConfigFromParams();
     expect(result?.filter?.count).toBe("50");
     expect(result?.filter?.search).toBe("query");
+  });
+
+  test("returns the defaults when document.currentScript is null (module script, bundled api.js)", () => {
+    Object.defineProperty(document, "currentScript", { value: null, configurable: true });
+    expect(getConfigFromParams()).toEqual(defaultConfig);
+  });
+
+  test("keeps an encoded ampersand inside a value", () => {
+    registerScript("https://example.com/api.js?src=https://example.com&mode=manager&search=a%26b");
+    expect(getConfigFromParams().filter?.search).toBe("a&b");
+  });
+
+  test("ignores inherited keys when routing filter params", () => {
+    registerScript("https://example.com/api.js?src=https://example.com&mode=manager&toString=x");
+    const result = getConfigFromParams();
+    expect(result.filter).not.toHaveProperty("toString", "x");
+    expect(result).toHaveProperty("toString", "x");
+  });
+
+  describe("filter param syntax", () => {
+    test("bare filter keys are case-sensitive: sortOrder maps, sortorder does not", () => {
+      registerScript(
+        "https://example.com/api.js?src=&mode=manager&sortOrder=ascending&sortorder=descending"
+      );
+      const result = getConfigFromParams();
+      expect(result?.filter?.sortOrder).toBe("ascending");
+      expect(result?.filter).not.toHaveProperty("sortorder");
+      expect(result).toHaveProperty("sortorder", "descending");
+    });
+
+    test("groupId is routed into config.filter", () => {
+      registerScript("https://example.com/api.js?src=&mode=manager&groupId=42");
+      const result = getConfigFromParams();
+      expect(result?.filter?.groupId).toBe("42");
+      expect(result).not.toHaveProperty("groupId");
+    });
+
+    test("legacy bracket syntax filter[...] is not mapped into config.filter", () => {
+      registerScript(
+        "https://example.com/api.js?src=&mode=manager&filter[count]=25&filter[sortorder]=descending"
+      );
+      const result = getConfigFromParams();
+      expect(result?.filter?.count).toBe(defaultConfig.filter?.count);
+      expect(result?.filter?.sortOrder).toBe(defaultConfig.filter?.sortOrder);
+      expect(result).toHaveProperty(["filter[count]"], "25");
+      expect(result?.filter).not.toHaveProperty("filter[count]");
+    });
   });
 });
 
@@ -188,6 +248,31 @@ describe("getFramePath", () => {
       expect(path).not.toContain("withSubfolders=false");
     });
 
+    test("Manager mode passes the theme param", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Manager,
+        rootPath: "/rooms/shared/",
+        theme: Theme.Base,
+        filter: { search: "" },
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("theme=Base");
+    });
+
+    test("Manager mode passes filter.groupId and omits it when unset", () => {
+      const withGroup = getFramePath({
+        ...defaultConfig,
+        mode: SDKMode.Manager,
+        filter: { ...defaultConfig.filter, groupId: "42" },
+      });
+      expect(withGroup).toContain("groupId=42");
+
+      const withoutGroup = getFramePath({ ...defaultConfig, mode: SDKMode.Manager });
+      expect(withoutGroup).not.toContain("groupId");
+    });
+
     test("Manager mode with requestToken uses key query style", () => {
       const config: TFrameConfig = {
         src: "https://example.com",
@@ -227,7 +312,7 @@ describe("getFramePath", () => {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.RoomSelector,
-      } as any;
+      };
       const path = getFramePath(config);
       expect(path).toBe(`/sdk/room-selector`);
     });
@@ -241,6 +326,32 @@ describe("getFramePath", () => {
       } as any;
       const path = getFramePath(config);
       expect(path).toBe("/sdk/file-selector?selectorType=all");
+    });
+
+    test.each([
+      "undefined",
+      "null",
+    ])("Editor mode uses fileId -1 when id is %s", (id) => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Editor,
+        id,
+        editorType: "desktop",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("fileId=-1");
+    });
+
+    test("Editor mode uses fileId -1 when id is missing", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Editor,
+        editorType: "desktop",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("fileId=-1");
     });
 
     test("Editor mode includes editorGoBack true", () => {
@@ -289,16 +400,159 @@ describe("getFramePath", () => {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.System,
-      } as any;
+      };
       const path = getFramePath(config);
       expect(path).toBe("/old-sdk/system");
     });
 
+    test("Uploader mode builds expected path", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Uploader,
+        id: "folder-42",
+        acceptExtensions: ".docx,.xlsx",
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/uploader");
+      expect(path).toContain("targetId=folder-42");
+      expect(path).toContain("acceptExtensions=.docx%2C.xlsx");
+    });
+
+    test("Forms mode uses default destination (my-forms)", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Forms,
+        id: "room-1",
+        destination: "my-forms",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/forms/my-forms");
+      expect(path).toContain("roomId=room-1");
+    });
+
+    test("Forms mode respects custom destination", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Forms,
+        id: "room-1",
+        destination: "completed-forms",
+      } as any;
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/forms/completed-forms");
+      expect(path).toContain("roomId=room-1");
+    });
+
+    test("Forms mode builds path for each section", () => {
+      const sections = ["my-forms", "in-progress", "completed-forms", "library", "settings"] as const;
+      for (const section of sections) {
+        const config: TFrameConfig = {
+          src: "https://example.com",
+          frameId: "ds-frame",
+          mode: SDKMode.Forms,
+          destination: section,
+        };
+        const path = getFramePath(config);
+        expect(path).toContain(`/sdk/forms/${section}`);
+      }
+    });
+
+    test("Chat mode builds expected path with agentId and optional params", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Chat,
+        agentId: 42,
+        fileId: 99,
+        threadId: "thread-abc",
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("/sdk/chat");
+      expect(path).toContain("agentId=42");
+      expect(path).toContain("fileId=99");
+      expect(path).toContain("threadId=thread-abc");
+    });
+
+    test("Chat mode omits falsy optional params", () => {
+      const config: TFrameConfig = {
+        src: "https://example.com",
+        frameId: "ds-frame",
+        mode: SDKMode.Chat,
+        agentId: 7,
+      };
+      const path = getFramePath(config);
+      expect(path).toContain("agentId=7");
+      expect(path).not.toContain("fileId");
+      expect(path).not.toContain("threadId");
+    });
+
+    test("stylesUrl is a base param — included across modes", () => {
+      const modes = [
+        SDKMode.RoomSelector,
+        SDKMode.FileSelector,
+        SDKMode.PublicRoom,
+        SDKMode.System,
+        SDKMode.Editor,
+        SDKMode.Viewer,
+        SDKMode.Uploader,
+        SDKMode.Forms,
+        SDKMode.Chat,
+      ];
+      for (const mode of modes) {
+        const config: TFrameConfig = {
+          src: "https://example.com",
+          frameId: "ds-frame",
+          mode,
+          stylesUrl: "https://cdn.example.com/theme.css",
+        };
+        const path = getFramePath(config);
+        expect(path).toContain("stylesUrl=https%3A%2F%2Fcdn.example.com%2Ftheme.css");
+      }
+    });
+
     test("handles all modes without throwing", () => {
       Object.values(SDKMode).forEach((mode) => {
-        const conf: TFrameConfig = { src: "https://example.com", frameId: "ds-frame", mode } as any;
+        const conf: TFrameConfig = { src: "https://example.com", frameId: "ds-frame", mode };
         expect(() => getFramePath(conf)).not.toThrow();
       });
     });
+
+    test("default branch returns rootPath for unknown mode", () => {
+      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "/custom/" } as unknown as TFrameConfig;
+      expect(getFramePath(conf)).toBe("/custom/");
+    });
+
+    test("default branch returns / when rootPath is empty", () => {
+      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "" } as unknown as TFrameConfig;
+      expect(getFramePath(conf)).toBe("/");
+    });
+  });
+});
+
+describe("getJwtExpiry", () => {
+  const jwt = (payload: object) =>
+    `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.sig`;
+
+  test("returns the exp claim in milliseconds", () => {
+    expect(getJwtExpiry(jwt({ exp: 1_700_000_000 }))).toBe(1_700_000_000_000);
+  });
+
+  test("decodes a base64url payload without padding", () => {
+    expect(getJwtExpiry(jwt({ exp: 1_700_000_000, sub: "u" }))).toBe(1_700_000_000_000);
+  });
+
+  test("returns undefined for an opaque token", () => {
+    expect(getJwtExpiry("opaque-access-token")).toBeUndefined();
+  });
+
+  test("returns undefined for a JWT without exp or with a non-numeric exp", () => {
+    expect(getJwtExpiry(jwt({ sub: "user" }))).toBeUndefined();
+    expect(getJwtExpiry(jwt({ exp: "soon" }))).toBeUndefined();
+  });
+
+  test("returns undefined when the payload is not JSON", () => {
+    expect(getJwtExpiry("a.not-json.c")).toBeUndefined();
   });
 });

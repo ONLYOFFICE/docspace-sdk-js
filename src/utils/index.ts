@@ -1,5 +1,5 @@
 /**
- * (c) Copyright Ascensio System SIA 2025
+ * (c) Copyright Ascensio System SIA 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,39 +22,94 @@
  */
 
 import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
-import type { TFrameConfig } from "../types";
+import type { TFrameConfig, TPersonalSection } from "../types";
 import { SDKMode } from "../enums";
 
 /**
- * Converts an object with string, number, or boolean values into `URLSearchParams`.
+ * Reads the expiry of a JWT access token from its `exp` claim.
  *
- * @param data - An object where the keys are strings and the values are either strings, numbers, or booleans.
- * @returns A new instance of `URLSearchParams` initialized with the provided object.
+ * Best effort: the token is not verified, only its payload segment is decoded. Used by the
+ * proactive refresh in OAuth mode when {@link TFrameConfig.tokenExpiresAt} is not set.
+ *
+ * @param token - The access token as returned by {@link TFrameConfig.getToken}.
+ * @returns The expiry as epoch milliseconds, or `undefined` when the token is not a JWT or carries no `exp`.
+ *
+ * @example
+ * ```typescript
+ * getJwtExpiry("eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3MDAwMDAwMDB9.sig");
+ * // → 1700000000000
+ * ```
+ *
+ * @internal
+ */
+export const getJwtExpiry = (token: string): number | undefined => {
+  const segments = token.split(".");
+  if (segments.length !== 3) return undefined;
+
+  try {
+    const base64 = segments[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Converts a record of primitive values into a URL query string.
+ * Strips `null` and `undefined` entries before serialization.
+ *
+ * Used internally by {@link getFramePath} to build iframe `src` query parameters.
+ *
+ * @param data - Key-value pairs to serialize. `null`/`undefined` values are removed.
+ * @returns A URL-encoded query string (without the leading `?`), or `""` if `data` is falsy.
+ *
+ * @example
+ * ```typescript
+ * customUrlSearchParams({ theme: "Dark", locale: null, page: 1 });
+ * // → "theme=Dark&page=1"
+ * ```
+ *
+ * @internal
  */
 export const customUrlSearchParams = (
   data: Record<string, string | number | boolean | undefined | null>
 ) => {
   if (!data) return "";
 
-  Object.keys(data).forEach(
-    (key) => (data[key] === undefined || data[key] === null) && delete data[key]
+  const cleaned = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== undefined && v !== null)
   );
 
-  return new URLSearchParams(data as Record<string, string>).toString();
+  return new URLSearchParams(cleaned as Record<string, string>).toString();
 };
 
 /**
- * Validates the Content Security Policy (CSP) of the target source.
+ * Checks whether the current host domain is in the ONLYOFFICE Apps CSP allowlist.
  *
- * @param targetSrc - The target source URL to validate against the current origin.
- * @returns A promise that resolves if the CSP validation passes, otherwise it throws an error.
+ * Fetches `{targetSrc}{@link CSPApiUrl}` and compares `window.location.host` (host name
+ * and port, lower-cased) with the host of every entry of the `domains` array in the JSON
+ * response; the scheme is ignored and an entry with a path never matches. If the host is
+ * not listed, throws an error with {@link cspErrorText}.
  *
- * @throws Will throw an error if the current origin is not included in the allowed domains from the target source's CSP.
+ * Skipped when `window.location.origin` equals the origin of `targetSrc`
+ * (same-origin embedding).
+ *
+ * Called by `SDKInstance.initFrame` when {@link TFrameConfig.checkCSP} is `true`.
+ *
+ * @param targetSrc - The ONLYOFFICE Apps portal URL (e.g. `"https://portal.example.com"`).
+ * @returns Resolves on success; rejects with an `Error` on failure.
+ *
+ * @throws `Error` — if the CSP response cannot be parsed as JSON.
+ * @throws `Error` — with {@link cspErrorText} if the current host is not in the allowlist.
+ *
+ * @internal
  */
 export const validateCSP = async (targetSrc: string) => {
   const { origin, host } = window.location;
 
-  if (origin.includes(targetSrc)) return;
+  if (origin === new URL(targetSrc).origin) return;
 
   const response = await fetch(`${targetSrc}${CSPApiUrl}`);
 
@@ -63,7 +118,7 @@ export const validateCSP = async (targetSrc: string) => {
   try {
     json = await response.json();
   } catch (error) {
-    throw new Error(`CSP validation failed: ${error}`);
+    throw new Error(`CSP validation failed: ${error}`, { cause: error });
   }
 
   const {
@@ -86,71 +141,290 @@ export const validateCSP = async (targetSrc: string) => {
   }
 };
 
+/**
+ * Returns an HTML string for the CSP error page displayed inside the iframe
+ * via `srcdoc` when {@link validateCSP} fails.
+ *
+ * The page shows the ONLYOFFICE Apps logo, an error illustration, {@link cspErrorText},
+ * and a link to the Developer Tools section where the domain can be added.
+ *
+ * @param src - The ONLYOFFICE Apps portal URL used to resolve static image assets and the Developer Tools link.
+ * @returns A complete `<body>` HTML string ready for iframe `srcdoc`.
+ *
+ * @internal
+ */
 export const getCSPErrorBody = (src: string) => {
-  return `<body style=background:#f3f4f4><link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300"rel=stylesheet><div style="display:flex;flex-direction:column;gap:80px;align-items:center;justify-content:flex-start;margin-top:60px;padding:0 30px"><div style=flex-shrink:0;position:relative><img src=${src}/static/images/logo/lightsmall.svg></div><div style=display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:flex-start;flex-shrink:0;position:relative><div style=flex-shrink:0;width:120px;height:100px;position:relative><img src=${src}/static/images/frame-error.svg></div><span style="color:#a3a9ae;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px">${cspErrorText} Please add it via <a href=${src}/developer-tools/javascript-sdk style="color:#4781d1;text-align:center;font-family:Open Sans;font-size:14px;font-style:normal;font-weight:700;line-height:16px;text-decoration-line:underline"target=_blank>the Developer Tools section</a>.</span></div></div></body>`;
+  const safeSrc = src
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  return [
+    `<body style="background:#f3f4f4">`,
+    `<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,300" rel="stylesheet">`,
+    `<div style="display:flex;flex-direction:column;gap:80px;align-items:center;`,
+    `justify-content:flex-start;margin-top:60px;padding:0 30px">`,
+    `<div style="flex-shrink:0;position:relative">`,
+    `<img src="${safeSrc}/static/images/logo/lightsmall.svg">`,
+    `</div>`,
+    `<div style="display:flex;flex-direction:column;gap:16px;align-items:center;`,
+    `justify-content:flex-start;flex-shrink:0;position:relative">`,
+    `<div style="flex-shrink:0;width:120px;height:100px;position:relative">`,
+    `<img src="${safeSrc}/static/images/frame-error.svg">`,
+    `</div>`,
+    `<span style="color:#a3a9ae;text-align:center;font-family:Open Sans;`,
+    `font-size:14px;font-style:normal;font-weight:700;line-height:16px">`,
+    `${cspErrorText} Please add it via `,
+    `<a href="${safeSrc}/developer-tools/javascript-sdk" `,
+    `style="color:#4781d1;text-align:center;font-family:Open Sans;`,
+    `font-size:14px;font-style:normal;font-weight:700;line-height:16px;`,
+    `text-decoration-line:underline" target="_blank">`,
+    `the Developer Tools section</a>.`,
+    `</span>`,
+    `</div></div></body>`,
+  ].join("");
 };
 
+/**
+ * Returns a CSS string for the spinning loader animation injected into the
+ * iframe container while ONLYOFFICE Apps is loading.
+ *
+ * Features:
+ * - Dark/light mode via `prefers-color-scheme`.
+ * - Reduced motion support via `prefers-reduced-motion` (slows animation to 1.5 s).
+ *
+ * The loader is created by `SDKInstance.initFrame` when {@link TFrameConfig.noLoader} is `false`
+ * and removed by `SDKInstance.setIsLoaded`.
+ *
+ * @param className - The CSS class name applied to the loader `<div>`. Used to scope the styles.
+ * @returns A `<style>`-ready CSS string (without `<style>` tags).
+ *
+ * @internal
+ */
 export const getLoaderStyle = (className: string) => {
   return `@keyframes rotate { 0%{ transform: rotate(-45deg); will-change: transform; } 15%{ transform: rotate(45deg); } 30%{ transform: rotate(135deg); } 45%{ transform: rotate(225deg); } 60%, 100%{ transform: rotate(315deg); } } .${className} { width: 74px; height: 74px; border: 4px solid rgba(51,51,51, 0.1); border-top-color: #333333; border-radius: 50%; transform: rotate(-45deg); position: relative; box-sizing: border-box; animation: 1s linear infinite rotate; will-change: transform; } @media (prefers-color-scheme: dark) { .${className} { border-color: rgba(204, 204, 204, 0.1); border-top-color: #CCCCCC; } } @media (prefers-reduced-motion: reduce) { .${className} { animation-duration: 1.5s; } }`;
 };
 
 /**
- * Retrieves the configuration from the URL parameters of the current script element.
+ * Parses the current `<script>` element's URL query parameters into a {@link TFrameConfig} object.
  *
- * This function extracts the `src` attribute from the current script element,
- * decodes it, and parses the query parameters to construct a configuration object.
- * The configuration is based on the `defaultConfig` object and overrides its properties
- * with the parsed parameters.
+ * Designed for the **script-tag embedding** pattern where the SDK is loaded via a
+ * `<script src="...sdk.js?src=https://portal.example.com&mode=manager&...">` tag.
+ * The function reads `document.currentScript.src`, decodes it, and merges the
+ * query parameters on top of {@link defaultConfig}.
  *
- * @returns {TFrameConfig | null} The parsed configuration object or null if the `src` attribute is empty.
+ * Boolean strings `"true"` / `"false"` are converted to actual booleans.
+ * Parameters whose keys match {@link TFrameConfig.filter | filter} fields
+ * (e.g. `sortBy`, `sortOrder`, `count`) are placed inside `config.filter`.
+ *
+ * @returns A complete {@link TFrameConfig} with parsed overrides.
+ *
+ * @example
+ * ```html
+ * <div id="ds-frame"></div>
+ * <script src="https://cdn.example.com/sdk.js?src=https://portal.example.com&mode=manager&showMenu=true"></script>
+ * ```
+ *
+ * ```typescript
+ * const config = getConfigFromParams();
+ * // config.src  → "https://portal.example.com"
+ * // config.mode → "manager"
+ * // config.showMenu → true
+ * ```
  */
-export const getConfigFromParams = (): TFrameConfig | null => {
-  const scriptElement = document.currentScript as HTMLScriptElement;
-  const searchParams = new URL(decodeURIComponent(scriptElement.src))
-    .searchParams;
+export const getConfigFromParams = (): TFrameConfig => {
+  const configTemplate: TFrameConfig = {
+    ...defaultConfig,
+    filter: { ...defaultConfig.filter },
+  };
 
-  const configTemplate: TFrameConfig = { ...defaultConfig };
+  const scriptElement = document.currentScript as HTMLScriptElement | null;
+  if (!scriptElement?.src) return configTemplate;
+
+  const searchParams = new URL(scriptElement.src).searchParams;
 
   type TFilterParams = Record<string, string | number | boolean>;
+  const filterKeys = defaultConfig.filter ?? {};
 
   searchParams.forEach((value, key) => {
     const parsedValue =
       value === "true" ? true : value === "false" ? false : value;
-    if (defaultConfig.filter && key in defaultConfig.filter) {
+    if (Object.prototype.hasOwnProperty.call(filterKeys, key)) {
       (configTemplate.filter as TFilterParams)[key] = parsedValue;
     } else {
       (configTemplate as unknown as TFilterParams)[key] = parsedValue;
     }
   });
 
-  // Ensure default values for mode and src
-  configTemplate.mode = searchParams.get("mode") || "manager";
+  configTemplate.mode = (searchParams.get("mode") || "manager") as TFrameConfig["mode"];
   configTemplate.src = searchParams.get("src") || "";
 
   return configTemplate;
 };
 
 /**
- * Generates a URL path based on the provided configuration.
+ * Builds the iframe URL path (without the origin) for the given {@link TFrameConfig}.
  *
- * @param config - The configuration object for generating the frame path.
- * @returns The generated URL path as a string.
+ * The returned path is appended to {@link TFrameConfig.src} to form the full iframe `src`.
+ * Each {@link SDKMode} produces a different base path and query string:
  *
- * @remarks
- * The function handles different modes specified in the `config.mode` property:
- * - `SDKMode.Manager`: Generates a path for the manager mode, including optional request tokens and filters.
- * - `SDKMode.PublicRoom`: Generates a path for the public room mode, including request tokens and filters.
- * - `SDKMode.RoomSelector`: Returns a fixed path for the room selector.
- * - `SDKMode.FileSelector`: Returns a path for the file selector with the specified selector type.
- * - `SDKMode.System`: Returns a fixed path for the system mode.
- * - `SDKMode.Editor`: Generates a path for the editor mode, including customization and event handling.
- * - `SDKMode.Viewer`: Generates a path for the viewer mode, similar to the editor mode but with view action.
+ * | Mode | Base path | Key parameters |
+ * |------|-----------|----------------|
+ * | {@link SDKMode.Manager} | `{rootPath}` | `filter.*`, `requestToken` |
+ * | {@link SDKMode.RoomSelector} | `/sdk/room-selector` | `theme`, `locale`, selector options |
+ * | {@link SDKMode.FileSelector} | `/sdk/file-selector` | `selectorType`, `filterParam`, selector options |
+ * | {@link SDKMode.PublicRoom} | `/sdk/public-room` | `requestToken`, `showFilter`, `showHeader` |
+ * | {@link SDKMode.System} | `/old-sdk/system` | `theme`, `locale` |
+ * | {@link SDKMode.Editor} | `/doceditor` | `fileId`, `editorType`, `share` |
+ * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
+ * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
+ * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
+ * | {@link SDKMode.Personal} | `/sdk/personal-files` | `folder` (from `id` or `personalDestination`), `disableActionButton`, `providerName` |
+ * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `entityId`, `fileId`, `threadId`, `providerName` |
+ * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
+ * @param config - The frame configuration. At minimum, {@link TFrameConfig.mode} must be set.
+ * @returns A URL path string (e.g. `"/sdk/room-selector?theme=Dark&locale=en-US"`).
+ *
+ * @example
+ * ```typescript
+ * const path = getFramePath({ ...defaultConfig, mode: SDKMode.System, theme: Theme.Dark });
+ * // → "/old-sdk/system?theme=Dark"
+ * ```
+ *
+ * @internal
  */
+/**
+ * Builds the iframe URL path for {@link SDKMode.Personal} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param baseFrameOptions - Theme/locale/stylesUrl options shared across modes.
+ * @returns A URL path string (e.g. `"/sdk/personal-files?folder=@my"`).
+ *
+ * @internal
+ */
+/**
+ * Builds the iframe URL path for {@link SDKMode.Chat} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param baseFrameOptions - Theme/locale/stylesUrl options shared across modes.
+ * @returns A URL path string (e.g. `"/sdk/chat?agentId=123"`).
+ *
+ * @internal
+ */
+const getChatPath = (
+  config: TFrameConfig,
+  baseFrameOptions: Record<string, string | number | boolean | undefined | null>,
+): string => {
+  const qs = customUrlSearchParams({
+    ...baseFrameOptions,
+    agentId: config.agentId,
+    entityId: config.entityId ?? undefined,
+    fileId: config.fileId ?? undefined,
+    threadId: config.threadId || undefined,
+    headerOffset: config.headerOffset,
+    headerHeight: config.headerHeight,
+    providerName: config.providerName || undefined,
+    inviteKey: config.inviteKey || undefined,
+    emplType: config.emplType || undefined,
+    uid: config.uid || undefined,
+  });
+
+  return qs ? `/sdk/chat?${qs}` : "/sdk/chat";
+};
+
+/**
+ * Builds the iframe URL path for {@link SDKMode.Manager} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param oauth - `"oauth"` when the frame runs in OAuth mode, `undefined` otherwise.
+ * @returns A URL path string (e.g. `"/rooms/shared/42/filter?count=100"`).
+ *
+ * @internal
+ */
+const getManagerPath = (config: TFrameConfig, oauth: "oauth" | undefined): string => {
+  const filter = { ...config.filter };
+  if (config.id) filter.folder = config.id as string;
+
+  const params: Record<string, string | number | boolean | undefined | null> = config.requestToken
+    ? { key: config.requestToken, ...filter }
+    : { ...filter };
+
+  if (!params.withSubfolders) {
+    delete params.withSubfolders;
+  }
+
+  if (oauth) params.auth = oauth;
+  if (config.theme) params.theme = config.theme;
+
+  const urlParams = customUrlSearchParams(params);
+
+  if (config.requestToken) return `${config.rootPath}?${urlParams}`;
+
+  const root = config.rootPath?.endsWith("/") ? config.rootPath : `${config.rootPath ?? ""}/`;
+  const folder = config.id ? `${encodeURIComponent(String(config.id))}/` : "";
+
+  return `${root}${folder}filter?${urlParams}`;
+};
+
+/** Folder aliases the portal's personal files list resolves for each {@link TPersonalSection}. */
+const PERSONAL_SECTION_FOLDERS: Record<Exclude<TPersonalSection, "settings">, string> = {
+  "my-documents": "@my",
+  favorites: "@favorites",
+  recent: "@recent",
+  "shared-with-me": "@share",
+  trash: "@trash",
+};
+
+const getPersonalPath = (
+  config: TFrameConfig,
+  baseFrameOptions: Record<string, string | number | boolean | undefined | null>,
+): string => {
+  const section = config.personalDestination ?? "my-documents";
+
+  const common = {
+    ...baseFrameOptions,
+    headerOffset: config.headerOffset,
+    headerHeight: config.headerHeight,
+    disableActionButton: config.disableActionButton,
+    providerName: config.providerName || undefined,
+    inviteKey: config.inviteKey || undefined,
+    emplType: config.emplType || undefined,
+    uid: config.uid || undefined,
+  };
+
+  if (section === "settings") {
+    const qs = customUrlSearchParams(common);
+    return qs ? `/sdk/personal-files/settings?${qs}` : "/sdk/personal-files/settings";
+  }
+
+  // The list page is addressed by folder directly: the /sdk/personal-files/{section} route only
+  // redirects to it and drops theme, locale and the sign-in parameters on the way.
+  const qs = customUrlSearchParams({
+    ...common,
+    folder: config.id || PERSONAL_SECTION_FOLDERS[section],
+    sortBy: config.filter?.sortBy,
+    sortOrder: config.filter?.sortOrder,
+    search: config.filter?.search,
+    pageCount: config.filter?.count,
+    page: config.filter?.page,
+  });
+
+  return `/sdk/personal-files?${qs}`;
+};
+
 export const getFramePath = (config: TFrameConfig) => {
+  const oauth = config.getToken || config.accessToken ? "oauth" : undefined;
+
   const baseFrameOptions = {
     theme: config.theme,
     locale: config.locale,
+    stylesUrl: config.stylesUrl,
+    auth: oauth,
   };
 
   const baseSelectorOptions = {
@@ -180,40 +454,26 @@ export const getFramePath = (config: TFrameConfig) => {
         : undefined,
   };
 
+  const buildPath = (
+    base: string,
+    params: Record<string, string | number | boolean | undefined | null>
+  ): string => {
+    const qs = customUrlSearchParams(params);
+    return qs ? `${base}?${qs}` : base;
+  };
+
   switch (config.mode) {
-    case SDKMode.Manager: {
-      if (config.id) config.filter!.folder = config.id as string;
+    case SDKMode.Manager:
+      return getManagerPath(config, oauth);
 
-      const params = config.requestToken
-        ? { key: config.requestToken, ...config.filter }
-        : config.filter;
-
-      if (!params?.withSubfolders) {
-        delete params?.withSubfolders;
-      }
-
-      const urlParams = customUrlSearchParams(params!);
-
-      return `${config.rootPath}${
-        config.requestToken
-          ? `?${urlParams}`
-          : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
-      }`;
-    }
-
-    case SDKMode.RoomSelector: {
-      const roomSelectorConfig = {
+    case SDKMode.RoomSelector:
+      return buildPath("/sdk/room-selector", {
         ...baseFrameOptions,
         ...baseSelectorOptions,
-      };
+      });
 
-      const urlParams = customUrlSearchParams(roomSelectorConfig);
-
-      return `/sdk/room-selector${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.FileSelector: {
-      const fileSelectorConfig = {
+    case SDKMode.FileSelector:
+      return buildPath("/sdk/file-selector", {
         ...baseFrameOptions,
         ...baseSelectorOptions,
         breadCrumbs: config.withBreadCrumbs,
@@ -221,59 +481,62 @@ export const getFramePath = (config: TFrameConfig) => {
         id: config.id,
         selectorType: config.selectorType,
         subtitle: config.withSubtitle,
-      };
+      });
 
-      const urlParams = customUrlSearchParams(fileSelectorConfig);
-
-      return `/sdk/file-selector${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.PublicRoom: {
-      const publicRoomConfig = {
+    case SDKMode.PublicRoom:
+      return buildPath("/sdk/public-room", {
         ...baseFrameOptions,
         folder: config.id,
         key: config.requestToken,
         showFilter: config.showFilter,
         showHeader: config.showHeader,
         showTitle: config.showTitle,
-      };
+      });
 
-      const urlParams = customUrlSearchParams(publicRoomConfig);
+    case SDKMode.System:
+      return buildPath("/old-sdk/system", baseFrameOptions);
 
-      return `/sdk/public-room${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.System: {
-      const urlParams = customUrlSearchParams(baseFrameOptions);
-      return `/old-sdk/system${urlParams ? `?${urlParams}` : ""}`;
-    }
-
-    case SDKMode.Editor: {
-      const editorConfig = {
+    case SDKMode.Editor:
+    case SDKMode.Viewer:
+      return buildPath("/doceditor", {
         ...baseFrameOptions,
         ...baseEditorOptions,
-      };
+        ...(config.mode === SDKMode.Viewer && { action: "view" }),
+      });
 
-      const urlParams = customUrlSearchParams(editorConfig);
-
-      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
-
-      return path;
-    }
-
-    case SDKMode.Viewer: {
-      const viewerConfig = {
+    case SDKMode.Uploader:
+      return buildPath("/sdk/uploader", {
         ...baseFrameOptions,
-        ...baseEditorOptions,
-        action: "view",
-      };
+        targetId: config.id,
+        acceptExtensions: config.acceptExtensions,
+        linkMainText: config.linkMainText,
+        secondaryText: config.secondaryText,
+        extensionsText: config.extensionsText,
+        isFolderUpload: config.isFolderUpload,
+        isMultipleUpload: config.isMultipleUpload,
+        maxPerUploadSize: config.maxPerUploadSize,
+        maxTotalUploadSize: config.maxTotalUploadSize,
+      });
 
-      const urlParams = customUrlSearchParams(viewerConfig);
+    case SDKMode.Forms:
+      return buildPath(`/sdk/forms/${config.destination}`, {
+        ...baseFrameOptions,
+        roomId: config.id,
+        libraryId: config.libraryId,
+        showMenu: config.showMenu,
+        headerOffset: config.headerOffset,
+        headerHeight: config.headerHeight,
+        providerName: config.providerName,
+        inviteKey: config.inviteKey,
+        emplType: config.emplType,
+        uid: config.uid,
+      });
 
-      const path = `/doceditor${urlParams ? `?${urlParams}` : ""}`;
+    case SDKMode.Personal:
+      return getPersonalPath(config, baseFrameOptions);
 
-      return path;
-    }
+    case SDKMode.Chat:
+      return getChatPath(config, baseFrameOptions);
 
     default:
       return config.rootPath || "/";

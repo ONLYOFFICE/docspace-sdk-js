@@ -2,7 +2,7 @@ import pluginJs from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default [
-  {files: ["**/*.{js,mjs,cjs,ts}"]},
+  {files: ["**/*.{js,mjs,cjs,ts,mts}"]},
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -123,6 +123,13 @@ export default [
   },
   {
     files: ["tests/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: ["./tsconfig.tests.json"],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/explicit-function-return-type": "off",

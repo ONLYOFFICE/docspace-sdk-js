@@ -1,5 +1,5 @@
 /**
- * (c) Copyright Ascensio System SIA 2025
+ * (c) Copyright Ascensio System SIA 2026
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,73 +21,137 @@
  * @mergeModuleWith <project>
  */
 
-import { defaultConfig, FRAME_NAME, connectErrorText } from "../constants";
+import {
+  defaultConfig,
+  FRAME_NAME,
+  connectErrorText,
+  wrongMethodText,
+  TOKEN_REFRESH_LEAD_MS,
+  MAX_TIMER_DELAY_MS,
+} from "../constants";
+import { SDKError, SDKErrorCode } from "../errors";
 import type {
+  TCreateRoomOptions,
+  TFileInfo,
+  TFilesResponse,
+  TFolderInfo,
   TFrameConfig,
   TFrameEvents,
   TFrameFilter,
+  TGetExternalDataRequest,
+  THashSettings,
+  TManagerViewMode,
   TMessageData,
+  TRoomInfo,
+  TRoomsResponse,
+  TSetExternalDataPayload,
   TTask,
+  TUserInfo,
+  TCustomActionsConfig,
+  TFormsSection,
+  TLoginResult,
+  TMethodError,
+  TPersonalSection,
+  TAuthError,
 } from "../types";
 import {
   getCSPErrorBody,
   getLoaderStyle,
   validateCSP,
   getFramePath,
+  getJwtExpiry,
 } from "../utils";
-import { InstanceMethods, MessageTypes } from "../enums";
+import { InstanceMethods, MessageTypes, SDKMode } from "../enums";
+
+/** @internal */
+type TCallbackEntry = {
+  methodName: string;
+  resolve: (data: object) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout> | null;
+};
 
 /**
- * Represents an SDK instance for managing frames and communicating with DocSpace.
+ * Methods that keep the pre-2.2 contract: a portal error is resolved as `{ status, message }`
+ * instead of rejecting with {@link SDKErrorCode.ApiError}.
+ * @internal
+ */
+const LEGACY_STATUS_METHODS: ReadonlySet<string> = new Set([InstanceMethods.Login, InstanceMethods.CreateRoom]);
+
+/** Keys an error payload from the portal must not carry to the host. @internal */
+const ERROR_PAYLOAD_STRIP_KEYS = ["config", "request", "stack"] as const;
+
+/** @internal */
+type TPendingUploadEntry = {
+  fileName: string;
+  resolve: (data: object) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+};
+
+/**
+ * Manages a single ONLYOFFICE Apps iframe, handles postMessage communication,
+ * and exposes methods for operating on the embedded ONLYOFFICE Apps UI.
  *
- * The `SDKInstance` class provides methods for initializing, managing, and communicating with
- * DocSpace frames. It handles frame creation, message passing, and various operations like
- * file management, user authentication, and room management.
+ * Instances are created and stored by {@link SDK}. Do not construct directly —
+ * use {@link SDK.init} or any `init*` convenience wrapper.
+ *
+ * :::note
+ * Every method that talks to the frame returns a promise that rejects with an {@link SDKError}:
+ * {@link SDKErrorCode.ApiError} when the portal reports a failure (HTTP status in {@link SDKError.status}),
+ * {@link SDKErrorCode.ModeMismatch} when the current mode has no such method,
+ * {@link SDKErrorCode.Timeout} after {@link TFrameConfig.methodTimeout} and
+ * {@link SDKErrorCode.Disconnected} when the frame is not connected. Two legacy methods differ:
+ * {@link SDKInstance.login} and {@link SDKInstance.createRoom} resolve a portal failure as `{ status, message }`.
+ * A portal older than ONLYOFFICE Apps 4.0 does not flag failures: there every method resolves the portal's
+ * error object instead of rejecting.
+ * :::
  *
  * @example
  * ```typescript
  * import { SDK } from '@onlyoffice/docspace-sdk-js';
  *
  * const sdk = new SDK();
- *
- * const instance = sdk.initFrame({
- *   frameId: 'docspace-frame',
- *   src: 'https://your-docspace-domain.com',
- *   width: '100%',
- *   height: '600px',
- *   mode: 'manager'
+ * const instance = sdk.initManager({
+ *   frameId: 'ds-frame',
+ *   src: 'https://portal.example.com',
  * });
  *
- * const userInfo = await instance.getUserInfo();
- * console.log('Current user:', userInfo);
+ * instance.getUserInfo().then((user) => console.log(user));
  * ```
  */
 export class SDKInstance {
   #isConnected: boolean = false;
-  #callbacks: ((data: object) => void)[] = [];
+  #callIdCounter: number = 0;
+  #callbacks: Map<number, TCallbackEntry> = new Map();
   #tasks: TTask[] = [];
   #classNames: string = "";
-  /** The iframe configuration options. */
+  #expectedOrigin: string = "";
+  #iframe: HTMLIFrameElement | null = null;
+  #uploadIdCounter: number = 0;
+  #pendingUploads: Map<number, TPendingUploadEntry> = new Map();
+  /** The iframe configuration options. See {@link TFrameConfig}. */
   config: TFrameConfig;
 
+  /** @param config - Initial frame configuration. See {@link TFrameConfig}. */
   constructor(config: TFrameConfig) {
     this.config = config;
   }
 
-  private static _loaderCache = {
+  private static _loaderCache: {
+    style: Map<string, HTMLStyleElement>;
+    container: HTMLDivElement | null;
+    templates: Map<string, HTMLElement>;
+  } = {
     style: new Map<string, HTMLStyleElement>(),
-    container: document.createElement("div"),
+    container: null,
     templates: new Map<string, HTMLElement>(),
   };
 
-  private static _iframeCache: {
-    template: HTMLIFrameElement;
-    pathCache: Map<string, string>;
-    styleCache: Map<string, Partial<CSSStyleDeclaration>>;
-  };
+  private static _iframeTemplate: HTMLIFrameElement;
 
   /**
-   * Creates a loading indicator for the DocSpace frame.
+   * Creates a loading indicator for the ONLYOFFICE Apps frame.
    *
    * @param config - The frame configuration containing `frameId`, `width`, and `height`.
    * @returns A container `div` element with a loader, ready for DOM insertion.
@@ -103,9 +167,7 @@ export class SDKInstance {
       const style = document.createElement("style");
       style.textContent = getLoaderStyle(loaderClassName);
 
-      const fragment = document.createDocumentFragment();
-      fragment.appendChild(style);
-      document.head.appendChild(fragment);
+      document.head.appendChild(style);
 
       styleCache.set(loaderClassName, style);
     }
@@ -118,7 +180,9 @@ export class SDKInstance {
         .cloneNode(true) as HTMLElement;
       container.id = `${frameId}-loader`;
     } else {
-      container = SDKInstance._loaderCache.container.cloneNode() as HTMLElement;
+      const baseContainer = SDKInstance._loaderCache.container
+        ?? (SDKInstance._loaderCache.container = document.createElement("div"));
+      container = baseContainer.cloneNode() as HTMLElement;
 
       Object.assign(container.style, {
         width,
@@ -145,65 +209,42 @@ export class SDKInstance {
   };
 
   /**
-   * Creates and configures an iframe element for the DocSpace interface.
+   * Creates and configures an iframe element for the ONLYOFFICE Apps interface.
    *
    * @param config - The frame configuration containing `frameId`, `id`, `type`, `src`, `width`, `height`, `events`, `checkCSP`, and `mode`.
    * @returns A configured `HTMLIFrameElement`, ready for DOM insertion.
    */
   #createIframe = (config: TFrameConfig): HTMLIFrameElement => {
-    if (!SDKInstance._iframeCache) {
+    if (!SDKInstance._iframeTemplate) {
       const template = document.createElement("iframe");
       template.allowFullscreen = true;
       template.setAttribute("allow", "storage-access *");
-
-      SDKInstance._iframeCache = {
-        template,
-        pathCache: new Map<string, string>(),
-        styleCache: new Map<string, Partial<CSSStyleDeclaration>>(),
-      };
+      SDKInstance._iframeTemplate = template;
     }
 
-    const { mode, id, frameId, type, width, height, src, events, checkCSP } =
-      config;
+    const { frameId, type, width, height, src, checkCSP } = config;
     const isMobile = type === "mobile";
 
     const iframe =
-      SDKInstance._iframeCache.template.cloneNode() as HTMLIFrameElement;
+      SDKInstance._iframeTemplate.cloneNode() as HTMLIFrameElement;
 
-    const cacheKey = `${mode}_${id || ""}_${frameId}`;
-    const styleCacheKey = `${width}_${height}_${
-      isMobile ? "mobile" : "desktop"
-    }`;
-
-    let path = SDKInstance._iframeCache.pathCache.get(cacheKey);
-    if (!path) {
-      path = getFramePath(config);
-      SDKInstance._iframeCache.pathCache.set(cacheKey, path);
-    }
+    const path = getFramePath(config);
 
     iframe.id = frameId;
     iframe.name = `${FRAME_NAME}__#${frameId}`;
     iframe.src = src + path;
 
-    let styleObj = SDKInstance._iframeCache.styleCache.get(styleCacheKey);
-
-    if (!styleObj) {
-      styleObj = {
-        width: width!,
-        height: height!,
-        border: "0px",
-        opacity: "0",
-        ...(isMobile && {
-          position: "fixed",
-          overflow: "hidden",
-          webkitOverflowScrolling: "touch",
-        }),
-      };
-      
-      SDKInstance._iframeCache.styleCache.set(styleCacheKey, styleObj);
-    }
-
-    Object.assign(iframe.style, styleObj);
+    Object.assign(iframe.style, {
+      width: width!,
+      height: height!,
+      border: "0px",
+      opacity: "0",
+      ...(isMobile && {
+        position: "fixed",
+        overflow: "hidden",
+        webkitOverflowScrolling: "touch",
+      }),
+    });
 
     if (isMobile) {
       if (document.body.style.overscrollBehaviorY !== "contain") {
@@ -216,7 +257,7 @@ export class SDKInstance {
     }
 
     if (checkCSP) {
-      this.#setupCSPValidation(iframe, src, events);
+      this.#setupCSPValidation(iframe, src);
     }
 
     return iframe;
@@ -227,16 +268,14 @@ export class SDKInstance {
    *
    * @param iframe - The iframe element to validate.
    * @param src - The source URL to validate.
-   * @param events - Optional event handlers triggered on validation errors.
    */
   #setupCSPValidation(
     iframe: HTMLIFrameElement,
-    src: string,
-    events?: TFrameEvents
+    src: string
   ): void {
     requestAnimationFrame(() => {
       validateCSP(src).catch((e: Error) => {
-        events?.onAppError?.(e.message);
+        this.#handleError(e, SDKErrorCode.CSPViolation);
         iframe.srcdoc = getCSPErrorBody(src);
         this.setIsLoaded();
       });
@@ -244,39 +283,32 @@ export class SDKInstance {
   }
 
   /**
-   * Manages the frame loading completion process.
-   * Handles frame finalization, visual transition management, and user event coordination.
-   * Ensures a smooth switch from initialization to working state
-   * with animations and resource cleanup for better user experience.
+   * Marks the frame as loaded: fades out the loader spinner, reveals the iframe,
+   * and fires {@link TFrameEvents.onContentReady}.
+   *
+   * The ONLYOFFICE Apps iframe calls this automatically once its content is ready, so most
+   * integrations never need to. Call it manually to reveal the frame on your own schedule,
+   * for example when the host page shows its own loading overlay. Every call re-applies the
+   * iframe size and visibility and fires {@link TFrameEvents.onContentReady}; the loader is
+   * removed by the first one.
    *
    * @example
    * ```typescript
-   * sdkInstance.setIsLoaded();
-   * console.log('Frame loading completed and content is ready');
+   * instance.setIsLoaded();
    * ```
    *
    * @example
+   * Reveal the frame from a host-side button instead of waiting for the iframe, then react
+   * to the completion via {@link TFrameEvents.onContentReady}.
    * ```typescript
-   * try {
-   *   await customFrameSetup();
-   *   sdkInstance.setIsLoaded();
-   * } catch (error) {
-   *   console.error('Setup failed:', error);
-   *   sdkInstance.setIsLoaded();
-   * }
+   * const instance = sdk.initManager({
+   *   frameId: 'ds-frame',
+   *   src: 'https://portal.example.com',
+   *   events: { onContentReady: () => console.log('Frame is visible') },
+   * });
+   *
+   * document.getElementById('show-frame').onclick = () => instance.setIsLoaded();
    * ```
-   *
-   * @returns void - This method performs side effects by updating the frame appearance
-   *               and triggering events. It does not return values, focusing on
-   *               state transition and user experience optimization.
-   *
-   * @throws {Error} May throw an error if frame elements cannot be accessed or if style
-   *                 modifications fail due to browser security restrictions.
-   *
-   * @see {@link initFrame} Initializes the frame before the loading process completes.
-   * @see {@link destroyFrame} Cleans up resources when the frame is no longer needed.
-   * @see {@link setConfig} Updates configuration parameters that affect loading behavior.
-   * @see {@link TFrameEvents.onContentReady | onContentReady} The callback triggered when the frame content is ready.
    */
   setIsLoaded(): void {
     const { frameId, width, height, events } = this.config;
@@ -295,30 +327,25 @@ export class SDKInstance {
 
         if (loader) {
           loader.style.opacity = "0";
-
-          requestAnimationFrame(() => {
-            try {
-              if (loader.parentNode) {
-                loader.parentNode.removeChild(loader);
-              }
-
-              events?.onContentReady?.();
-            } catch (error) {
-              console.error("Error removing loader:", error);
-              events?.onContentReady?.();
-            }
-          });
-        } else {
-          events?.onContentReady?.();
         }
 
         requestAnimationFrame(() => {
-          Object.assign(targetFrame.style, {
-            opacity: "1",
-            position: "relative",
-            width: width!,
-            height: height!,
-          });
+          try {
+            if (loader?.parentNode) {
+              loader.parentNode.removeChild(loader);
+            }
+
+            Object.assign(targetFrame.style, {
+              opacity: "1",
+              position: "relative",
+              width: width!,
+              height: height!,
+            });
+          } catch (error) {
+            console.error("Error in setIsLoaded:", error);
+          }
+
+          events?.onContentReady?.();
         });
       } catch (error) {
         console.error("Error in setIsLoaded:", error);
@@ -328,39 +355,214 @@ export class SDKInstance {
   }
 
   /**
-   * Sends a message to the DocSpace iframe.
+   * Sends a message to the ONLYOFFICE Apps iframe.
    *
    * @param message - The message object to send to the iframe.
    */
-  #sendMessage = (message: TTask) => {
+  #sendMessage = (message: TTask): boolean => {
     try {
       const { frameId, src } = this.config;
 
-      const iframe = document.getElementById(
-        frameId
-      ) as HTMLIFrameElement | null;
-
-      if (!iframe?.contentWindow) return;
+      if (!this.#iframe?.contentWindow) return false;
 
       const messageEnvelope = {
         frameId,
         type: "",
+        callId: message.callId,
         data: message,
       };
 
-      iframe.contentWindow.postMessage(
-        JSON.stringify(messageEnvelope, (_, value) =>
-          typeof value === "function" ? value.toString() : value
-        ),
+      const isEditorExec = message.methodName === InstanceMethods.ExecuteInEditor;
+
+      this.#iframe.contentWindow.postMessage(
+        JSON.stringify(messageEnvelope, (_, value) => {
+          if (typeof value !== "function") return value;
+          return isEditorExec ? value.toString() : true;
+        }),
         src
       );
+
+      return true;
     } catch (error) {
       this.#handleError(error as { message: "Failed to send message" });
+      return false;
+    }
+  };
+
+  /** Single-flight guard for OAuth token resolution (the `getAuthToken` command). */
+  #authTokenPromise: Promise<string> | null = null;
+
+  /** Timer of the proactive OAuth token refresh; `null` when none is scheduled. */
+  #tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Whether {@link TFrameConfig.tokenExpiresAt} still describes the token in use (only the first one). */
+  #configExpiryUsed = false;
+
+  /** Whether the frame runs in OAuth mode: a token provider or a static token is configured. */
+  #isOAuthMode(): boolean {
+    return Boolean(this.config.getToken || this.config.accessToken);
+  }
+
+  /**
+   * Fires {@link TFrameEvents.onAuthError} for a token the SDK could not resolve.
+   * Deliberately not {@link SDKInstance.#handleError}, which routes to `onAppError`.
+   */
+  #reportAuthError(error: unknown): void {
+    const code = error instanceof SDKError ? error.code : SDKErrorCode.TokenResolveFailed;
+    const message = (error as { message?: string })?.message ?? "Failed to resolve auth token";
+    const authError: TAuthError = { code, message };
+    this.config.events?.onAuthError?.(authError);
+  }
+
+  /**
+   * Expiry of the token just resolved: {@link TFrameConfig.tokenExpiresAt} for the first token,
+   * the JWT `exp` claim otherwise. `undefined` for an opaque token, which is then refreshed on demand only.
+   */
+  #tokenExpiry(token: string): number | undefined {
+    const { tokenExpiresAt } = this.config;
+    if (!this.#configExpiryUsed && typeof tokenExpiresAt === "number") {
+      this.#configExpiryUsed = true;
+      return tokenExpiresAt;
+    }
+    return getJwtExpiry(token);
+  }
+
+  /** Cancels a scheduled proactive refresh. */
+  #clearTokenRefresh(): void {
+    if (this.#tokenRefreshTimer !== null) {
+      clearTimeout(this.#tokenRefreshTimer);
+      this.#tokenRefreshTimer = null;
+    }
+  }
+
+  /**
+   * Schedules the proactive refresh {@link TOKEN_REFRESH_LEAD_MS} before `expiresAt`.
+   * A static {@link TFrameConfig.accessToken} cannot be refreshed, and a token already inside the
+   * lead window is left to the on-demand flow, so neither schedules anything.
+   */
+  #scheduleTokenRefresh(expiresAt: number | undefined): void {
+    this.#clearTokenRefresh();
+
+    if (!this.config.getToken || expiresAt === undefined) return;
+
+    const delay = expiresAt - Date.now() - TOKEN_REFRESH_LEAD_MS;
+    if (delay <= 0) return;
+
+    // setTimeout overflows above 2^31-1 ms and fires at once; wait in slices for a far expiry.
+    this.#tokenRefreshTimer = setTimeout(() => {
+      this.#tokenRefreshTimer = null;
+      if (expiresAt - Date.now() > TOKEN_REFRESH_LEAD_MS) {
+        this.#scheduleTokenRefresh(expiresAt);
+        return;
+      }
+      this.#refreshTokenProactively();
+    }, Math.min(delay, MAX_TIMER_DELAY_MS));
+  }
+
+  /**
+   * Obtains a fresh token ahead of expiry and pushes it into the frame as an unsolicited
+   * `onAuthTokenReturn` (no `callId`), then schedules the next refresh from the new expiry.
+   */
+  #refreshTokenProactively(): void {
+    if (!this.#iframe?.contentWindow) return;
+
+    this.#resolveToken()
+      .then((accessToken) => {
+        const expiresAt = this.#tokenExpiry(accessToken);
+        this.#sendAuthTokenReturn(undefined, { accessToken, ...(expiresAt !== undefined && { expiresAt }) });
+        this.#scheduleTokenRefresh(expiresAt);
+      })
+      .catch((error: unknown) => this.#reportAuthError(error));
+  }
+
+  /**
+   * Resolves an OAuth access token via {@link TFrameConfig.getToken} (or the static
+   * {@link TFrameConfig.accessToken}). Single-flight: concurrent requests share one
+   * in-flight call; the cache is cleared once settled, so the next request re-invokes
+   * `getToken` and yields a freshly refreshed token.
+   */
+  #resolveToken = (): Promise<string> => {
+    if (this.#authTokenPromise) return this.#authTokenPromise;
+
+    const { getToken, accessToken } = this.config;
+
+    const source: Promise<string> = getToken
+      ? Promise.resolve().then(() => getToken())
+      : accessToken != null
+      ? Promise.resolve(accessToken)
+      : Promise.reject(
+          new SDKError(
+            SDKErrorCode.TokenResolveFailed,
+            "OAuth mode requires a getToken callback or accessToken in config",
+          ),
+        );
+
+    this.#authTokenPromise = source.finally(() => {
+      this.#authTokenPromise = null;
+    });
+
+    return this.#authTokenPromise;
+  };
+
+  /**
+   * Posts an OAuth access token into the iframe: the reply to `getAuthToken` when `callId` is set,
+   * an unsolicited push of a proactively refreshed token when it is not.
+   * Mirrors {@link SDKInstance.#sendExternalDataReturn}; targets the exact frame origin.
+   *
+   * @param callId - Correlation ID copied from the incoming request, `undefined` for a push.
+   * @param data - `{ accessToken, expiresAt? }` to deliver to the frame; `{}` tells the frame that no token is available.
+   */
+  #sendAuthTokenReturn = (
+    callId: number | undefined,
+    data: { accessToken?: string; expiresAt?: number },
+  ): void => {
+    try {
+      const { frameId, src } = this.config;
+
+      if (!this.#iframe?.contentWindow) return;
+
+      this.#iframe.contentWindow.postMessage(
+        JSON.stringify({
+          frameId,
+          type: MessageTypes.AuthTokenReturn,
+          ...(callId !== undefined && { callId }),
+          data,
+        }),
+        src,
+      );
+    } catch (error) {
+      this.#handleError(error as { message: string });
     }
   };
 
   /**
-   * Handles incoming messages from the DocSpace iframe.
+   * Posts the resolved value of an `onGetExternalData` call back to the iframe.
+   *
+   * @param callId - Correlation ID copied from the incoming request.
+   * @param data - Value returned by the handler. Forwarded as-is.
+   */
+  #sendExternalDataReturn = (callId: number, data: unknown): void => {
+    try {
+      const { frameId, src } = this.config;
+
+      if (!this.#iframe?.contentWindow) return;
+
+      this.#iframe.contentWindow.postMessage(
+        JSON.stringify({
+          frameId,
+          type: MessageTypes.ExternalDataReturn,
+          callId,
+          data,
+        }),
+        src,
+      );
+    } catch (error) {
+      this.#handleError(error as { message: string });
+    }
+  };
+
+  /**
+   * Handles incoming messages from the ONLYOFFICE Apps iframe.
    *
    * @param e - The MessageEvent containing the message data.
    */
@@ -368,9 +570,22 @@ export class SDKInstance {
     try {
       if (typeof e.data !== "string") return;
 
+      if (!this.#expectedOrigin || e.origin !== this.#expectedOrigin) return;
+
+      if (e.source && this.#iframe?.contentWindow && e.source !== this.#iframe.contentWindow) return;
+
       const data = this.#parseMessageData(e.data);
 
+      if (data.frameId === "error" && data.error) {
+        this.#handleError(data.error, SDKErrorCode.ParseError);
+        return;
+      }
+
       if (data.frameId !== this.config.frameId) return;
+
+      if (!this.#isConnected) {
+        this.#isConnected = true;
+      }
 
       switch (data.type) {
         case MessageTypes.OnMethodReturn:
@@ -393,12 +608,12 @@ export class SDKInstance {
           console.warn("Unrecognized message type:", data.type);
       }
     } catch (error) {
-      this.#handleError(error as { message: "Failed to process message" });
+      this.#handleError(error as { message: string }, SDKErrorCode.ParseError);
     }
   };
 
   /**
-   * Parses JSON message data from the DocSpace iframe.
+   * Parses JSON message data from the ONLYOFFICE Apps iframe.
    *
    * @param data - The JSON string to be parsed.
    * @returns The parsed message data, or an error object if parsing fails.
@@ -438,23 +653,189 @@ export class SDKInstance {
    * @param data - The message data containing the method response.
    */
   #handleMethodResponse(data: TMessageData) {
-    const callback = this.#callbacks.shift();
+    let matchedId: number | undefined;
 
-    if (callback) {
+    if (data.callId !== undefined) {
+      if (this.#callbacks.has(data.callId)) matchedId = data.callId;
+    } else {
+      const first = this.#callbacks.keys().next();
+      if (!first.done) {
+        matchedId = first.value;
+      }
+    }
+
+    if (matchedId !== undefined) {
+      const entry = this.#callbacks.get(matchedId)!;
+      this.#callbacks.delete(matchedId);
+      if (entry.timer) clearTimeout(entry.timer);
       try {
-        callback(data.methodReturnData || {});
+        this.#settleMethodResult(entry, data.methodReturnData);
       } catch (error) {
         console.error("Error in callback execution:", error);
       }
     }
 
-    if (this.#tasks.length > 0) {
-      this.#sendMessage(this.#tasks.shift()!);
+    this.#drainNextTask();
+  }
+
+  /**
+   * Resolves or rejects a pending method call from the portal's `methodReturnData`.
+   *
+   * - `"Wrong method for this mode"` rejects with {@link SDKErrorCode.ModeMismatch}.
+   * - A payload flagged `isError: true` (client 4.0+) rejects with {@link SDKErrorCode.ApiError};
+   *   the legacy `login` and `createRoom` resolve it as `{ status, message }` instead.
+   * - A payload that looks like a serialized `AxiosError` from an older portal resolves,
+   *   with `config`, `request` and `stack` removed so request bodies never reach the host.
+   * - Anything else resolves as is (`{}` for an empty reply).
+   *
+   * @internal
+   */
+  #settleMethodResult(entry: TCallbackEntry, payload: unknown): void {
+    if (payload === wrongMethodText) {
+      entry.reject(
+        new SDKError(SDKErrorCode.ModeMismatch, `${entry.methodName} is not available in ${this.config.mode} mode`)
+      );
+      return;
+    }
+
+    if (!payload || typeof payload !== "object") {
+      entry.resolve(payload || {});
+      return;
+    }
+
+    const record = payload as Record<string, unknown>;
+
+    if (record.isError === true) {
+      const { isError: _flag, ...sanitized } = this.#sanitizeErrorPayload(record) as TMethodError;
+      if (LEGACY_STATUS_METHODS.has(entry.methodName)) {
+        entry.resolve(sanitized);
+        return;
+      }
+      const status = typeof sanitized.status === "number" ? sanitized.status : undefined;
+      const message =
+        typeof sanitized.message === "string" && sanitized.message
+          ? sanitized.message
+          : `${entry.methodName} failed${status !== undefined ? ` with status ${status}` : ""}`;
+      entry.reject(new SDKError(SDKErrorCode.ApiError, message, false, { status, data: sanitized }));
+      return;
+    }
+
+    entry.resolve(this.#isErrorLike(record) ? this.#sanitizeErrorPayload(record) : record);
+  }
+
+  /**
+   * Whether a reply from a portal without the `isError` marker is a serialized error
+   * (`AxiosError.toJSON()` output or a failed HTTP status).
+   * @internal
+   */
+  #isErrorLike(record: Record<string, unknown>): boolean {
+    return (
+      record.name === "AxiosError" ||
+      record.isAxiosError === true ||
+      (typeof record.status === "number" && record.status >= 400 && typeof record.message === "string")
+    );
+  }
+
+  /**
+   * Returns a copy of an error payload without the request `config` (its `data` is the request
+   * body, e.g. the password hash of `login`), the `request` object and the `stack`.
+   * @internal
+   */
+  #sanitizeErrorPayload(record: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = { ...record };
+    for (const key of ERROR_PAYLOAD_STRIP_KEYS) delete sanitized[key];
+    return sanitized;
+  }
+
+  /**
+   * Returns a promise rejected with {@link SDKErrorCode.ModeMismatch}. Mode-guarded methods
+   * use it instead of throwing so that `.catch()` and `await` handle the guard the same way as
+   * every other failure.
+   * @internal
+   */
+  #rejectModeMismatch(message: string): Promise<never> {
+    return Promise.reject(new SDKError(SDKErrorCode.ModeMismatch, message));
+  }
+
+  /**
+   * Sends the next queued task and starts its timeout timer.
+   * @internal
+   */
+  #drainNextTask(): void {
+    if (this.#tasks.length === 0 || this.#callbacks.size === 0) return;
+
+    const nextTask = this.#tasks.shift()!;
+    const nextEntry = nextTask.callId !== undefined
+      ? this.#callbacks.get(nextTask.callId)
+      : undefined;
+
+    if (nextEntry && nextTask.callId !== undefined) {
+      nextEntry.timer = this.#createMethodTimer(nextTask.callId, nextEntry);
+    }
+
+    if (!this.#sendMessage(nextTask)) {
+      this.#rejectAllPending("Frame disconnected");
     }
   }
 
   /**
-   * Processes event data received from the DocSpace iframe and dispatches it to the registered event handlers.
+   * Creates a timeout timer for an in-flight method call.
+   * @internal
+   */
+  #createMethodTimer(
+    callId: number,
+    entry: TCallbackEntry
+  ): ReturnType<typeof setTimeout> {
+    return setTimeout(() => {
+      this.#callbacks.delete(callId);
+      const err = new SDKError(SDKErrorCode.Timeout, "Method call timed out");
+      entry.reject(err);
+      this.#handleError(err);
+      this.#drainNextTask();
+    }, this.config.methodTimeout || 30000);
+  }
+
+  /**
+   * Rejects all pending callbacks and uploads, then clears every queue.
+   * @internal
+   */
+  #clearAllPending(error: SDKError): void {
+    for (const entry of this.#callbacks.values()) {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(error);
+    }
+    this.#callbacks.clear();
+    this.#tasks = [];
+
+    for (const [, pending] of this.#pendingUploads) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.#pendingUploads.clear();
+  }
+
+  /**
+   * Rejects all pending method callbacks and clears the queue.
+   * Does not touch {@link #pendingUploads} — uploads are resolved
+   * separately via event handlers.
+   * @internal
+   */
+  #rejectAllPending(reason: string): void {
+    const err = new SDKError(SDKErrorCode.Disconnected, reason);
+
+    for (const entry of this.#callbacks.values()) {
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.reject(err);
+    }
+    this.#callbacks.clear();
+    this.#tasks = [];
+
+    this.#isConnected = false;
+    this.#handleError(err);
+  }
+
+  /**
+   * Processes event data received from the ONLYOFFICE Apps iframe and dispatches it to the registered event handlers.
    *
    * @param eventData - The optional event data containing the event name and payload.
    */
@@ -462,24 +843,133 @@ export class SDKInstance {
     if (!eventData?.event) return;
 
     const eventName = eventData.event as keyof TFrameEvents;
+
+    if (
+      this.#pendingUploads.size > 0 &&
+      (eventName === "onUploadSuccess" || eventName === "onUploadError")
+    ) {
+      const payload = eventData.data as
+        | { fileName?: string; message?: string; uploadId?: number }
+        | undefined;
+      const fileName = payload?.fileName;
+
+      let matchedId: number | undefined;
+
+      if (payload?.uploadId !== undefined && this.#pendingUploads.has(payload.uploadId)) {
+        matchedId = payload.uploadId;
+      } else if (fileName) {
+        for (const [id, entry] of this.#pendingUploads) {
+          if (entry.fileName === fileName) {
+            matchedId = id;
+            break;
+          }
+        }
+      } else if (this.#pendingUploads.size > 0) {
+        matchedId = this.#pendingUploads.keys().next().value;
+      }
+
+      if (matchedId !== undefined) {
+        const pending = this.#pendingUploads.get(matchedId)!;
+        clearTimeout(pending.timer);
+        this.#pendingUploads.delete(matchedId);
+
+        if (eventName === "onUploadSuccess") {
+          pending.resolve(eventData.data || {});
+        } else {
+          pending.reject(new SDKError(SDKErrorCode.UploadFailed, payload?.message || "Upload failed"));
+        }
+      }
+    }
+
     const handler = this.config.events?.[eventName];
 
     if (typeof handler === "function") {
       try {
-        handler(eventData.data || {});
+        (handler as (data: unknown) => void)(eventData.data || {});
       } catch (error) {
         console.error("Event handler failed:", eventName, error);
       }
     }
   }
 
+  /** Methods the iframe is allowed to invoke via `onCallCommand`. */
+  static #allowedCommands: ReadonlySet<string> = new Set([
+    "setIsLoaded",
+    "setConfig",
+    "getExternalData",
+    "setExternalData",
+    "getAuthToken",
+  ]);
+
   /**
-   * Executes commands received from the DocSpace iframe by invoking the corresponding SDK method.
+   * Executes commands received from the ONLYOFFICE Apps iframe by invoking the corresponding SDK method.
+   * Only methods listed in {@link SDKInstance.#allowedCommands} are callable.
    *
    * @param data - The message data containing the command name and parameters.
    */
   #executeCommand(data: TMessageData): void {
     if (!data.commandName) return;
+
+    if (!SDKInstance.#allowedCommands.has(data.commandName)) {
+      console.warn("Blocked iframe command not in allowlist:", data.commandName);
+      return;
+    }
+
+    if (data.commandName === "getExternalData") {
+      const handler = this.config.events?.onGetExternalData;
+      if (!handler) return;
+
+      const req = data.commandData as TGetExternalDataRequest;
+
+      Promise.resolve()
+        .then(() => handler(req))
+        .then((result) => this.#sendExternalDataReturn(req.callId, result))
+        .catch((error) => this.#handleError(error as { message: string }));
+      return;
+    }
+
+    if (data.commandName === "getAuthToken") {
+      const req = (data.commandData ?? {}) as { callId: number };
+
+      this.#resolveToken()
+        .then((accessToken) => {
+          const expiresAt = this.#tokenExpiry(accessToken);
+          this.#sendAuthTokenReturn(req.callId, { accessToken, ...(expiresAt !== undefined && { expiresAt }) });
+          this.#scheduleTokenRefresh(expiresAt);
+        })
+        .catch((error: unknown) => {
+          this.#reportAuthError(error);
+          this.#sendAuthTokenReturn(req.callId, {});
+        });
+      return;
+    }
+
+    if (data.commandName === "setConfig") {
+      // The portal asks for its config and tells the SDK its origin. The origin only narrows the
+      // message filter: config.src keeps the configured URL, including a sub-path.
+      const { src, ...rest } = (data.commandData ?? {}) as Partial<TFrameConfig>;
+      if (src) {
+        try {
+          this.#expectedOrigin = new URL(src).origin;
+        } catch {
+          // keep the origin derived from config.src
+        }
+      }
+      void this.setConfig(rest);
+      return;
+    }
+
+    if (data.commandName === "setExternalData") {
+      const handler = this.config.events?.onSetExternalData;
+      if (!handler) return;
+
+      const payload = data.commandData as TSetExternalDataPayload;
+
+      Promise.resolve()
+        .then(() => handler(payload))
+        .catch((error) => this.#handleError(error as { message: string }));
+      return;
+    }
 
     const command = this[data.commandName as keyof this];
 
@@ -493,38 +983,53 @@ export class SDKInstance {
    *
    * @param error - The error object containing error information.
    */
-  #handleError(error: { message: string }) {
-    console.error("SDK Error:", error);
+  #handleError(error: { message: string }, code?: SDKErrorCode) {
+    const sdkError =
+      error instanceof SDKError
+        ? error
+        : new SDKError(code || SDKErrorCode.Disconnected, error.message || "Unknown error occurred");
 
-    this.config.events?.onAppError?.(
-      error instanceof Error ? error.message : "Unknown error occurred"
-    );
+    console.error("SDK Error:", sdkError);
+
+    this.config.events?.onAppError?.(sdkError.message || "Unknown error occurred");
   }
 
   /**
-   * Executes methods on the DocSpace iframe using message-based communication.
+   * Executes methods on the ONLYOFFICE Apps iframe using message-based communication.
    *
-   * @param methodName - The name of the DocSpace method to execute.
+   * @param methodName - The name of the ONLYOFFICE Apps method to execute.
    * @param params - The parameters for the method, or null if none are required.
    * @param callback - The function called with the response data when execution completes.
    */
   #executeMethod(
     methodName: string,
     params: object | null,
-    callback: (data: object) => void
+    resolve: (data: object) => void,
+    reject: (error: Error) => void
   ): void {
     if (!this.#isConnected && methodName !== InstanceMethods.SetConfig) {
-      this.#handleError({ message: connectErrorText });
+      const err = new SDKError(SDKErrorCode.Disconnected, connectErrorText);
+      this.#handleError(err);
+      reject(err);
       return;
     }
 
-    this.#callbacks.push(callback);
-    const message = { type: "method", methodName, data: params };
+    const callId = ++this.#callIdCounter;
+    const entry: TCallbackEntry = { methodName, resolve, reject, timer: null };
+    this.#callbacks.set(callId, entry);
+    const message: TTask = { type: "method", methodName, data: params, callId };
 
-    if (this.#callbacks.length > 1) {
+    if (this.#callbacks.size > 1) {
       this.#tasks.push(message);
     } else {
-      this.#sendMessage(message);
+      entry.timer = this.#createMethodTimer(callId, entry);
+      if (!this.#sendMessage(message)) {
+        this.#callbacks.delete(callId);
+        if (entry.timer) clearTimeout(entry.timer);
+        const err = new SDKError(SDKErrorCode.Disconnected, connectErrorText);
+        this.#handleError(err);
+        reject(err);
+      }
     }
   }
 
@@ -535,10 +1040,25 @@ export class SDKInstance {
    * @returns The merged configuration, ready for frame initialization.
    */
   #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
-    const mergedConfig = { ...this.config, ...defaultConfig, ...config };
+    const mergedConfig = { ...defaultConfig, ...this.config, ...config };
 
-    if (mergedConfig.mode === "manager" || mergedConfig.mode === "system") {
+    if (typeof mergedConfig.src === "string") {
+      mergedConfig.src = mergedConfig.src.replace(/\/+$/, "");
+    }
+
+    if (mergedConfig.mode === SDKMode.Manager || mergedConfig.mode === SDKMode.System) {
       mergedConfig.noLoader = false;
+    }
+
+    if (mergedConfig.mode === SDKMode.Forms) {
+      if (mergedConfig.showMenu === undefined) {
+        mergedConfig.showMenu = true;
+      }
+      mergedConfig.noLoader = true;
+    }
+
+    if (mergedConfig.mode === SDKMode.Personal) {
+      mergedConfig.noLoader = true;
     }
 
     return mergedConfig;
@@ -553,10 +1073,10 @@ export class SDKInstance {
   #createContainer(
     targetId: string
   ): { container: HTMLElement; target: HTMLElement | null } | null {
-    const target = document.getElementById(targetId);
-    if (!target) return null;
-
+    let target: HTMLElement | null = document.getElementById(targetId);
     const existingContainer = document.getElementById(`${targetId}-container`);
+
+    if (!target && !existingContainer) return null;
 
     if (existingContainer) {
       const parentNode = existingContainer.parentNode;
@@ -566,47 +1086,29 @@ export class SDKInstance {
         restoredTarget.id = targetId;
 
         parentNode.replaceChild(restoredTarget, existingContainer);
-
-        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
-          this.config.frameId
-        }`;
-
-        SDKInstance._iframeCache.pathCache.delete(cacheKey);
-
-        return this.#setupContainer(restoredTarget);
+        target = restoredTarget;
       }
+    } else {
+      this.#classNames = target!.className;
     }
 
-    this.#classNames = target.className;
-    return this.#setupContainer(target);
-  }
+    if (!target) return null;
 
-  /**
-   * Configures and styles the container element for frame presentation.
-   *
-   * @param target - The DOM element to be replaced by the container.
-   * @returns An object containing the configured container and the target element.
-   */
-  #setupContainer(target: HTMLElement): {
-    container: HTMLElement;
-    target: HTMLElement | null;
-  } {
-    const renderContainer = document.createElement("div");
+    const container = document.createElement("div");
+    container.id = `${targetId}-container`;
+    container.className = "frame-container";
 
-    renderContainer.id = target.id + "-container";
-    renderContainer.className = "frame-container";
-
-    Object.assign(renderContainer.style, {
+    Object.assign(container.style, {
       position: "relative",
       width: this.config.width,
       height: this.config.height,
     });
 
-    return { container: renderContainer, target };
+    return { container, target };
   }
 
   /**
-   * Creates and applies styling to the iframe element for DocSpace integration.
+   * Creates and applies styling to the iframe element for ONLYOFFICE Apps integration.
    *
    * @returns The configured `HTMLIFrameElement`, ready for DOM insertion.
    */
@@ -632,8 +1134,10 @@ export class SDKInstance {
    * @param iframe - The `HTMLIFrameElement` to attach event handlers.
    */
   #setupFrameEventHandlers(iframe: HTMLIFrameElement): void {
+    window.removeEventListener("message", this.#onMessage);
+    window.addEventListener("message", this.#onMessage, false);
+
     const handleFrameLoad = () => {
-      window.addEventListener("message", this.#onMessage, false);
       this.#isConnected = true;
 
       if (this.config.noLoader) {
@@ -651,7 +1155,7 @@ export class SDKInstance {
    *
    * @param container - The container element for the frame components.
    * @param target - The target element to be replaced, or null if not required.
-   * @param iframe - The configured `HTMLIFrameElement` for DocSpace integration.
+   * @param iframe - The configured `HTMLIFrameElement` for ONLYOFFICE Apps integration.
    * @returns The integrated iframe element, ready for communication.
    */
   #assembleFrame(
@@ -661,7 +1165,7 @@ export class SDKInstance {
   ): HTMLIFrameElement {
     const fragment = document.createDocumentFragment();
 
-    if (!this.config.waiting || this.config.mode === "system") {
+    if (!this.config.waiting || this.config.mode === SDKMode.System) {
       fragment.appendChild(iframe);
     }
 
@@ -686,66 +1190,70 @@ export class SDKInstance {
   }
 
   /**
-   * Registers the current frame instance in the global DocSpace SDK registry.
-   */
-  #registerFrame(): void {
-    window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
-    window.DocSpace.SDK.frames[this.config.frameId] = this;
-  }
-
-  /**
-   * Initializes an iframe with the given configuration and appends it to the target element.
+   * Inserts the ONLYOFFICE Apps iframe into the DOM element identified by {@link TFrameConfig.frameId}.
    *
-   * This is the core method that sets up the DocSpace iframe within your application.
-   * It handles container creation, iframe setup, event handlers, and frame registration.
-   * The method supports various DocSpace modes, including viewer, editor, manager, and more.
+   * Merges `config` with {@link defaultConfig} and the instance's stored config,
+   * replaces the target `<div>` with a container holding the iframe (and an optional loader),
+   * attaches the `message` listener, and registers the instance in the global
+   * `DocSpace.SDK.frames` registry.
    *
-   * @param config - The configuration object for the iframe, containing all initialization settings.
-   * 
-   * @returns The created `HTMLIFrameElement`, or null if initialization fails (e.g., target element not found).
+   * Called automatically by {@link SDK.init}. Call again to reinitialize in-place.
+   *
+   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @returns The created `<iframe>` element, or `null` if the target element was not found.
+   *
    * @example
    * ```typescript
-   * const iframe = sdkInstance.initFrame({
-   *   frameId: 'docspace-frame',
-   *   src: 'https://your-docspace.com',
-   *   mode: 'viewer',
-   *   width: '100%',
-   *   height: '600px',
-   *   id: 'document-123'
+   * const iframe = instance.initFrame({
+   *   frameId: 'ds-frame',
+   *   src: 'https://portal.example.com',
+   *   mode: SDKMode.Viewer,
+   *   id: 42,
    * });
-   *
-   * if (iframe) {
-   *   console.log('Frame initialized successfully');
-   * } else {
-   *   console.error('Failed to initialize frame - target element not found');
-   * }
    * ```
    *
    * @example
+   * With event handlers — see {@link TFrameEvents} for the full list of available events.
    * ```typescript
-   * const iframe = sdkInstance.initFrame({
-   *   frameId: 'editor-frame',
-   *   src: 'https://your-docspace.com',
-   *   mode: 'editor',
-   *   width: '100%',
-   *   height: '800px',
-   *   id: 'document-456',
+   * const iframe = instance.initFrame({
+   *   frameId: 'ds-editor',
+   *   src: 'https://portal.example.com',
+   *   mode: SDKMode.Editor,
+   *   id: 42,
    *   events: {
-   *     onContentReady: () => console.log('Editor loaded'),
-   *     onDocumentReady: () => console.log('Document ready for editing'),
-   *     onAppError: (error) => console.error('Editor error:', error)
-   *   }
+   *     onAppReady: () => console.log('ready'),
+   *     onEditorOpen: () => console.log('document opened'),
+   *     onEditorCloseCallback: () => history.back(),
+   *   },
    * });
    * ```
-   *
-   * @throws {Error} May throw an error if the configuration contains invalid values or the target element cannot be accessed.
-   * 
-   * @see {@link setConfig} - Updates the configuration after initialization.
-   * @see {@link getConfig} - Retrieves the current configuration.
-   * @see {@link destroyFrame} - Cleans up the frame properly.
    */
   initFrame(config: TFrameConfig): HTMLIFrameElement | null {
     this.config = this.#prepareFrameConfig(config);
+
+    if (!this.config.frameId) {
+      console.warn("SDK Warning: frameId is empty. The frame may not initialize correctly.");
+    }
+
+    if (!this.config.src) {
+      console.warn("SDK Warning: src is empty. The iframe will not load any content.");
+    }
+
+    try {
+      this.#expectedOrigin = new URL(this.config.src).origin;
+    } catch {
+      this.#expectedOrigin = "";
+      if (this.config.src) {
+        console.warn(`SDK Warning: src "${this.config.src}" is not a valid URL.`);
+      }
+    }
+
+    this.#isConnected = false;
+
+    this.#clearTokenRefresh();
+    this.#configExpiryUsed = false;
+
+    this.#clearAllPending(new SDKError(SDKErrorCode.Disconnected, "Frame reloaded"));
 
     const setupResult = this.#createContainer(this.config.frameId);
 
@@ -755,49 +1263,40 @@ export class SDKInstance {
 
     const iframe = this.#setupIframe();
 
+    this.#iframe = iframe;
     this.#setupFrameEventHandlers(iframe);
     this.#assembleFrame(container, target, iframe);
-    this.#registerFrame();
+
+    window.DocSpace.SDK.frames = window.DocSpace.SDK.frames || {};
+    window.DocSpace.SDK.frames[this.config.frameId] = this;
 
     return iframe;
   }
 
   /**
-   * Destroys the current frame instance and performs comprehensive cleanup operations.
+   * Tears down the iframe and releases all resources associated with this instance.
    *
-   * This method performs a complete teardown of the DocSpace frame and all associated resources,
-   * ensuring proper memory management and preventing resource leaks in single-page applications.
-   * It's essential for dynamic applications that create and destroy frames frequently, as well as
-   * for implementing graceful shutdowns and transitions between different DocSpace instances.
+   * Replaces the container with a plain `<div>` (preserving the original `frameId` and CSS classes,
+   * showing {@link TFrameConfig.destroyText}), removes the `message` listener, rejects pending
+   * method calls with {@link SDKErrorCode.Disconnected}, cancels the proactive OAuth token refresh,
+   * and removes the instance from the global `DocSpace.SDK.frames` registry (the `frames` map of the
+   * {@link SDK} that created it keeps the entry, so a later `init*` with the same `frameId` reuses the instance). In OAuth mode this is
+   * how a host ends the embedded session: no cookie exists, so nothing outlives the frame.
    *
-   * After calling this method, the instance will no longer be functional,
-   * and a new instance should be created if needed.
-   *
-   * @example
-   * ```typescript
-   * sdkInstance.destroyFrame();
-   * console.log('Frame destroyed and resources cleaned up');
-   * ```
+   * The call is synchronous and complete when it returns: the placeholder keeps the `frameId`, so
+   * an `SDK.init*` call on the same `frameId` may follow immediately — there is nothing to await.
    *
    * @example
    * ```typescript
-   * try {
-   *   sdkInstance.destroyFrame();
-   *   
-   *   const newInstance = new SDKInstance({
-   *     frameId: 'new-docspace-frame',
-   *     src: 'https://your-docspace.com',
-   *     mode: 'editor'
-   *   });
-   *   newInstance.initFrame(newInstance.getConfig());
-   * } catch (error) {
-   *   console.error('Failed to replace frame:', error);
-   * }
+   * instance.destroyFrame();
    * ```
    *
-   * @see {@link initFrame} - Creates new frame instances.
-   * @see {@link setConfig} - Updates frame configuration before cleanup.
-   * @see {@link getConfig} - Retrieves the current configuration before destruction.
+   * @example
+   * Destroy and reinitialize the same frame in a different mode using {@link SDK.initEditor}.
+   * ```typescript
+   * instance.destroyFrame();
+   * sdk.initEditor({ frameId: 'ds-frame', src: 'https://portal.example.com', id: 99 });
+   * ```
    */
   destroyFrame(): void {
     const frameId = this.config.frameId;
@@ -806,7 +1305,7 @@ export class SDKInstance {
     const replacementDiv = document.createElement("div");
     replacementDiv.id = frameId;
     replacementDiv.className = this.#classNames;
-    replacementDiv.innerHTML = this.config.destroyText || "";
+    replacementDiv.textContent = this.config.destroyText || "";
 
     if (containerElement) {
       if (containerElement.parentNode) {
@@ -818,19 +1317,26 @@ export class SDKInstance {
         document.body.appendChild(replacementDiv);
       }
 
-      if (SDKInstance._iframeCache) {
-        const cacheKey = `${this.config.mode}_${this.config.id || ""}_${
-          this.config.frameId
-        }`;
-        SDKInstance._iframeCache.pathCache.delete(cacheKey);
-      }
     }
 
     window.removeEventListener("message", this.#onMessage);
+    this.#clearTokenRefresh();
+    this.#iframe = null;
+
+    if (this.config.type === "mobile" && document.body.style.overscrollBehaviorY === "contain") {
+      document.body.style.overscrollBehaviorY = "";
+    }
+
+    const loaderClassName = `${frameId}-loader__element`;
+    const styleEl = SDKInstance._loaderCache.style.get(loaderClassName);
+    if (styleEl?.parentNode) {
+      styleEl.parentNode.removeChild(styleEl);
+    }
+    SDKInstance._loaderCache.style.delete(loaderClassName);
 
     this.#isConnected = false;
-    this.#callbacks = [];
-    this.#tasks = [];
+
+    this.#clearAllPending(new SDKError(SDKErrorCode.Disconnected, "Frame destroyed"));
 
     const sdkFrames = window.DocSpace?.SDK?.frames;
     if (sdkFrames && frameId in sdkFrames) {
@@ -843,764 +1349,542 @@ export class SDKInstance {
    *
    * @param methodName - The name of the method to execute.
    * @param params - The parameters to pass to the method. Defaults to null.
-   * @returns A promise that resolves to an object containing the result of the method execution, or the current configuration if reloaded.
+   * @returns A promise that resolves to an object containing the result of the method execution,
+   *   or rejects — see `#settleMethodResult` for the error rules.
    */
-  #getMethodPromise = (
+  #getMethodPromise = <T extends object>(
     methodName: string,
-    params: object | null = null
-  ): Promise<object> => {
-    return new Promise((resolve) => {
-      this.#executeMethod(methodName, params, (data) => resolve(data));
+    params: object | null = null,
+  ): Promise<T> => {
+    const promise = new Promise<T>((resolve, reject) => {
+      this.#executeMethod(methodName, params, resolve as (data: object) => void, reject);
     });
+
+    // Prevent unhandled rejection for integrators without .catch().
+    // Errors are still reported via onAppError.
+    promise.catch(() => {});
+
+    return promise;
   };
 
   /**
-   * Sets the configuration for the instance and applies updates to the active frame.
+   * Merges `config` into the stored config and sends it to the iframe.
    *
-   * This method allows dynamically updating the SDK instance configuration
-   * after initialization. Changes are merged with the existing configuration and
-   * propagated to the active frame. This is useful for runtime adjustments like
-   * theme changes, size updates, or mode switching.
+   * When `reload` is `true`, reinitializes the iframe entirely via {@link SDKInstance.initFrame}
+   * instead of sending a postMessage update.
    *
-   * @param config - The configuration object with properties to update. Only the provided properties will be changed.
-   *                 Defaults to `defaultConfig` if no parameter is provided.
-   * @returns A promise that resolves to an object containing the update result.
-   * @example
-   * ```typescript
-   * const result = await sdkInstance.setConfig({
-   *   theme: 'dark',
-   *   width: '1200px',
-   *   height: '800px'
-   * });
-   * console.log('Configuration updated:', result);
-   * ```
+   * @param config - Partial frame configuration to merge into the stored config.
+   * @param reload - When `true`, reinitializes the frame. Defaults to `false`.
+   * @returns A promise that resolves with the iframe's response, or with the merged config if `reload` is `true`.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * try {
-   *   await sdkInstance.setConfig({
-   *     id: 'new-document-789',
-   *     editorType: 'word'
-   *   });
-   *   console.log('Successfully switched to new document');
-   * } catch (error) {
-   *   console.error('Failed to update document:', error);
-   * }
+   * await instance.setConfig({ theme: Theme.Dark, locale: 'fr-FR' });
    * ```
    *
-   * @throws {Error} May throw an error if the new configuration contains invalid values or if frame update fails.
-   * 
-   * @see {@link getConfig} - Retrieves the current configuration.
-   * @see {@link initFrame} - Performs the initial frame setup.
+   * @example
+   * Switch to a different document while keeping existing settings —
+   * read them first via {@link SDKInstance.getConfig}.
+   * ```typescript
+   * const current = instance.getConfig();
+   * await instance.setConfig({ ...current, id: 99, mode: SDKMode.Editor }, true);
+   * ```
    */
-  setConfig(config: TFrameConfig = defaultConfig): Promise<object> {
+  setConfig(
+    config: Partial<TFrameConfig> = {},
+    reload: boolean = false
+  ): Promise<object> {
     this.config = { ...this.config, ...config };
+
+    if (config.src) {
+      try {
+        this.#expectedOrigin = new URL(this.config.src).origin;
+      } catch {
+        this.#expectedOrigin = "";
+      }
+    }
+
+    if (reload) {
+      this.initFrame(this.config);
+      return Promise.resolve(this.config);
+    }
 
     return this.#getMethodPromise(InstanceMethods.SetConfig, this.config);
   }
 
   /**
-   * Retrieves the current configuration object for the SDK instance.
+   * Returns the current merged configuration object.
    *
-   * This method returns a copy of the current configuration settings that define
-   * how the DocSpace frame is initialized and behaves. The configuration includes
-   * settings like frame dimensions, mode, theme, locale, event handlers, and more.
-   * This is useful for debugging, state management, or creating new instances with
-   * similar settings.
-   *
-   * @returns The current configuration object containing all active settings.
-   *   * @example
-   * ```typescript
-   * const config = sdkInstance.getConfig();
-   *
-   * console.log('Current mode:', config.mode);
-   * console.log('Frame dimensions:', config.width, 'x', config.height);
-   * console.log('Theme:', config.theme);
-   * console.log('Locale:', config.locale);
-   * ```
+   * @returns The active {@link TFrameConfig} for this instance.
    *
    * @example
    * ```typescript
-   * const currentConfig = sdkInstance.getConfig();
-   * const newConfig = {
-   *   ...currentConfig,
-   *   frameId: 'new-frame-id',
-   *   mode: 'editor',
-   *   id: 'different-document-id'
-   * };
-   *
-   * const newInstance = new SDKInstance(newConfig);
-   * newInstance.initFrame(newConfig);
+   * const config = instance.getConfig();
+   * console.log(config.mode, config.src);
    * ```
    *
    * @example
+   * Preserve existing settings when making a partial update via {@link SDKInstance.setConfig}.
    * ```typescript
-   * const config = sdkInstance.getConfig();
-   *
-   * if (config.mode === 'viewer') {
-   *   console.log('Document is in view-only mode');
-   * } else if (config.mode === 'editor') {
-   *   console.log('Document editing is available');
-   * }
+   * const config = instance.getConfig();
+   * await instance.setConfig({ ...config, theme: Theme.Dark });
    * ```
-   *
-   * @example
-   * ```typescript
-   * const config = sdkInstance.getConfig();
-   * console.log('Full configuration:', JSON.stringify(config, null, 2));
-   *
-   * if (!config.src) {
-   *   console.error('Missing source URL in configuration');
-   * }
-   * ```
-   *
-   * @see {@link setConfig} - Updates the configuration settings.
-   * @see {@link initFrame} - Performs the initial configuration setup.
    */
   getConfig(): TFrameConfig {
-    return this.config;
+    const config = { ...this.config };
+    if (config.filter) config.filter = { ...config.filter };
+    if (config.events) config.events = { ...config.events };
+    if (config.editorCustomization) config.editorCustomization = { ...config.editorCustomization };
+    return config;
   }
 
   /**
-   * Retrieves comprehensive information about the current or specified folder.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method provides detailed metadata about a folder, including its contents, permissions,
-   * sharing settings, and hierarchical position. It's essential for building detailed folder
-   * views, property dialogs, and administrative interfaces. The returned information includes
-   * both folder-specific data and aggregated statistics about contained items.
+   * Returns metadata about the folder currently open in the frame.
    *
-   * @example
-   * ```javascript
-   * const folderInfo = await docSpace.getFolderInfo();
-   * console.log('Folder:', folderInfo.title);
-   * console.log('Path:', folderInfo.path);
-   * console.log('Files:', folderInfo.fileCount);
-   * console.log('Subfolders:', folderInfo.folderCount);
-   * console.log('Total Size:', formatBytes(folderInfo.totalSize));
-   * ```
-   *
-   * @example
-   * ```javascript
-   * try {
-   *   const info = await docSpace.getFolderInfo();
-   *   
-   *   const canCreate = info.permissions.includes('create');
-   *   const canEdit = info.permissions.includes('edit');
-   *   
-   *   console.log(`Folder: ${info.title}`);
-   *   console.log(`Permissions: Create=${canCreate}, Edit=${canEdit}`);
-   * } catch (error) {
-   *   console.error('Failed to load folder info:', error);
-   * }
-   * ```
-   *
-   * @returns A promise that resolves to an object containing comprehensive folder information, including id, title, path, parent information, file/folder counts, total size, permissions, sharing status, creation/modification dates, and access metadata.
-   *
-   * @see {@link getFolders} - Retrieves information for multiple folders.
-   * @see {@link getFiles} - Gets the contents of a folder.
-   * @see {@link createFolder} - Creates subfolders within the specified folder.
-   */
-  getFolderInfo(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetFolderInfo);
-  }
-
-  /**
-   * Retrieves the current user selection for context-aware operations and bulk actions.
-   *
-   * This method returns detailed information about all currently selected items in the
-   * DocSpace interface, enabling applications to perform context-sensitive operations,
-   * bulk actions, and intelligent user interface updates. The selection includes both
-   * files and folders, with comprehensive metadata for each selected item.
+   * @returns A promise that resolves with {@link TFolderInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * const selection = await docSpace.getSelection();
-   * console.log('Current selection:', selection);
+   * const info = await instance.getFolderInfo();
+   * console.log(info);
+   * ```
    *
-   * if (selection.items && selection.items.length > 0) {
-   *   const files = selection.items.filter(item => item.type === 'file');
-   *   const folders = selection.items.filter(item => item.type === 'folder');
-   *   console.log(`Selected: ${files.length} files, ${folders.length} folders`);
+   * @example
+   * Check write access before calling {@link SDKInstance.createFolder}.
+   * ```typescript
+   * const info = await instance.getFolderInfo();
+   * if (info.security?.create) {
+   *   await instance.createFolder(info.id, 'Archive');
    * }
+   * ```
+   */
+  getFolderInfo(): Promise<TFolderInfo> {
+    return this.#getMethodPromise<TFolderInfo>(InstanceMethods.GetFolderInfo);
+  }
+
+  /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
+   * Returns the items currently selected in the frame.
+   *
+   * @returns A promise that resolves with an array of {@link TFileInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
+   * @example
+   * ```typescript
+   * const selection = await instance.getSelection();
+   * console.log(selection);
+   * ```
+   *
+   * @example
+   * Pass the selection as context to {@link SDKInstance.openModal}.
+   * ```typescript
+   * const selection = await instance.getSelection();
+   * if (selection.length > 0) {
+   *   await instance.openModal('share', { items: selection });
+   * }
+   * ```
+   */
+  getSelection(): Promise<TFileInfo[]> {
+    return this.#getMethodPromise<TFileInfo[]>(InstanceMethods.GetSelection);
+  }
+
+  /**
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
+   * Returns the files in the folder currently open in the frame.
+   *
+   * @returns A promise that resolves with {@link TFilesResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
+   * @example
+   * ```typescript
+   * const files = await instance.getFiles();
+   * console.log(files);
+   * ```
+   *
+   * @example
+   * Open the first file in viewer mode via {@link SDKInstance.setConfig}.
+   * ```typescript
+   * const files = await instance.getFiles();
+   * if (files.files[0]) {
+   *   await instance.setConfig({ id: files.files[0].id, mode: SDKMode.Viewer }, true);
+   * }
+   * ```
+   */
+  getFiles(): Promise<TFilesResponse> {
+    return this.#getMethodPromise<TFilesResponse>(InstanceMethods.GetFiles);
+  }
+
+  /**
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
+   * Returns the subfolders of the folder currently open in the frame.
+   *
+   * @returns A promise that resolves with {@link TFilesResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
+   * @example
+   * ```typescript
+   * const folders = await instance.getFolders();
+   * console.log(folders);
+   * ```
+   *
+   * @example
+   * Navigate into the first subfolder via {@link SDKInstance.setConfig}.
+   * ```typescript
+   * const folders = await instance.getFolders();
+   * if (folders.folders[0]) {
+   *   await instance.setConfig({ id: folders.folders[0].id }, true);
+   * }
+   * ```
+   */
+  getFolders(): Promise<TFilesResponse> {
+    return this.#getMethodPromise<TFilesResponse>(InstanceMethods.GetFolders);
+  }
+
+  /**
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
+   * Returns all files and folders in the folder currently open in the frame.
+   *
+   * Use {@link SDKInstance.getFiles} or {@link SDKInstance.getFolders}
+   * when you need only one content type.
+   *
+   * @returns A promise that resolves with {@link TFilesResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
+   * @example
+   * ```typescript
+   * const list = await instance.getList();
+   * console.log(list);
    * ```
    *
    * @example
    * ```typescript
-   * try {
-   *   const selection = await docSpace.getSelection();
-   *   
-   *   if (!selection.items?.length) {
-   *     console.log('No items selected');
-   *     return;
-   *   }
-   *   
-   *   const canDelete = selection.items.every(item => item.permissions.canDelete);
-   *   console.log('Can delete all selected items:', canDelete);
-   * } catch (error) {
-   *   console.error('Failed to get selection:', error);
-   * }
+   * const list = await instance.getList();
+   * console.log('Files:', list.files.length, 'Folders:', list.folders.length);
    * ```
-   *
-   * @returns A promise that resolves to the current selection object, containing selected items and metadata.
-   *
-   * @throws {Error} Throws an error if unable to retrieve the current selection state.
-   * 
-   * @see {@link getList} - Retrieves all available items in the current context.
-   * @see {@link openModal} - Opens modals using the selected items as context.
-   * @see {@link setListView} - Optimizes the view mode based on selection patterns.
    */
-  getSelection(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetSelection);
+  getList(): Promise<TFilesResponse> {
+    return this.#getMethodPromise<TFilesResponse>(InstanceMethods.GetList);
   }
 
   /**
-   * Retrieves a list of files from the current context with comprehensive metadata.
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method fetches all files accessible in the current context, providing detailed
-   * information about each file, including metadata, permissions, and modification history.
-   * It's essential for building file browsers, dashboards, and file management interfaces.
-   * The returned data respects user permissions and access controls.
-   * 
+   * Returns a list of rooms, filtered by `filter`.
+   *
+   * @param filter - Filter and sort criteria. See {@link TFrameFilter}.
+   * @returns A promise that resolves with {@link TRoomsResponse}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
    * @example
-   * ```javascript
-   * const files = await docSpace.getFiles();
-   * console.log(`Found ${files.length} files`);
-   *
-   * files.forEach(file => {
-   *   console.log(`${file.title} (${file.type}) - Modified: ${file.modified}`);
+   * ```typescript
+   * const rooms = await instance.getRooms({
+   *   search: 'alpha',
+   *   sortBy: FilterSortBy.Name,
+   *   sortOrder: FilterSortOrder.Ascending,
    * });
+   * console.log(rooms);
    * ```
    *
    * @example
-   * ```javascript
-   * const allFiles = await docSpace.getFiles();
-   *
-   * const documents = allFiles.filter(file =>
-   *   ['docx', 'doc', 'pdf'].includes(file.extension.toLowerCase())
-   * );
-   *
-   * console.log(`Found ${documents.length} document files`);
-   * ```
-   *
-   * @returns A promise that resolves to an object containing an array of file objects. Each file includes properties like id, title, type, extension, size, modified date, permissions, and access metadata.
-   *
-   * @see {@link getFolders} - Retrieves information about folders.
-   * @see {@link getList} - Provides a combined listing of files and folders.
-   * @see {@link createFile} - Creates new files.
-   */
-  getFiles(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetFiles);
-  }
-
-  /**
-   * Retrieves a list of folders from the current context with detailed information.
-   *
-   * This method fetches all folders accessible in the current context, providing comprehensive
-   * information about folder structure, permissions, and contents. It's crucial for building
-   * navigation interfaces, folder browsers, and organizational tools. The method respects
-   * user access permissions and returns only the folders the user can view.
-   * 
-   * @example
-   * ```javascript
-   * const folders = await docSpace.getFolders();
-   * console.log(`Found ${folders.length} folders`);
-   *
-   * folders.forEach(folder => {
-   *   console.log(`${folder.title} - Files: ${folder.fileCount}, Subfolders: ${folder.folderCount}`);
-   * });
-   * ```
-   *
-   * @example
-   * ```javascript
-   * const folders = await docSpace.getFolders();
-   *
-   * const editableFolders = folders.filter(folder => folder.permissions.edit);
-   * const sharedFolders = folders.filter(folder => folder.shared);
-   *
-   * console.log(`Editable: ${editableFolders.length}`);
-   * console.log(`Shared: ${sharedFolders.length}`);
-   * ```
-   *
-   * @returns A promise that resolves to an object containing an array of folder objects. Each folder includes properties like id, title, parent id, number of files, number of folders, size, permissions, creation date, and sharing status.
-   *
-   * @see {@link getFiles} - Retrieves information about files.
-   * @see {@link getFolderInfo} - Provides detailed information for a single folder.
-   * @see {@link createFolder} - Creates new folders.
-   */
-  getFolders(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetFolders);
-  }
-
-  /**
-   * Retrieves a combined list of files and folders from the current context.
-   *
-   * This method provides a unified view of all files and folders in the current location,
-   * making it ideal for building comprehensive file browsers, search interfaces, and
-   * content management systems. The returned list includes mixed content types with
-   * a consistent metadata structure, allowing unified handling and display.
-   * 
-   * @example
-   * ```javascript
-   * const items = await docSpace.getList();
-   *
-   * const files = items.filter(item => item.type === 'file');
-   * const folders = items.filter(item => item.type === 'folder');
-   *
-   * console.log(`Total items: ${items.length}`);
-   * console.log(`Files: ${files.length}, Folders: ${folders.length}`);
-   * ```
-   *
-   * @example
-   * ```javascript
-   * const allItems = await docSpace.getList();
-   *
-   * const searchResults = allItems.filter(item =>
-   *   item.title.toLowerCase().includes('report')
-   * );
-   *
-   * console.log(`Found ${searchResults.length} items matching 'report'`);
-   * ```
-   *
-   * @returns A promise that resolves to an object containing an array of mixed file and folder objects. Each item includes common properties like id, title, type ('file' or 'folder'), modified date, and type-specific metadata such as file size and extension or folder contents.
-   *
-   * @see {@link getFiles} - Retrieves a files-only listing.
-   * @see {@link getFolders} - Retrieves a folders-only listing.
-   * @see {@link getFolderInfo} - Provides information about the current folder.
-   */
-  getList(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetList);
-  }
-
-  /**
-   * Retrieves a list of rooms based on the provided filter criteria.
-   *
-   * This method allows fetching rooms from DocSpace with various filtering options,
-   * including search terms, sorting, pagination, and room type filtering. It's essential
-   * for building room browsers, dashboards, and selection interfaces.
-   *
-   * @param filter - The criteria used to filter and sort the rooms.
-   * @returns A promise that resolves to an object containing the filtered rooms and metadata.
-   *
-   * @example
+   * Find rooms and remove an outdated tag from each using {@link SDKInstance.removeTagsFromRoom}.
    * ```typescript
-   * const roomsResult = await sdkInstance.getRooms({
-   *   page: 1,
-   *   pageSize: 20
-   * });
-   *
-   * console.log('Total rooms:', roomsResult.total);
-   * console.log('Rooms:', roomsResult.rooms);
-   * ```
-   *
-   * @example
-   * ```typescript
-   * const searchResults = await sdkInstance.getRooms({
-   *   filterValue: 'project',
-   *   roomType: 'collaboration',
-   *   tags: ['development', 'frontend'],
-   *   page: 1,
-   *   pageSize: 50,
-   *   sortBy: 'title',
-   *   sortOrder: 'asc'
-   * });
-   *
-   * console.log('Matching rooms:', searchResults.rooms.length);
-   * ```
-   *
-   * @throws {Error} May throw an error if the filter parameters are invalid or if the user lacks permission to access rooms.
-   * @see {@link createRoom} - Creates new rooms.
-   * @see {@link addTagsToRoom} - Adds tags to existing rooms.
-   * @see {@link removeTagsFromRoom} - Removes tags from rooms.
-   */
-  getRooms(filter: TFrameFilter): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetRooms, filter);
-  }
-
-  /**
-   * Retrieves comprehensive information about the current user profile and session details.
-   *
-   * This method fetches detailed information about the currently authenticated user,
-   * including profile data, permissions, preferences, and session metadata. The
-   * information is essential for personalizing user interfaces, implementing role-based
-   * access controls, and displaying user-specific content and capabilities.
-   * 
-   * @example
-   * ```typescript
-   * const userInfo = await docSpace.getUserInfo();
-   * console.log('User information:', userInfo);
-   * console.log('User name:', userInfo.displayName);
-   * console.log('Email:', userInfo.email);
-   * console.log('Role:', userInfo.role);
-   * console.log('Status:', userInfo.isOnline ? 'Online' : 'Offline');
-   * ```
-   *
-   * @example
-   * ```typescript
-   * try {
-   *   const userInfo = await docSpace.getUserInfo();
-   *   
-   *   const isAdmin = userInfo.role === 'admin';
-   *   const canManage = userInfo.role === 'manager' || isAdmin;
-   *   
-   *   console.log('User permissions:', { isAdmin, canManage });
-   *   
-   *   document.documentElement.setAttribute('data-theme', userInfo.theme || 'light');
-   * } catch (error) {
-   *   console.error('Failed to load user info:', error);
+   * const rooms = await instance.getRooms({ search: 'sprint-22' });
+   * for (const room of rooms.folders) {
+   *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
    * }
    * ```
    *
-   * @returns A promise that resolves to an object containing comprehensive user information and session data.
-   *
-   * @throws {Error} Throws an error if the user is not authenticated or user information cannot be retrieved.
-   * @see {@link login} - Authenticates users before retrieving their information.
-   * @see {@link logout} - Terminates user sessions and clears user data.
-   * @see {@link setConfig} - Updates user preferences and configuration settings.
+   * @example
+   * The rooms of one room group ({@link TFrameFilter.groupId}), e.g. the rooms attached to a deal.
+   * ```typescript
+   * const deal = await instance.getRooms({ groupId: '42' });
+   * console.log(deal.folders.map((room) => room.title));
+   * ```
    */
-  getUserInfo(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetUserInfo);
+  getRooms(filter: TFrameFilter): Promise<TRoomsResponse> {
+    const { search, count, ...rest } = filter;
+    return this.#getMethodPromise<TRoomsResponse>(InstanceMethods.GetRooms, {
+      ...rest,
+      ...(search !== undefined && { filterValue: search }),
+      ...(count !== undefined && { pageCount: count }),
+    });
   }
 
   /**
-   * Retrieves the server's current password hashing configuration.
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.System}, {@link SDKMode.Personal} and {@link SDKMode.Forms}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method fetches the cryptographic settings required for secure password hashing.
-   * These settings should be used with the `createHash()` method to ensure compatibility
-   * with the server's security requirements.
+   * Returns information about the currently authenticated user.
    *
-   * @returns A promise that resolves to an object containing hash algorithm settings.
-   * 
+   * @returns A promise that resolves with {@link TUserInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
    * @example
    * ```typescript
-   * const hashSettings = await sdkInstance.getHashSettings();
-   * console.log('Hash algorithm:', hashSettings.algorithm);
-   * console.log('Salt length:', hashSettings.saltLength);
-   * console.log('Iterations:', hashSettings.iterations);
-   *
-   * const passwordHash = await sdkInstance.createHash('userPassword123', hashSettings);
-   *
-   * await sdkInstance.login('user@example.com', passwordHash.hash);
+   * const user = await instance.getUserInfo();
+   * console.log(user);
    * ```
    *
    * @example
+   * Apply the user's preferred locale via {@link SDKInstance.setConfig}.
    * ```typescript
-   * async function authenticateUser(email: string, password: string) {
-   *   try {
-   *     const hashSettings = await sdkInstance.getHashSettings();
-   *
-   *     const hashResult = await sdkInstance.createHash(password, hashSettings);
-   *
-   *     const loginResult = await sdkInstance.login(email, hashResult.hash);
-   *
-   *     return loginResult;
-   *   } catch (error) {
-   *     console.error('Authentication failed:', error.message);
-   *     throw error;
-   *   }
+   * const user = await instance.getUserInfo();
+   * if (user.cultureName) {
+   *   await instance.setConfig({ locale: user.cultureName });
    * }
    * ```
-   *
-   * @throws {Error} Throws an error if the hash settings cannot be retrieved from the server.
-   * @see {@link createHash} - Creates password hashes using these settings.
-   * @see {@link login} - Authenticates users with hashed passwords.
    */
-  getHashSettings(): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.GetHashSettings);
+  getUserInfo(): Promise<TUserInfo> {
+    return this.#getMethodPromise<TUserInfo>(InstanceMethods.GetUserInfo);
+  }
+
+  /**
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
+   * Returns the server's password hash settings needed by {@link SDKInstance.createHash}.
+   *
+   * @returns A promise that resolves with {@link THashSettings}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
+   * @example
+   * ```typescript
+   * const settings = await instance.getHashSettings();
+   * console.log(settings);
+   * ```
+   *
+   * @example
+   * Full authentication flow using {@link SDKInstance.createHash} and {@link SDKInstance.login}.
+   * ```typescript
+   * const settings = await instance.getHashSettings();
+   * const hash = await instance.createHash('p@ssw0rd', settings);
+   * await instance.login('user@example.com', hash);
+   * ```
+   */
+  getHashSettings(): Promise<THashSettings> {
+    return this.#getMethodPromise<THashSettings>(InstanceMethods.GetHashSettings);
   }
   
   /**
-   * Opens a modal dialog of the specified type with comprehensive configuration options.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method provides a unified interface for opening various types of modal dialogs
-   * within DocSpace, including file operations, room management, user settings, and
-   * administrative functions. Modals are displayed as overlay windows that maintain
-   * context with the parent application while providing focused interfaces for
-   * specific tasks.
+   * Opens a modal dialog of the specified type inside the frame.
+   *
+   * @param type - The modal type identifier.
+   * @param options - Modal-specific configuration options.
+   * @returns A promise that resolves with the modal result.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * const result = await docSpace.openModal('upload', {
-   *   folderId: 'documents-folder-123',
-   *   allowedExtensions: ['.pdf', '.docx', '.xlsx'],
-   *   multiple: true
-   * });
-   * console.log('Upload completed:', result.uploadedFiles.length, 'files');
+   * const result = await instance.openModal('invite', { roomId: 42 });
+   * console.log(result);
    * ```
    *
    * @example
+   * Open a share dialog for the items currently selected in the frame using {@link SDKInstance.getSelection}.
    * ```typescript
-   * try {
-   *   const shareResult = await docSpace.openModal('share', {
-   *     itemId: 'room-456',
-   *     itemType: 'room',
-   *     shareMode: 'collaborate',
-   *     permissions: {
-   *       canEdit: true,
-   *       canDownload: true
-   *     }
-   *   });
-   *   console.log('Share completed:', shareResult.sharedWith);
-   * } catch (error) {
-   *   console.error('Share failed:', error);
+   * const selection = await instance.getSelection();
+   * if (selection.length > 0) {
+   *   await instance.openModal('share', { items: selection });
    * }
    * ```
-   *
-   * @param type - The type of modal to open (e.g., "upload", "share", "properties", "settings").
-   * @param options - A configuration object containing modal-specific options and event handlers.
-   * @returns A promise that resolves to an object containing the result of the modal operation.
-   *
-   * @throws {Error} Throws an error if the modal type is not supported or the configuration is invalid.
-   * @see {@link getSelection} - Retrieves currently selected items to use with modals.
-   * @see {@link setConfig} - Configures global modal behavior and appearance.
    */
   openModal(type: string, options: object): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.OpenModal, { type, options });
   }
   
   /**
-   * Creates a new file in the specified folder using templates and forms.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method allows programmatically creating different file types in DocSpace,
-   * including documents, spreadsheets, presentations, and custom forms. It is possible to specify
-   * templates for consistent formatting and associate forms for structured data collection.
-   * The created file will inherit permissions from the parent folder.
+   * Creates a new file in the specified folder.
+   *
+   * @param folderId - The ID of the target folder.
+   * @param title - The file title. An extension is optional: `"Report.docx"` keeps it, `"Report"` gets `.docx` from the portal.
+   * @param templateId - The ID of a file to copy the content from. Omit for an empty document.
+   * @param formId - The ID of a form to create the file from. Omit when the file is not based on a form.
+   * @returns A promise that resolves with {@link TFileInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
-   * ```javascript
-   * const file = await docSpace.createFile(
-   *   "folder123",
-   *   "Project Proposal",
-   *   "template456",
-   *   "form789"
-   * );
-   * console.log('Created file:', file.title, 'ID:', file.id);
+   * ```typescript
+   * const file = await instance.createFile('folder-123', 'Project Proposal');
+   * console.log(file);
    * ```
    *
    * @example
-   * ```javascript
-   * try {
-   *   const document = await docSpace.createFile(
-   *     "documents-folder-id",
-   *     "Meeting Notes",
-   *     "document-template-id",
-   *     ""
-   *   );
-   *   console.log('Document created successfully:', document.id);
-   * } catch (error) {
-   *   console.error('File creation failed:', error.message);
-   * }
+   * Create a file from a template and immediately open it in the editor using {@link SDKInstance.setConfig}.
+   * ```typescript
+   * const file = await instance.createFile('folder-123', 'Report.docx', 'template-456');
+   * await instance.setConfig({ id: file.id, mode: SDKMode.Editor }, true);
    * ```
-   *
-   * @param folderId - The ID of the folder where the file will be created. Must be a valid folder ID with write access.
-   * @param title - The title of the new file. Used as the filename with the appropriate extension based on the template type.
-   * @param templateId - The ID of the template for the new file. Determines file type and initial content structure.
-   * @param formId - The ID of the form associated with the new file. Use an empty string if no form is needed.
-   * @returns A promise that resolves to an object representing the created file with properties like id, title, type, and creation date.
-   *
-   * @see {@link createFolder} - Creates folders to organize files.
-   * @see {@link getFiles} - Retrieves created files.
-   * @see {@link initFrame} - Opens files in editor mode.
    */
   createFile(
-    folderId: string,
+    folderId: string | number,
     title: string,
-    templateId: string,
-    formId: string
-  ): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.CreateFile, {
+    templateId?: string,
+    formId?: string
+  ): Promise<TFileInfo> {
+    return this.#getMethodPromise<TFileInfo>(InstanceMethods.CreateFile, {
       folderId,
       title,
-      templateId,
-      formId,
+      ...(templateId !== undefined && { templateId }),
+      ...(formId !== undefined && { formId }),
     });
   }
   
   /**
-   * Creates a new folder within the specified parent folder for content organization.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method allows programmatically creating folders to organize files and other folders
-   * in a hierarchical structure. Created folders inherit permissions from the parent folder
-   * and can be used to establish project structures, departmental organization, or any
-   * custom file management system. The operation respects DocSpace access controls.
+   * Creates a new folder inside the specified parent folder.
+   *
+   * @param parentFolderId - The ID of the parent folder.
+   * @param title - The folder title.
+   * @returns A promise that resolves with {@link TFolderInfo}.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
-   * ```javascript
-   * const projectFolder = await docSpace.createFolder(
-   *   "root-folder-id",
-   *   "Project Alpha"
-   * );
-   * console.log('Created folder:', projectFolder.title, 'ID:', projectFolder.id);
+   * ```typescript
+   * const folder = await instance.createFolder('parent-123', 'Archive');
+   * console.log(folder);
    * ```
    *
    * @example
-   * ```javascript
-   * try {
-   *   const newFolder = await docSpace.createFolder(
-   *     "parent-folder-id",
-   *     "Marketing Materials"
-   *   );
-   *   console.log('Folder created successfully:', newFolder.id);
-   * } catch (error) {
-   *   console.error('Folder creation failed:', error.message);
-   * }
+   * Create a folder and immediately add a file inside it using {@link SDKInstance.createFile}.
+   * ```typescript
+   * const folder = await instance.createFolder('parent-123', 'Q1 Reports');
+   * await instance.createFile(folder.id, 'Summary');
    * ```
-   *
-   * @param parentFolderId - The ID of the parent folder where the new folder will be created. Must be a valid folder ID with write permissions.
-   * @param title - The title of the new folder. Should be unique within the parent folder and follow naming conventions.
-   * @returns A promise that resolves to an object containing the details of the created folder, including id, title, creation date, and access permissions.
-   *
-   * @see {@link createFile} - Creates files within folders.
-   * @see {@link getFolders} - Retrieves folder lists.
-   * @see {@link getFolderInfo} - Provides detailed folder information.
    */
-  createFolder(parentFolderId: string, title: string): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.CreateFolder, {
+  createFolder(parentFolderId: string | number, title: string): Promise<TFolderInfo> {
+    return this.#getMethodPromise<TFolderInfo>(InstanceMethods.CreateFolder, {
       parentFolderId,
       title,
     });
   }
 
   /**
-   * Creates a new room with the specified parameters and configuration.
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method allows programmatically creating different types of rooms in DocSpace,
-   * including collaboration rooms, public rooms, and custom rooms. It is possible to configure
-   * room properties like quotas, tags, branding, and access permissions during creation.
+   * Creates a new room with the given type and optional settings.
    *
-   * @param title - The display name/title for the new room.
-   * @param roomType - The type of room to create (collaboration, public, custom, etc.).
-   * @param quota - Optional storage quota limit for the room in bytes.
-   * @param tags - Optional array of tags to categorize and organize the room.
-   * @param color - Optional hex color code for the room's branding theme.
-   * @param cover - Optional cover image URL or file path for the room.
-   * @param indexing - Optional flag to enable ordisable search indexing (VDR rooms only).
-   * @param denyDownload - Optional flag to prevent file downloads (VDR rooms only).
-   * 
-   * @returns A promise that resolves to an object containing the created room's details.
-   * 
-   * @example
-   * ```typescript
-   * const room = await sdkInstance.createRoom(
-   *   'Project Alpha Team',
-   *   'collaboration'
-   * );
+   * :::note
+   * The room type decides which access levels the room accepts: reviewing and commenting exist only in
+   * {@link RoomType.Custom}; a {@link RoomType.Collaboration} room offers editing and reading only.
+   * Creating a room requires the room admin role on the portal; a user without it gets a `403` result.
+   * :::
    *
-   * console.log('Created room:', room.id);
-   * console.log('Room URL:', room.url);
-   * ```
+   * @param title - The room display name.
+   * @param roomType - The room type: a {@link RoomType} value or its numeric API value.
+   * @param options - Optional room settings. See {@link TCreateRoomOptions}. A JavaScript caller may still pass
+   *   the positional arguments of SDK 2.1 (`quota`, `tags`, `color`, `cover`, `indexing`, `denyDownload`).
+   * @returns A promise that resolves with {@link TRoomInfo}, or with `{ status, message }` when the portal
+   *   reports a failure — unlike the other methods, `createRoom` does not reject on portal errors.
    *
    * @example
    * ```typescript
-   * const projectRoom = await sdkInstance.createRoom(
-   *   'Q1 Marketing Campaign',
-   *   'collaboration',
-   *   5368709120,
-   *   ['marketing', 'q1-2024', 'campaign'],
-   *   '#FF6B35',
-   *   'https://example.com/covers/marketing-cover.jpg'
-   * );
-   *
-   * console.log('Room created with quota:', projectRoom.quota);
-   * console.log('Room tags:', projectRoom.tags);
+   * const room = await instance.createRoom('Design Team', RoomType.Collaboration, { tags: ['design'] });
+   * console.log(room);
    * ```
    *
-   * @throws {Error} Throws an error if room creation fails due to permissions, quota limits, or invalid parameters.
-   * @see {@link getRooms} - Retrieves existing rooms.
-   * @see {@link addTagsToRoom} - Adds tags to the created room.
-   * @see {@link createFolder} - Creates folders within the room.
+   * @example
+   * Create a room, then create a new tag and apply it using {@link SDKInstance.createTag}
+   * and {@link SDKInstance.addTagsToRoom}.
+   * ```typescript
+   * const room = await instance.createRoom('Marketing', RoomType.Custom);
+   * await instance.createTag('campaigns');
+   * await instance.addTagsToRoom(room.id, ['campaigns']);
+   * ```
    */
+  createRoom(title: string, roomType: string | number, options?: TCreateRoomOptions): Promise<TRoomInfo>;
   createRoom(
     title: string,
     roomType: string | number,
-    quota?: number,
+    optionsOrQuota?: TCreateRoomOptions | number,
     tags?: string[],
     color?: string,
     cover?: string,
     indexing?: boolean,
     denyDownload?: boolean
-  ): Promise<object> {
-    return this.#getMethodPromise(InstanceMethods.CreateRoom, {
+  ): Promise<TRoomInfo> {
+    const options: TCreateRoomOptions =
+      typeof optionsOrQuota === "object"
+        ? optionsOrQuota
+        : {
+            ...(optionsOrQuota !== undefined && { quota: optionsOrQuota }),
+            ...(tags !== undefined && { tags }),
+            ...(color !== undefined && { color }),
+            ...(cover !== undefined && { cover }),
+            ...(indexing !== undefined && { indexing }),
+            ...(denyDownload !== undefined && { denyDownload }),
+          };
+
+    return this.#getMethodPromise<TRoomInfo>(InstanceMethods.CreateRoom, {
       title,
       roomType,
-      ...(quota !== undefined && { quota }),
-      ...(denyDownload !== undefined && { denyDownload }),
-      ...(tags !== undefined && { tags }),
-      ...(color !== undefined && { color }),
-      ...(cover !== undefined && { cover }),
-      ...(indexing !== undefined && { indexing }),
+      ...options,
     });
   }  
   
   /**
-   * Dynamically changes the list view display mode for enhanced user experience.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method allows applications to programmatically switch between different
-   * view modes to optimize content presentation based on user preferences, screen
-   * size, or content type. View changes are applied immediately and persist for
-   * the user session, providing responsive and adaptive interfaces.
+   * Switches the file list display mode.
    *
-   * @example
-   * ```typescript
-   * await docSpace.setListView('table');
-   * console.log('View changed to table mode');
-   * ```
+   * @param viewType - The view mode: `"row"`, `"table"`, or `"tile"`.
+   * @returns A promise that resolves with the result of the operation.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * const screenWidth = window.innerWidth;
-   * let optimalView;
-   *
-   * if (screenWidth < 768) {
-   *   optimalView = 'row';
-   * } else if (screenWidth < 1200) {
-   *   optimalView = 'table';
-   * } else {
-   *   optimalView = 'tile';
-   * }
-   *
-   * try {
-   *   await docSpace.setListView(optimalView);
-   *   console.log('View optimized for screen size:', optimalView);
-   * } catch (error) {
-   *   console.error('Failed to change view:', error);
-   * }
+   * await instance.setListView('table');
    * ```
    *
-   * @param viewType - The view mode to apply: "row" (compact list), "table" (detailed grid), or "tile" (preview cards).
-   * @returns A promise that resolves to an object indicating the result of the view change operation.
-   *
-   * @throws {Error} Throws an error if the view type is not supported or the operation fails.
-   * @see {@link getList} - Retrieves content displayed in the current view mode.
-   * @see {@link getConfig} - Gets the current view configuration and defaults.
-   * @see {@link setConfig} - Updates global default view preferences.
+   * @example
+   * Switch to tile view only when in manager mode — read the current mode via {@link SDKInstance.getConfig}.
+   * ```typescript
+   * const { mode } = instance.getConfig();
+   * if (mode === SDKMode.Manager) {
+   *   await instance.setListView('tile');
+   * }
+   * ```
    */
-  setListView(viewType: string): Promise<object> {
+  setListView(viewType: TManagerViewMode): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.SetListView, { viewType });
   }
 
   /**
-   * Creates a hash for the given password using the specified hash settings.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method is typically used before authentication to create a secure hash
-   * of the user's password that can be safely transmitted and stored.
+   * Creates a password hash using the provided hash settings.
    *
-   * @param password - The plaintext password to be hashed.
-   * @param hashSettings - A configuration object for the hash function, containing algorithm settings.
-   * @returns A promise that resolves to an object containing the generated password hash.
+   * Obtain `hashSettings` from {@link SDKInstance.getHashSettings} before calling this method.
+   *
+   * @param password - The plaintext password to hash.
+   * @param hashSettings - Hash algorithm settings from {@link SDKInstance.getHashSettings}.
+   * @returns A promise that resolves with the generated hash.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * const hashSettings = await sdkInstance.getHashSettings();
-   *
-   * const hashResult = await sdkInstance.createHash('userPassword123', hashSettings);
-   * console.log('Password hash:', hashResult.hash);
-   *
-   * await sdkInstance.login('user@example.com', hashResult.hash);
+   * const settings = await instance.getHashSettings();
+   * const hash = await instance.createHash('p@ssw0rd', settings);
+   * console.log(hash);
    * ```
    *
-   * @throws {Error} Throws an error if the password is empty or the hash settings are invalid.
-   * @see {@link getHashSettings} - Retrieves the current hash settings.
-   * @see {@link login} - Uses the generated hash for authentication.
+   * @example
+   * Full login flow using {@link SDKInstance.getHashSettings} and {@link SDKInstance.login}.
+   * ```typescript
+   * const settings = await instance.getHashSettings();
+   * const hash = await instance.createHash('p@ssw0rd', settings);
+   * await instance.login('user@example.com', hash, undefined, true);
+   * ```
    */
   createHash(password: string, hashSettings: object): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateHash, {
@@ -1610,159 +1894,168 @@ export class SDKInstance {
   }
 
   /**
-   * Authenticates a user with the provided credentials.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method supports both password hash and plaintext password authentication.
-   * For security reasons, it is recommended to use password hashing via the `createHash()` method.
+   * Authenticates a user using email and a hashed password.
    *
-   * @param email - The user's email address used for authentication.
-   * @param passwordHash - The hashed password (recommended) obtained from the `createHash()` method.
-   * @param password - Optional plaintext password (not recommended for production).
-   * @param session - Optional flag to create a persistent session. The default value is `false`.
-   * @returns A promise that resolves to an object containing the authentication result and user data.
+   * Obtain `passwordHash` from {@link SDKInstance.createHash}. The portal's SDK dispatcher
+   * (client 4.0.0) forwards only `email` and `passwordHash` to its sign-in and always requests a
+   * persistent session; the REST endpoint behind it would also take a plaintext password and a
+   * session flag, but neither reaches it from the frame.
+   *
+   * :::note
+   * A failed sign-in is **resolved, not rejected** — see {@link TLoginResult}. `url === "/"` means a
+   * session exists; a `url` under `/confirm/` means the account needs a second factor and no
+   * session was created — call `login` again with the same credentials and the one-time `code`;
+   * a `status` (`401` for wrong credentials) with a `message` means the attempt failed. Only SDK-side
+   * failures reject: {@link SDKErrorCode.Timeout}, {@link SDKErrorCode.Disconnected},
+   * {@link SDKErrorCode.ModeMismatch} — the latter also in OAuth mode ({@link TFrameConfig.getToken} or
+   * {@link TFrameConfig.accessToken} set), where the host owns the session and no cookie sign-in is
+   * possible. A portal whose SDK dispatcher predates the `code`
+   * argument ignores it and answers the challenge again; on such a portal the login page remains
+   * the only way to complete a two-factor sign-in.
+   * :::
+   *
+   * @param email - The user's email address.
+   * @param passwordHash - The hashed password (from {@link SDKInstance.createHash}).
+   * @param password - Not forwarded by the portal's SDK dispatcher (client 4.0.0); use `passwordHash`.
+   * @param session - Not forwarded by the portal's SDK dispatcher (client 4.0.0); the session is always persistent.
+   * @param code - One-time code from the authenticator app or SMS; finishes a login that answered with a `/confirm/…` url.
+   * @returns A promise that resolves with the authentication result — see {@link TLoginResult}.
+   *   Unlike the other methods, a portal failure is resolved as `{ status, message }`, not rejected.
    *
    * @example
+   * Login with a pre-hashed password from {@link SDKInstance.createHash}.
    * ```typescript
-   * const hashSettings = await sdkInstance.getHashSettings();
-   * const hashResult = await sdkInstance.createHash('userPassword123', hashSettings);
-   *
-   * const loginResult = await sdkInstance.login(
-   *   'user@example.com',
-   *   hashResult.hash,
-   *   undefined,
-   *   true
-   * );
-   *
-   * console.log('Login successful:', loginResult.success);
-   * console.log('User data:', loginResult.user);
+   * const result = await instance.login('user@example.com', passwordHash);
+   * if (!result.url) throw new Error(result.message ?? 'login failed');
    * ```
    *
    * @example
+   * Two-factor sign-in using {@link SDKInstance.getHashSettings} and {@link SDKInstance.createHash}.
    * ```typescript
-   * const loginResult = await sdkInstance.login(
-   *   'user@example.com',
-   *   '',
-   *   'userPassword123',
-   *   false
-   * );
+   * const settings = await instance.getHashSettings();
+   * const hash = await instance.createHash('p@ssw0rd', settings);
+   * const first = await instance.login('user@example.com', hash);
+   * if (first.url?.startsWith('/confirm/')) {
+   *   const code = await askUserForCode();
+   *   const second = await instance.login('user@example.com', hash, undefined, undefined, code);
+   *   if (second.status) throw new Error('wrong code');
+   * }
    * ```
-   *
-   * @throws {Error} Throws an error if authentication fails or credentials are invalid.
-   * @see {@link createHash} - Creates secure password hashes.
-   * @see {@link getHashSettings} - Retrieves hash configuration.
-   * @see {@link logout} - Ends the user session.
    */
   login(
     email: string,
     passwordHash: string,
     password?: string,
-    session?: boolean
-  ): Promise<object> {
+    session?: boolean,
+    code?: string
+  ): Promise<TLoginResult> {
+    if (this.#isOAuthMode()) {
+      return this.#rejectModeMismatch(
+        "login is not available in OAuth mode: the host supplies the access token via getToken"
+      );
+    }
+
     return this.#getMethodPromise(InstanceMethods.Login, {
       email,
       passwordHash,
       ...(password !== undefined && { password }),
       ...(session !== undefined && { session }),
+      ...(code !== undefined && { code }),
     });
   }
 
   /**
-   * Ends the current user session and logs out the user.
+   * Available in {@link SDKMode.Manager} and {@link SDKMode.System}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method clears the user's authentication state and session data,
-   * effectively signing them out of the DocSpace application.
+   * Ends the current user session.
    *
-   * @returns A promise that resolves to an object containing the logout confirmation.
+   * In OAuth mode ({@link TFrameConfig.getToken} or {@link TFrameConfig.accessToken} set) there is no
+   * portal session to end: the frame authenticates every request with the host's token. The call
+   * rejects with {@link SDKErrorCode.ModeMismatch}; revoke the token on the host and call
+   * {@link SDKInstance.destroyFrame} instead.
+   *
+   * @returns A promise that resolves with the logout result.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure,
+   *   and with {@link SDKErrorCode.ModeMismatch} in OAuth mode.
    *
    * @example
    * ```typescript
-   * const logoutResult = await sdkInstance.logout();
-   * console.log('Logout successful:', logoutResult.success);
-   *
-   * try {
-   *   await sdkInstance.logout();
-   *   console.log('User has been logged out successfully');
-   *   window.location.href = '/login';
-   * } catch (error) {
-   *   console.error('Logout failed:', error.message);
-   * }
+   * await instance.logout();
    * ```
    *
-   * @throws {Error} Throws an error if the logout operation fails.
-   * @see {@link login} - Authenticates a user and starts a session.
+   * @example
+   * Log out and immediately authenticate as a different user using {@link SDKInstance.getHashSettings},
+   * {@link SDKInstance.createHash}, and {@link SDKInstance.login}.
+   * ```typescript
+   * await instance.logout();
+   * const settings = await instance.getHashSettings();
+   * const hash = await instance.createHash('newpassword', settings);
+   * await instance.login('other@example.com', hash);
+   * ```
    */
   logout(): Promise<object> {
+    if (this.#isOAuthMode()) {
+      return this.#rejectModeMismatch(
+        "logout is not available in OAuth mode: revoke the token on the host and call destroyFrame"
+      );
+    }
+
     return this.#getMethodPromise(InstanceMethods.Logout);
   }
   
   /**
-   * Creates a new tag with the specified name.
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * Tags provide a powerful way to organize and categorize content across the DocSpace portal.
-   * They can be used for project management, content categorization, workflow organization,
-   * and creating custom filtering systems for better content discovery.
+   * Creates a new tag with the given name.
    *
-   * @param name - The name of the tag to be created. It should be descriptive and unique.
-   * @returns A promise that resolves to an object representing the created tag with its ID and metadata.
-   *
-   * @example
-   * ```typescript
-   * const tag = await sdkInstance.createTag('Project Alpha');
-   * console.log('Tag created:', tag.name, 'with ID:', tag.id);
-   * ```
+   * @param name - The tag name.
+   * @returns A promise that resolves with the created tag data.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * const tagNames = ['High Priority', 'Marketing', 'Review'];
-   * 
-   * for (const tagName of tagNames) {
-   *   try {
-   *     const tag = await sdkInstance.createTag(tagName);
-   *     console.log(`Created tag: ${tagName}`);
-   *   } catch (error) {
-   *     console.error(`Failed to create tag ${tagName}:`, error);
-   *   }
-   * }
+   * const tag = await instance.createTag('Project Alpha');
+   * console.log(tag);
    * ```
    *
-   * @throws {Error} May throw an error if thetag name is invalid, already exists, or user lacks permission to create tags.
-   * @see {@link addTagsToRoom} - Applies created tags to rooms.
-   * @see {@link removeTagsFromRoom} - Removes tags from rooms.
+   * @example
+   * Create a tag and immediately apply it to a room using {@link SDKInstance.addTagsToRoom}.
+   * ```typescript
+   * await instance.createTag('archived');
+   * await instance.addTagsToRoom('room-123', ['archived']);
+   * ```
    */
   createTag(name: string): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.CreateTag, { name });
   }
   
   /**
-   * Adds tags to a specified room for organization and categorization.
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method allows applying multiple tags to a room simultaneously, helping organize
-   * rooms by project, department, priority, or any custom categorization system. Tags improve
-   * discoverability and enable advanced filtering and search capabilities.
+   * Adds the specified tags to a room.
    *
-   * @param roomId - The unique identifier of the room to which tags will be added.
-   * @param tags - An array of tag names to be added to the room. Tags should already exist or will be created automatically.
-   * @returns A promise that resolves to an object containing the result of the operation and updated room metadata.
-   *
-   * @example
-   * ```typescript
-   * await sdkInstance.addTagsToRoom('room-123', ['Project Alpha', 'High Priority']);
-   * console.log('Tags added successfully to project room');
-   * ```
+   * @param roomId - The room ID.
+   * @param tags - Tag names to add.
+   * @returns A promise that resolves with the result of the operation.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
    *
    * @example
    * ```typescript
-   * const projectTags = ['Engineering', 'Development', 'Q1-2024'];
-   * const result = await sdkInstance.addTagsToRoom('room-456', projectTags);
-   * console.log('Room organized with tags:', projectTags);
+   * await instance.addTagsToRoom('room-123', ['design', 'q1']);
    * ```
    *
-   * @throws {Error} May throw an error if the room ID is invalid, tags do not exist, or the user lacks permission to modify the room tags.
-   * @see {@link createTag} - Creates new tags before applying them.
-   * @see {@link removeTagsFromRoom} - Removes tags from rooms.
-   * @see {@link getRooms} - Retrieves rooms with their current tags.
+   * @example
+   * Create a new tag with {@link SDKInstance.createTag} and apply it
+   * to a newly created room via {@link SDKInstance.createRoom}.
+   * ```typescript
+   * await instance.createTag('design');
+   * const room = await instance.createRoom('Creative Hub', RoomType.Collaboration);
+   * await instance.addTagsToRoom(room.id, ['design']);
+   * ```
    */
-  addTagsToRoom(roomId: string, tags: string[]): Promise<object> {
+  addTagsToRoom(roomId: string | number, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.AddTagsToRoom, {
       roomId,
       tags,
@@ -1770,43 +2063,30 @@ export class SDKInstance {
   }
   
   /**
-   * Removes specified tags from a room for organization and categorization cleanup.
+   * Available in {@link SDKMode.Manager}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method allows removing multiple tags from a room simultaneously, helping maintain
-   * clean and accurate room categorization. It is essential for tag management workflows, project
-   * status updates, archive cleanup, and removing outdated or incorrect categorizations. The
-   * operation is atomic: either all specified tags are removed or none are affected.
+   * Removes the specified tags from a room.
    *
-   * @param roomId - The unique identifier of the room from which tags will be removed.
-   * @param tags - An array of tag names to be removed from the room. Only existing tags will be processed.
-   * @returns A promise that resolves to an object containing the result of the operation and updated room metadata.
-   * 
+   * @param roomId - The room ID.
+   * @param tags - Tag names to remove.
+   * @returns A promise that resolves with the result of the operation.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
+   *
    * @example
    * ```typescript
-   * const result = await sdkInstance.removeTagsFromRoom(
-   *   'room-456',
-   *   ['In-Progress', 'Review-Pending', 'Draft']
-   * );
-   * console.log('Tags removed successfully:', result);
+   * await instance.removeTagsFromRoom('room-123', ['draft', 'in-progress']);
    * ```
    *
    * @example
+   * Find rooms by name and clean up a tag from each using {@link SDKInstance.getRooms}.
    * ```typescript
-   * const archivedRooms = await sdkInstance.getRooms({ tags: ['Archived'] });
-   * const tagsToRemove = ['Active', 'In-Progress', 'Urgent'];
-   * 
-   * for (const room of archivedRooms.rooms) {
-   *   await sdkInstance.removeTagsFromRoom(room.id, tagsToRemove);
-   *   console.log(`Cleaned up tags for: ${room.title}`);
+   * const rooms = await instance.getRooms({ search: 'sprint-22' });
+   * for (const room of rooms.folders) {
+   *   await instance.removeTagsFromRoom(room.id, ['in-progress']);
    * }
    * ```
-   *
-   * @throws {Error} May throw an error if the room ID is invalid, tags do not exist in the room, or the user lacks permission to modify room tags.
-   * @see {@link addTagsToRoom} - Adds tags to a room.
-   * @see {@link createTag} - Creates new tags before applying them.
-   * @see {@link getRooms} - Retrieves rooms along with their current tags.
    */
-  removeTagsFromRoom(roomId: string, tags: string[]): Promise<object> {
+  removeTagsFromRoom(roomId: string | number, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.RemoveTagsFromRoom, {
       roomId,
       tags,
@@ -1814,59 +2094,272 @@ export class SDKInstance {
   }
   
   /**
-   * Executes custom functions within the editor context for advanced document manipulation.
+   * Available in {@link SDKMode.Editor} and {@link SDKMode.Viewer}; in any other mode the portal answers that
+   * the method does not exist and the promise rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * This method allows applications to run custom code directly within the document editor
-   * environment, enabling advanced programmatic operations, content manipulation, automation
-   * tasks, and integration with external systems. The callback function receives the editor
-   * instance and optional data, providing full access to editor APIs and document content.
+   * Runs a callback function inside the active document editor.
    *
-   * @example
-   * ```typescript
-   * const templateData = {
-   *   customerName: 'Acme Corporation',
-   *   projectName: 'Digital Transformation',
-   *   startDate: new Date().toLocaleDateString()
-   * };
+   * The callback is serialized with `Function.prototype.toString` and re-created inside the
+   * editor frame, so it must not reference outer-scope variables, closures or imports — pass
+   * everything it needs through `data`. The editor frame invokes it as
+   * `callback(editor, asc, data)`:
    *
-   * docSpace.executeInEditor((editorInstance, data) => {
-   *   editorInstance.insertText(`
-   *     PROJECT PROPOSAL
-   *     Client: ${data.customerName}
-   *     Project: ${data.projectName}
-   *     Date: ${data.startDate}
-   *   `);
-   * }, templateData);
-   * ```
+   * - `editor` — the DocsAPI editor object (`window.DocEditor.instances[...]`). Call
+   *   `editor.createConnector()` yourself to get a connector with `callCommand` /
+   *   `executeMethod`; the SDK does not create one for you.
+   * - `asc` — `window.Asc` of the editor frame. `asc.scope` is serialized into every
+   *   `connector.callCommand(fn)` and is the way to pass data into Document Builder code.
+   * - `data` — the `data` argument of this method, JSON-serialized.
+   *
+   * @param callback - The function to run inside the editor context. Invoked as
+   *   `callback(editor, asc, data)` — note that `data` is the **third** argument.
+   * @param data - Optional JSON-serializable data passed as the third argument to `callback`.
+   * @returns A promise that resolves with `{}` once the editor frame has run the callback.
+   *   An error thrown by the callback is logged inside the editor frame and does not reject the promise.
    *
    * @example
    * ```typescript
-   * docSpace.executeInEditor((editorInstance, data) => {
-   *   const documentContent = editorInstance.getDocumentContent();
-   *   
-   *   if (data.checkSpelling) {
-   *     const spellCheckResults = editorInstance.runSpellCheck();
-   *     spellCheckResults.forEach(issue => {
-   *       if (issue.confidence > 0.8) {
-   *         editorInstance.replaceText(issue.position, issue.suggestion);
-   *       }
-   *     });
-   *   }
-   *   
-   *   editorInstance.saveDocument();
-   * }, { checkSpelling: true });
+   * instance.executeInEditor((editor, _asc, data) => {
+   *   editor.insertText(data.text);
+   * }, { text: 'Hello, World!' });
    * ```
    *
-   * @param callback - The function to be executed within the editor context. Receives the editor instance and optional data.
-   * @param data - Optional object providing context or configuration for the callback.
+   * @example
+   * Initialize editor mode with {@link SDK.initEditor} and inject content when the document is ready.
+   * ```typescript
+   * const instance = sdk.initEditor({
+   *   frameId: 'ds-editor',
+   *   src: 'https://portal.example.com',
+   *   id: 42,
+   *   events: {
+   *     onEditorOpen: () => {
+   *       instance.executeInEditor((editor, _asc, data) => {
+   *         editor.insertText(data.header);
+   *       }, { header: 'Generated by SDK' });
+   *     },
+   *   },
+   * });
+   * ```
    *
-   * @throws {Error} Throws an error if the editor context is not available or callback execution fails.
-   * @see {@link SDK.initEditor} - Initializes the editor before executing custom functions.
-   * @see {@link getSelection} - Retrieves the selected content to operate on within the editor.
+   * @example
+   * Fill form fields with the Document Builder API through a connector. Data reaches the
+   * `callCommand` function via `Asc.scope`; the function itself must be closure-free.
+   * ```typescript
+   * instance.executeInEditor(function (editor, asc, data) {
+   *   const connector = editor.createConnector();
+   *   asc.scope = { values: data.values };
+   *   connector.callCommand(function () {
+   *     const doc = Api.GetDocument();
+   *     for (const form of doc.GetAllForms()) {
+   *       const value = Asc.scope.values[form.GetFormKey()];
+   *       if (value === undefined) continue;
+   *       if (form.GetFormType() === 'checkBoxForm') form.SetChecked(!!value);
+   *       else form.SetText(String(value));
+   *     }
+   *   });
+   * }, { values: { FullName: 'Jane Doe', Agree: true } });
+   * ```
    */
-  executeInEditor(callback: (instance:object, data?: object) => void, data?: object): void {
-    void this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
+  executeInEditor(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    callback: (editor: any, asc: any, data?: any) => void,
+    data?: object,
+  ): Promise<object> {
+    return this.#getMethodPromise(InstanceMethods.ExecuteInEditor, {
       callback, data
     });
+  }
+
+  /**
+   * Available in {@link SDKMode.Forms} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
+   * Navigates the frame to a specific section.
+   *
+   * @param section - Target section. For {@link SDKMode.Forms} — {@link TFormsSection};
+   *   for {@link SDKMode.Personal} — {@link TPersonalSection}.
+   * @returns A promise that resolves when the navigation is complete.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure,
+   *   or with {@link SDKErrorCode.ModeMismatch} in any other mode.
+   *
+   * @example
+   * Forms mode.
+   * ```typescript
+   * await instance.navigateSection("completed-forms");
+   * ```
+   *
+   * @example
+   * Personal mode.
+   * ```typescript
+   * const personal = sdk.initPersonal({
+   *   frameId: 'ds-personal',
+   *   src: 'https://portal.example.com',
+   * });
+   * await personal.navigateSection("trash");
+   * ```
+   */
+  navigateSection(section: TFormsSection | TPersonalSection): Promise<object> {
+    if (this.config.mode !== SDKMode.Forms && this.config.mode !== SDKMode.Personal) {
+      return this.#rejectModeMismatch("navigateSection is only available in Forms or Personal mode");
+    }
+
+    return this.#getMethodPromise(InstanceMethods.NavigateSection, { section });
+  }
+
+  /**
+   * Replaces the custom actions of the frame: context menu items for files, folders and rooms and
+   * items of the create ("+") menu. Groups left out of `config` are cleared; pass `{}` to remove all items.
+   * Available in {@link SDKMode.Manager}, {@link SDKMode.Personal} and {@link SDKMode.Forms}.
+   * Room actions are shown in {@link SDKMode.Manager} only, create menu items in {@link SDKMode.Manager}
+   * and {@link SDKMode.Personal}. When an action is clicked, {@link TFrameEvents.onCustomAction} fires
+   * with a {@link TCustomActionEvent}. To show the items from the first render, set
+   * {@link TFrameConfig.customActions} instead.
+   *
+   * @param config - Custom actions configuration. See {@link TCustomActionsConfig}.
+   * @returns A promise that resolves when the actions are applied.
+   *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure,
+   *   or with {@link SDKErrorCode.ModeMismatch} in any other mode.
+   *
+   * @example
+   * ```typescript
+   * await instance.setCustomActions({
+   *   contextMenu: {
+   *     file: [
+   *       { key: "send-to-crm", label: "Send to CRM", icon: "https://example.com/icon.svg" },
+   *       { key: "export", label: "Export", extensions: ["pdf"] },
+   *     ],
+   *     room: [{ key: "unlink", label: "Unlink from deal", requireSecurity: ["EditRoom"] }],
+   *   },
+   *   createMenu: [{ key: "upload-from-crm", label: "Upload from CRM" }],
+   * });
+   * ```
+   *
+   * @example
+   * Handle the custom action event on the host page.
+   * ```typescript
+   * const manager = sdk.initManager({
+   *   frameId: 'ds-frame',
+   *   src: 'https://portal.example.com',
+   *   events: {
+   *     onCustomAction: ({ action, items }) => console.log(action, items),
+   *   },
+   * });
+   * await manager.setCustomActions({
+   *   contextMenu: { file: [{ key: "approve", label: "Approve" }] },
+   * });
+   * ```
+   */
+  setCustomActions(config: TCustomActionsConfig): Promise<object> {
+    const { mode } = this.config;
+    if (mode !== SDKMode.Manager && mode !== SDKMode.Personal && mode !== SDKMode.Forms) {
+      return this.#rejectModeMismatch(
+        "setCustomActions is only available in Manager, Personal and Forms modes"
+      );
+    }
+
+    return this.#getMethodPromise(InstanceMethods.SetCustomActions, config).then((result) => {
+      this.config.customActions = config;
+      return result;
+    });
+  }
+
+  /**
+   * Uploads a file into the frame's current location: the form filling room in
+   * {@link SDKMode.Forms}, the open folder in {@link SDKMode.Personal}.
+   * The file is transferred to the iframe via zero-copy ArrayBuffer and uploaded
+   * using the chunked upload API. The file list refreshes automatically when complete.
+   *
+   * @param file - The file to upload. Callers should validate type and size before calling.
+   * @returns A promise that resolves with the {@link TUploadResult} of {@link TFrameEvents.onUploadSuccess},
+   *   so a handler for that event is optional. Rejects with {@link SDKErrorCode.UploadFailed} on
+   *   {@link TFrameEvents.onUploadError} or after 120 seconds, {@link SDKErrorCode.ModeMismatch} in any
+   *   other mode, {@link SDKErrorCode.Disconnected} before the frame is connected.
+   *
+   * :::note
+   * The entire file is read into memory via `arrayBuffer()` before transfer.
+   * Callers should validate file size before invoking this method to avoid
+   * excessive memory usage on the host page. The server-side upload limit
+   * is configured in ONLYOFFICE Apps and will reject files that exceed it.
+   *
+   * The ArrayBuffer is transferred to the iframe (zero-copy). After `upload()`
+   * returns, the buffer is neutered and cannot be reused.
+   *
+   * {@link TFrameConfig.methodTimeout} does not apply to the transfer, and
+   * {@link TFrameEvents.onUploadProgress} is not emitted for it.
+   * :::
+   *
+   * @example
+   * ```typescript
+   * const input = document.querySelector("input[type=file]");
+   * const file = input.files[0];
+   * const result = await instance.upload(file);
+   * ```
+   *
+   * @example
+   * Upload with error handling.
+   * ```typescript
+   * try {
+   *   await forms.upload(file);
+   *   console.log("Upload complete");
+   * } catch (err) {
+   *   console.error("Upload failed:", err.message);
+   * }
+   * ```
+   */
+  async upload(file: File): Promise<object> {
+    if (this.config.mode !== SDKMode.Forms && this.config.mode !== SDKMode.Personal) {
+      return this.#rejectModeMismatch("upload is only available in Forms or Personal mode");
+    }
+
+    if (!this.#isConnected) {
+      const err = new SDKError(SDKErrorCode.Disconnected, connectErrorText);
+      this.#handleError(err);
+      throw err;
+    }
+
+    const { frameId, src } = this.config;
+
+    const frameWindow = this.#iframe?.contentWindow;
+
+    if (!frameWindow) {
+      throw new SDKError(SDKErrorCode.Disconnected, "Frame not connected");
+    }
+
+    const buffer = await file.arrayBuffer();
+
+    const uploadId = ++this.#uploadIdCounter;
+
+    const uploadPromise = new Promise<object>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.#pendingUploads.delete(uploadId);
+        reject(new SDKError(SDKErrorCode.UploadFailed, `Upload timed out: ${file.name}`));
+      }, 120000);
+
+      this.#pendingUploads.set(uploadId, { fileName: file.name, resolve, reject, timer });
+    });
+
+    try {
+      frameWindow.postMessage(
+        {
+          frameId,
+          type: MessageTypes.UploadFileData,
+          uploadId,
+          fileName: file.name,
+          fileSize: file.size,
+          lastModified: file.lastModified,
+          buffer,
+        },
+        src,
+        [buffer],
+      );
+    } catch (error) {
+      const pending = this.#pendingUploads.get(uploadId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.#pendingUploads.delete(uploadId);
+      }
+      throw new SDKError(SDKErrorCode.UploadFailed, (error as Error).message || "Upload failed");
+    }
+
+    return uploadPromise;
   }
 }

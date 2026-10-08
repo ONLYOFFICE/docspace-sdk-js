@@ -1,82 +1,315 @@
-# ONLYOFFICE DocSpace JavaScript SDK
+# ONLYOFFICE Apps Embed SDK
 
-## Basic concepts
+The ONLYOFFICE Apps Embed SDK (ONLYOFFICE Apps is the new name of ONLYOFFICE DocSpace) lets developers integrate ONLYOFFICE Apps into web applications. Embed a full-featured file manager, document editor, room and file selectors, file uploader, forms gallery or AI chat — with just a few lines of code.
 
-The ONLYOFFICE DocSpace SDK based on JavaScript allows developers to use all the DocSpace possibilities with *api.js*. You can integrate ONLYOFFICE DocSpace into your own web application, allowing users to create and submit documents directly from your website. For example, you can use the ONLYOFFICE DocSpace [React component](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/react-component/) to integrate ONLYOFFICE DocSpace into React projects.
+You can use it as an [npm package](#npm) for modern web applications or connect it via a [script tag](#script-tag) for a quick start. For React projects, there is also a ready-made [React component](https://api.onlyoffice.com/docspace/javascript-sdk/samples/react-samples/).
 
-You don't need to be an experienced JavaScript developer to use the DocSpace JavaScript SDK because we provide you with all the basics. You only need a few lines of JavaScript to set up a fully functional integration.
+## Prerequisites
 
-Follow the steps below to connect DocSpace as a frame to your website.
+For the SDK to work, add the domain of your application to the allowlist of your ONLYOFFICE Apps workspace:
 
-## Step 1. Specifying the DocSpace URL
+1. Open **Developer Tools → Embed SDK** in ONLYOFFICE Apps.
+2. Under **Add the allowed domains for this workspace**, enter the address of your server's root directory.
 
-For the JavaScript SDK to work correctly, it must be launched on the server. Note that running the HTML file directly will not work. Please make sure you are using a server environment.
+## Getting Started
 
-You need to add the URL of your server's root directory to the **Developer Tools** section of DocSpace:
+### npm
 
-1. Go to the DocSpace settings.
-2. Navigate to the **Developer Tools** section.
-3. On the **JavaScript SDK** tab, in the **Enter the address of DocSpace to embed** field, add the URL of your server's root directory.
+```bash
+npm install @onlyoffice/docspace-sdk-js
+```
 
-## Step 2. Creating the HTML file
+```typescript
+import { SDK } from "@onlyoffice/docspace-sdk-js";
 
-Create the target HTML file which must include a placeholder *div* tag, where all the information about DocSpace parameters will be passed:
+const sdk = new SDK();
 
-``` html
+// Embed a file manager
+const manager = sdk.initManager({
+  frameId: "ds-frame",
+  src: "https://portal.example.com",
+  events: {
+    onAppReady: () => console.log("ONLYOFFICE Apps is ready"),
+    onAppError: (err) => console.error("Error:", err),
+  },
+});
+```
+
+The SDK provides both CommonJS and ES module builds, so it works with any modern bundler (Webpack, Vite, esbuild, etc.).
+
+### Script tag
+
+If you prefer not to use a package manager, include the *api.js* script directly from your ONLYOFFICE Apps workspace:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>DocSpace JavaScript SDK</title>
-        <script src="{PORTAL_SRC}/static/scripts/sdk/2.0.0/api.js"></script>
-    </head>
-    <body>
-        <div id="ds-frame"></div>
-    </body>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Embed SDK</title>
+    <script src="https://portal.example.com/static/scripts/sdk/2.2.0/api.js"></script>
+  </head>
+  <body>
+    <div id="ds-frame"></div>
+    <script>
+      const instance = DocSpace.SDK.init({
+        frameId: "ds-frame",
+        src: "https://portal.example.com",
+        mode: "manager",
+      });
+    </script>
+  </body>
 </html>
 ```
 
-The API JavaScript file can normally be found in the following DocSpace folder:
+Replace `portal.example.com` with the address of your ONLYOFFICE Apps workspace.
+You can check the latest SDK version in the [released tags](https://github.com/ONLYOFFICE/docspace-sdk-js/tags).
 
-`{PORTAL\_SRC}/static/scripts/sdk/2.0.0/api.js`
+## SDK Modes
 
-where **{PORTAL\_SRC}** is the name of the server with the ONLYOFFICE DocSpace installed.
+The SDK supports 11 modes, each rendering a different part of ONLYOFFICE Apps inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
 
-## Step 3. Getting the base class
+| Mode | Method | Description |
+|---|---|---|
+| `manager` | [`initManager`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initmanager) | File and folder browser with full CRUD operations on rooms, folders, and files |
+| `editor` | [`initEditor`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initeditor) | Full-featured document editor. Requires `id` (file identifier) |
+| `viewer` | [`initViewer`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initviewer) | Read-only document viewer. Requires `id` (file identifier) |
+| `room-selector` | [`initRoomSelector`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initroomselector) | Dialog for selecting a room. Returns result via `onSelectCallback` event |
+| `file-selector` | [`initFileSelector`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initfileselector) | Dialog for selecting a file. Returns result via `onSelectCallback` event |
+| `system` | [`initSystem`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initsystem) | Headless mode without visible UI — used for API calls like `login`, `logout`, and `getUserInfo` |
+| `public-room` | [`initPublicRoom`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initpublicroom) | Public room view with anonymous access to documents. Requires `requestToken` |
+| `uploader` | [`initUploader`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#inituploader) | File upload interface for a specific folder. Requires `id` (target folder identifier) |
+| `forms` | [`initForms`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initforms) | Forms gallery for a room. Requires `id` (room identifier). Supports `showMenu`, custom actions, and file upload |
+| `chat` | [`initChat`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initchat) | AI chat interface. Bound to an AI agent when `agentId` is set, to the current user otherwise. Supports `entityId` to pass the room or folder the chat is opened from (the AI scopes tool calls to it), `fileId` and `threadId` to attach files or resume threads |
+| `personal` | [`initPersonal`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initpersonal) | Personal files browser: My Documents, Favorites, Recent, Shared with me, Trash. Has no navigation menu of its own: `personalDestination` picks the initial section and `navigateSection` switches it |
 
-When the API JavaScript is connected to the page, get the base class that provides all the basic functionality of *api.js*:
+### Examples
 
-| Class        | Description                                                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| DocSpace.SDK | Defines the DocSpace document manager and allows you to perform operations with rooms, folders, and documents within the DocSpace portal. |
+**Document editor:**
 
-## Step 4. Authorizing
-
-*api.js* uses the active DocSpace application sessions to authenticate users. If the user is logged in to the DocSpace portal that the SDK will connect to, then *api.js* recognizes and uses that active session.
-
-If the users are not authenticated, they will see a page asking them to sign in to DocSpace the first time they use it. Authentication is also possible through the SDK [methods](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/methods/#login).
-
-## Step 5. Initializing
-
-> Please note that when working via HTTPS, it is necessary to set the **"SameSite": "none"** parameter in *appsettings.json* to avoid blocking the work with cookies during cross-domain requests.
-
-Initialize DocSpace frame using the [initFrame](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/methods/#initframe) method with the SDK config passed to it:
-
-``` ts
-const docSpace = DocSpace.SDK.initFrame({
-  frameId: "frameId",
-  showMenu: true,
-})
+```typescript
+const editor = sdk.initEditor({
+  frameId: "ds-editor",
+  src: "https://portal.example.com",
+  id: 42, // file ID
+  editorCustomization: { autosave: true, forcesave: true },
+  events: {
+    onAppReady: () => console.log("Editor loaded"),
+    onEditorCloseCallback: () => history.back(),
+  },
+});
 ```
 
-You can use other available [methods](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/methods/) to initialize DocSpace.
+**Rooms of one deal with custom actions:**
 
-The full list of [config parameters](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/config/) can be found here.
-
-## Step 6. Using
-
-After initialization, the current SDK instance can be accessed by using its [frameId](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/config/#frameid). The list of current SDK instances is available in the *DocSpace.SDK.frames* array. To get the specific SDK instance, use the following string:
-
-``` ts
-DocSpace.SDK.frames[frameId]
+```typescript
+const manager = sdk.initManager({
+  frameId: "ds-frame",
+  src: "https://portal.example.com",
+  rootPath: "/rooms/shared/",
+  filter: { groupId: dealRoomGroupId }, // search and filters stay inside the group
+  customActions: {
+    contextMenu: {
+      file: [{ key: "send", label: "Send to CRM", extensions: ["docx", "pdf"] }],
+      room: [{ key: "unlink", label: "Unlink from deal", requireSecurity: ["EditRoom"] }],
+    },
+    createMenu: [{ key: "upload-from-crm", label: "Upload from CRM" }],
+  },
+  events: {
+    onCustomAction: ({ action, type, items, folderId }) => console.log(action, type, items, folderId),
+  },
+});
 ```
+
+**File selector:**
+
+```typescript
+const selector = sdk.initFileSelector({
+  frameId: "ds-selector",
+  src: "https://portal.example.com",
+  selectorType: "roomsOnly",
+  events: {
+    onSelectCallback: (file) => console.log("Selected:", file),
+    onCloseCallback: () => console.log("Cancelled"),
+  },
+});
+```
+
+**Uploader:**
+
+```typescript
+const uploader = sdk.initUploader({
+  frameId: "ds-uploader",
+  src: "https://portal.example.com",
+  id: "target-folder-id",
+  acceptExtensions: ".docx,.xlsx,.pdf",
+  isMultipleUpload: true,
+  events: {
+    onUploadSuccess: (files) => console.log("Uploaded:", files),
+    onUploadError: (err) => console.error("Upload failed:", "error" in err ? err.error : err.message),
+  },
+});
+```
+
+**Forms:**
+
+```typescript
+const forms = sdk.initForms({
+  frameId: "ds-forms",
+  src: "https://portal.example.com",
+  id: "room-id",
+  events: {
+    onNavigate: (data) => console.log("Navigated:", data),
+    onCustomAction: (data) => console.log("Action:", data),
+    onUploadSuccess: (file) => console.log("Uploaded:", file),
+  },
+});
+
+// Navigate to a section
+await forms.navigateSection("completed-forms");
+
+// Register custom context menu actions
+await forms.setCustomActions({
+  contextMenu: {
+    file: [{ key: "export", label: "Export to CRM" }],
+  },
+});
+
+// Upload a file
+const file = document.querySelector("input[type=file]").files[0];
+await forms.upload(file);
+```
+
+**AI Chat:**
+
+```typescript
+const chat = sdk.initChat({
+  frameId: "ds-chat",
+  src: "https://portal.example.com",
+  agentId: 123,
+  events: {
+    onAppReady: () => console.log("Chat ready"),
+  },
+});
+```
+
+**Personal files:**
+
+```typescript
+const personal = sdk.initPersonal({
+  frameId: "ds-personal",
+  src: "https://portal.example.com",
+  personalDestination: "favorites",
+  events: {
+    onNavigate: (data) => console.log("Section:", data.section),
+  },
+});
+```
+
+## Events
+
+All events are optional. Pass them via the `events` field in the configuration object. The table below shows where each event fires; the full reference is [`TFrameEvents`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/type-aliases/TFrameEvents/).
+
+| Event | Fires in |
+|---|---|
+| `onAppReady`, `onAppError`, `onContentReady`, `onAuthSuccess`, `onSignOut` | All modes |
+| `onAuthError` | All modes, only in [OAuth mode](#authorization) (`getToken` or `accessToken` set) |
+| `onGetExternalData`, `onSetExternalData` | Any mode, when the frame asks the host to read or persist a value in external storage |
+| `onFileManagerClick` | Manager, Public room, Forms, Personal |
+| `onEditorOpen` | Manager, Public room, Personal — opening a file from the list; the "Create" dialog only in Manager |
+| `onNotFound` | Manager, Public room |
+| `onNoAccess` | Manager, Public room, Chat |
+| `onEditorCloseCallback` | Editor, Viewer |
+| `onDownload` | Manager, Public room, Personal — with `downloadToEvent: true` |
+| `onFilterSearch` | Personal, Public room |
+| `onSelectCallback`, `onCloseCallback` | Room selector, File selector |
+| `onUploadSuccess`, `onUploadError` | Uploader, Forms, Personal |
+| `onUploadProgress` | Uploader |
+| `onCustomAction` | Manager, Personal, Forms |
+| `onNavigate` | Forms, Personal |
+
+## Instance Methods
+
+After initialization, the returned `SDKInstance` object provides methods to interact with ONLYOFFICE Apps. Each method works in the modes listed below; in any other mode its promise rejects with `SDKErrorCode.ModeMismatch`.
+
+| Methods | Modes |
+|---|---|
+| `setConfig`, `getConfig`, `destroyFrame`, `setIsLoaded` | All modes |
+| `login`, `logout`, `createHash`, `getHashSettings` | System, Manager (not in OAuth mode) |
+| `getUserInfo` | Manager, System, Personal, Forms |
+| `getFolderInfo`, `getSelection`, `openModal`, `createFile`, `createFolder`, `setListView` | Manager, Personal |
+| `getFiles`, `getFolders`, `getList` | Manager, Personal, Forms |
+| `getRooms`, `createRoom`, `createTag`, `addTagsToRoom`, `removeTagsFromRoom` | Manager |
+| `navigateSection`, `upload` | Personal, Forms |
+| `setCustomActions` | Manager, Personal, Forms |
+| `executeInEditor` | Editor, Viewer |
+
+```typescript
+const system = sdk.initSystem({
+  frameId: "ds-system",
+  src: "https://portal.example.com",
+  events: { onAppReady: () => console.log("ready") },
+});
+
+// Authentication (system mode)
+await system.login(email, passwordHash);
+await system.logout();
+
+const manager = sdk.initManager({ frameId: "ds-frame", src: "https://portal.example.com" });
+
+// Data retrieval (manager mode)
+const user = await manager.getUserInfo();
+const files = await manager.getFiles();
+const folders = await manager.getFolders();
+const rooms = await manager.getRooms(filter);
+const selection = await manager.getSelection();
+
+// Content management (manager mode)
+await manager.createFile(folderId, title);
+await manager.createFolder(parentFolderId, title);
+await manager.createRoom(title, roomType);
+
+// Frame control (all modes)
+manager.setConfig({ theme: "Dark" });
+manager.destroyFrame();
+
+// Forms mode (via initForms)
+await forms.navigateSection("library");
+await forms.setCustomActions({ contextMenu: { file: [...] } });
+await forms.upload(file);
+```
+
+All active instances are accessible via `sdk.frames`:
+
+```typescript
+const instance = sdk.frames["ds-frame"];
+```
+
+## Authorization
+
+By default the frame uses the active ONLYOFFICE Apps session: a user signed in to the workspace is signed in inside the frame, otherwise a sign-in page is displayed, or the host signs the user in with `createHash` and `login` in [system mode](#sdk-modes).
+
+With `getToken` (or a static `accessToken`) in the config the frame switches to OAuth mode: it authorizes every request with `Authorization: Bearer <token>` supplied by the host and sets no cookie, so the embedded session ends with the host's and third-party cookie restrictions do not apply. The host backend keeps the refresh token and returns short-lived access tokens; failures arrive in `onAuthError`. See [`getToken`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/type-aliases/TFrameConfig/#getToken) and `TAuthErrorCode` in the reference.
+
+```typescript
+const instance = sdk.initManager({
+  frameId: "ds-frame",
+  src: "https://portal.example.com",
+  getToken: async () => {
+    const { accessToken } = await (await fetch("/api/onlyoffice/token")).json();
+    return accessToken;
+  },
+  events: { onAuthError: ({ code }) => console.warn("auth failed:", code) },
+});
+```
+
+## Documentation
+
+- [Getting Started](https://api.onlyoffice.com/docspace/javascript-sdk/get-started/) — prerequisites, quickstart, authentication and security
+- [API Reference](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/) — full configuration, methods, and events reference
+- [React Component](https://api.onlyoffice.com/docspace/javascript-sdk/samples/react-samples/) — integration guide for React projects
+- [Changelog](./CHANGELOG.md) — version history and release notes
+
+## License
+
+Apache-2.0. See [LICENSE](./LICENSE) for details.

@@ -1,0 +1,447 @@
+/**
+ * (c) Copyright Ascensio System SIA 2026
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @license
+ */
+
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { collectPageAnchors, installWarnCounter, slugify, walkMarkdownLines } from "../tools/shared/markdown.mjs";
+import { PAGE_TRANSFORMS } from "../tools/docs/page-transforms.mjs";
+import { applyApiTables } from "../tools/docs/api-tables.mjs";
+import { generateIndexPage } from "../tools/docs/section-index.mjs";
+
+type TTransform = (content: string, filePath: string) => string;
+
+const runPageTransforms = (content: string, filePath = "page.md") =>
+  (PAGE_TRANSFORMS as TTransform[]).reduce((acc, transform) => transform(acc, filePath), content);
+
+let tempDir: string;
+
+beforeEach(() => {
+  tempDir = mkdtempSync(join(tmpdir(), "sdk-docs-tools-"));
+});
+
+afterEach(() => {
+  rmSync(tempDir, { recursive: true, force: true });
+});
+
+const writePage = (relativePath: string, content: string) => {
+  const filePath = join(tempDir, relativePath);
+  mkdirSync(join(filePath, ".."), { recursive: true });
+  writeFileSync(filePath, content, "utf-8");
+  return filePath;
+};
+
+describe("shared/markdown", () => {
+  it("flags fenced code blocks including the marker lines", () => {
+    const lines = [...walkMarkdownLines("a\n```ts\nb\n```\nc")];
+    expect(lines.map((l) => l.insideCodeBlock)).toEqual([false, true, true, true, false]);
+  });
+
+  it("slugifies headings the way Docusaurus does", () => {
+    expect(slugify("setConfig()")).toBe("setconfig");
+    expect(slugify("`FRAME_NAME`")).toBe("frame_name");
+    expect(slugify("Type Declaration")).toBe("type-declaration");
+  });
+
+  it("collects heading slugs and row anchors, deduplicating repeats", () => {
+    const anchors = collectPageAnchors(
+      "# Title\n## Example\n## Example\n| <a id=\"onAppReady\"></a> `x` |\n```\n## Not a heading\n```"
+    );
+    expect([...anchors].sort()).toEqual(["example", "example-1", "onappready"]);
+  });
+});
+
+describe("page transforms", () => {
+  it("moves the page-level source link into custom_edit_url front matter and drops member-level ones", () => {
+    const input = [
+      "# SDKInstance",
+      "",
+      "Defined in: [instance/index.ts:90](https://github.com/o/r/blob/master/src/instance/index.ts#L90)",
+      "",
+      "Intro.",
+      "",
+      "### login()",
+      "",
+      "Defined in: [instance/index.ts:500](https://github.com/o/r/blob/master/src/instance/index.ts#L500)",
+      "",
+      "Logs in.",
+    ].join("\n");
+
+    const output = runPageTransforms(input);
+
+    expect(output).toMatch(
+      /^---\ncustom_edit_url: https:\/\/github\.com\/o\/r\/blob\/master\/src\/instance\/index\.ts#L90\n---\n\n# SDKInstance\n\nIntro\./
+    );
+    expect(output).not.toContain("Defined in:");
+    expect(output).not.toContain("View source");
+    expect(output).not.toContain("#L500");
+    expect(output).toContain("### login()\n\nLogs in.");
+  });
+
+  it("escapes pipes inside inline code in table cells but not in code fences", () => {
+    const input = "| `a` | `\"x\" | \"y\"` | text |\n```ts\ntype T = \"x\" | \"y\";\n```";
+    const output = runPageTransforms(input);
+    expect(output).toContain("| `a` | `\"x\" \\| \"y\"` | text |");
+    expect(output).toContain("type T = \"x\" | \"y\";");
+  });
+
+  it("drops stale -N suffixes from in-page anchors and warns on dead ones", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const output = runPageTransforms("# T\n## setConfig()\n\n[a](#setconfig-1) [b](#missing)");
+    expect(output).toContain("[a](#setconfig)");
+    expect(output).toContain("[b](#missing)");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("#missing"));
+    warn.mockRestore();
+  });
+
+  it("inserts the blank line MDX needs before a heading", () => {
+    expect(runPageTransforms("text\n## Heading")).toBe("text\n\n## Heading");
+  });
+
+  it("adds no front matter to a page without a source reference", () => {
+    expect(runPageTransforms("# Title\n\nIntro.")).toBe("# Title\n\nIntro.");
+  });
+
+  it("moves the description above the signature block of a type alias or variable page", () => {
+    const input = [
+      "# connectErrorText",
+      "",
+      "```ts",
+      "const connectErrorText: \"Cannot connect.\";",
+      "```",
+      "",
+      "Defined in: [constants/index.ts:9](https://github.com/o/r/blob/master/src/constants/index.ts)",
+      "",
+      "The message shown when the frame cannot connect.",
+      "Used by [SDKInstance](../classes/SDKInstance.md).",
+      "",
+      "Second paragraph.",
+      "",
+      "## See",
+      "",
+      "```ts",
+      "x",
+      "```",
+      "",
+    ].join("\n");
+
+    expect(runPageTransforms(input)).toBe(
+      [
+        "---",
+        "custom_edit_url: https://github.com/o/r/blob/master/src/constants/index.ts",
+        "---",
+        "",
+        "# connectErrorText",
+        "",
+        "The message shown when the frame cannot connect.",
+        "Used by [SDKInstance](../classes/SDKInstance.md).",
+        "",
+        "Second paragraph.",
+        "",
+        "```ts",
+        "const connectErrorText: \"Cannot connect.\";",
+        "```",
+        "",
+        "## See",
+        "",
+        "```ts",
+        "x",
+        "```",
+        "",
+      ].join("\n")
+    );
+  });
+
+  it("keeps a page whose signature is followed directly by a heading unchanged", () => {
+    const input = "# T\n\n```ts\ntype T = object;\n```\n\n## Properties\n\nText.";
+    expect(runPageTransforms(input)).toBe(input);
+  });
+});
+
+describe("api-tables", () => {
+  const table = (rows: string[]) =>
+    ["| Property | Type | Description |", "| ------ | ------ | ------ |", ...rows].join("\n");
+
+  it("wraps member tables in APITable, strips row anchors and rewrites links", () => {
+    const events = writePage(
+      "type-aliases/TFrameEvents.md",
+      [
+        "---",
+        "custom_edit_url: https://github.com/o/r",
+        "---",
+        "",
+        "# TFrameEvents",
+        "",
+        "## Properties",
+        "",
+        table([
+          "| <a id=\"onappready\"></a> `onAppReady?` | `null` | Ready. |",
+          "| <a id=\"onapperror\"></a> `onAppError?` | `null` | See [onAppReady](#onappready). |",
+        ]),
+        "",
+      ].join("\n")
+    );
+    const config = writePage(
+      "type-aliases/TFrameConfig.md",
+      "# TFrameConfig\n\nSee [TFrameEvents.onAppReady](TFrameEvents.md#onappready) and [x](#nope).\n"
+    );
+
+    applyApiTables([events, config]);
+
+    const eventsOutput = readFileSync(events, "utf-8");
+    expect(eventsOutput).toMatch(
+      /^---\ncustom_edit_url: https:\/\/github\.com\/o\/r\n---\n\nimport APITable from '@site\/src\/components\/APITable\/APITable';\n\n# TFrameEvents\n/
+    );
+    expect(eventsOutput).toContain("## Properties\n\n<APITable>\n\n| Property |");
+    expect(eventsOutput).toContain("|\n\n</APITable>\n");
+    expect(eventsOutput).not.toContain("mdx-code-block");
+    expect(eventsOutput.match(/import APITable/g)).toHaveLength(1);
+    expect(eventsOutput).not.toContain("<a id=");
+    expect(eventsOutput).toContain("| `onAppReady`? | `null` | Ready. |");
+    expect(eventsOutput).toContain("[onAppReady](#onAppReady)");
+
+    const configOutput = readFileSync(config, "utf-8");
+    expect(configOutput).toContain("(TFrameEvents.md#onAppReady)");
+    expect(configOutput).toContain("[x](#nope)");
+  });
+
+  it("moves the optional marker out of a deprecated row's strikethrough so links to it resolve", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const configContent = runPageTransforms(
+      [
+        "# TFrameConfig",
+        "",
+        "## Properties",
+        "",
+        table([
+          "| <a id=\"rootpath\"></a> `rootPath?` | `string` | Root. |",
+          "| <a id=\"viewas\"></a> ~~`viewAs?`~~ | `string` | Layout. **Deprecated** See [rootPath](#rootpath). |",
+        ]),
+        "",
+      ].join("\n"),
+      "TFrameConfig.md"
+    );
+    const config = writePage("type-aliases/TFrameConfig.md", configContent);
+    const viewMode = writePage(
+      "type-aliases/TManagerViewMode.md",
+      "# TManagerViewMode\n\nAccepted by [TFrameConfig.viewAs](TFrameConfig.md#viewas).\n"
+    );
+
+    applyApiTables([config, viewMode]);
+
+    const configOutput = readFileSync(config, "utf-8");
+    expect(configOutput).toContain("| ~~`viewAs`~~? | `string` |");
+    expect(configOutput).toContain("| `rootPath`? | `string` |");
+    expect(configOutput).not.toContain("`viewAs?`");
+    const deprecatedRow = configOutput.split("\n").find((line) => line.includes("viewAs"));
+    expect(deprecatedRow?.match(/`([^`]+)`/)?.[1]).toBe("viewAs");
+    expect(readFileSync(viewMode, "utf-8")).toContain("(TFrameConfig.md#viewAs)");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("wraps parameter tables too, prefixing ids by method when parameter names repeat", () => {
+    const page = writePage(
+      "classes/SDK.md",
+      [
+        "# SDK",
+        "",
+        "### init()",
+        "",
+        "#### Parameters",
+        "",
+        "| Parameter | Type |",
+        "| ------ | ------ |",
+        "| `config` | `T` |",
+        "",
+        "### initFrame()",
+        "",
+        "#### Parameters",
+        "",
+        "| Parameter | Type |",
+        "| ------ | ------ |",
+        "| `config` | `T` |",
+        "| `reload?` | `boolean` |",
+        "",
+      ].join("\n")
+    );
+    applyApiTables([page]);
+    const output = readFileSync(page, "utf-8");
+    expect(output).toContain('<APITable name="init">');
+    expect(output).toContain('<APITable name="initFrame">');
+    expect(output).toContain("| `reload`? | `boolean` |");
+    expect(output.match(/<APITable/g)).toHaveLength(2);
+  });
+
+  it("warns about dotted row names left by inlined nested objects", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const page = writePage(
+      "type-aliases/Nested.md",
+      "# Nested\n\n## Properties\n\n" +
+        table([
+          "| <a id=\"menu\"></a> `menu?` | `object` | Group. |",
+          "| `menu.file?` | `string`[] | Files. |",
+        ]) +
+        "\n"
+    );
+    applyApiTables([page]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Nested member "menu.file"'));
+    warn.mockRestore();
+  });
+
+  it("wraps a lone parameter table without a name prefix", () => {
+    const page = writePage(
+      "classes/One.md",
+      "# One\n\n#### Parameters\n\n| Parameter | Type |\n| ------ | ------ |\n| `config` | `T` |\n"
+    );
+    applyApiTables([page]);
+    const output = readFileSync(page, "utf-8");
+    expect(output.startsWith("import APITable from '@site/src/components/APITable/APITable';\n\n# One\n")).toBe(true);
+    expect(output).toContain("#### Parameters\n\n<APITable>\n\n| Parameter |");
+  });
+
+  it("prefixes row ids with the symbol name when two tables share a row name", () => {
+    const page = writePage(
+      "type-aliases/Both.md",
+      [
+        "# Both",
+        "",
+        "## A",
+        "",
+        table(["| <a id=\"id\"></a> `id` | `number` | A id. |"]),
+        "",
+        "## B",
+        "",
+        table(["| <a id=\"id-1\"></a> `id` | `number` | B id, see [A.id](#id). |"]),
+        "",
+      ].join("\n")
+    );
+
+    applyApiTables([page]);
+
+    const output = readFileSync(page, "utf-8");
+    expect(output).toContain("<APITable name=\"A\">");
+    expect(output).toContain("<APITable name=\"B\">");
+    expect(output).toContain("[A.id](#A-id)");
+  });
+});
+
+describe("section-index", () => {
+  it("builds an overview table from page titles and first sentences", () => {
+    writePage(
+      "variables/FRAME_NAME.md",
+      [
+        "---",
+        "custom_edit_url: https://github.com/o/r",
+        "---",
+        "",
+        "import APITable from '@site/src/components/APITable/APITable';",
+        "",
+        "# FRAME\\_NAME",
+        "",
+        "```ts",
+        "const FRAME_NAME: \"frameDocSpace\";",
+        "```",
+        "",
+        "The prefix for the iframe `name` attribute. The full name is `{FRAME_NAME}__#{frameId}`.",
+        "",
+      ].join("\n")
+    );
+    writePage(
+      "variables/CSPApiUrl.md",
+      "# CSPApiUrl\n\nDefined in: [x.ts:1](https://github.com/o/r)\n\nThe CSP endpoint (e.g. for checks). Second sentence.\n"
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    generateIndexPage(
+      {
+        docsDir: "variables",
+        sidebarLabel: "Variables",
+        title: "Variables",
+        description: "Exported constants.",
+        tableCaption: "The following constants are available:",
+        tableHeaderName: "Constant",
+      },
+      tempDir,
+      "https://github.com/o/r/blob/master/tools/docs/sections.mjs"
+    );
+
+    log.mockRestore();
+    const index = readFileSync(join(tempDir, "variables", "index.md"), "utf-8");
+    expect(
+      index.startsWith(
+        "---\ncustom_edit_url: https://github.com/o/r/blob/master/tools/docs/sections.mjs\n---\n\n# Variables\n"
+      )
+    ).toBe(true);
+    expect(index).toContain("# Variables\n\nExported constants.\n\n## Overview");
+    expect(index).toContain("| Constant | Description |");
+    expect(index).toContain(
+      "| [`CSPApiUrl`](CSPApiUrl.md) | The CSP endpoint (e.g. for checks). |"
+    );
+    expect(index).toContain(
+      "| [`FRAME_NAME`](FRAME_NAME.md) | The prefix for the iframe `name` attribute. |"
+    );
+  });
+
+  it("unescapes the Markdown escapes of a generic title before wrapping it in a code span", () => {
+    writePage(
+      "type-aliases/TListResponse.md",
+      "# TListResponse\\<TFolder\\>\n\n```ts\ntype TListResponse<T> = { items: T[] };\n```\n\nResponse wrapper for paginated listing methods.\n"
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    generateIndexPage(
+      {
+        docsDir: "type-aliases",
+        sidebarLabel: "Types",
+        title: "Types",
+        description: "Exported types.",
+        tableCaption: "The following types are available:",
+        tableHeaderName: "Type",
+      },
+      tempDir
+    );
+
+    log.mockRestore();
+    const index = readFileSync(join(tempDir, "type-aliases", "index.md"), "utf-8");
+    expect(index).toContain(
+      "| [`TListResponse<TFolder>`](TListResponse.md) | Response wrapper for paginated listing methods. |"
+    );
+    expect(index).not.toContain("\\<");
+  });
+});
+
+describe("installWarnCounter", () => {
+  it("counts [warn] lines and lets other console.warn calls through", () => {
+    const original = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const counter = installWarnCounter();
+
+    console.warn("[warn] Unresolved in-page anchor #missing in page.md");
+    console.warn("[warn] Nested member \"anonymous.label\" in TFoo.md — extract a named type");
+    console.warn("unrelated message");
+
+    expect(counter.count).toBe(2);
+    expect(original).toHaveBeenCalledTimes(3);
+
+    counter.restore();
+    console.warn("[warn] after restore");
+    expect(counter.count).toBe(2);
+    original.mockRestore();
+  });
+});
