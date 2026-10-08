@@ -2,89 +2,92 @@
 
 ## 2.2.0
 
+### Upgrading from 2.1.0
+- Portal errors reject. With ONLYOFFICE Apps 4.0 a method the portal reports as failed rejects with `SDKError` (`SDKErrorCode.ApiError`) instead of resolving with the error object; only `login` and `createRoom` keep resolving `{ status, message }`. Code that inspected `result.status` or `result.error` on other methods moves to `catch`
+- Messages are accepted from the origin of `src` only. `src` must be the absolute URL the portal is served on; a relative `src` or one that redirects to another origin or scheme leaves the frame silent
+- `package.json` declares an `exports` map. The entry points, `./dist/*` files and the `./dist/types/instance` and `./dist/types/types` declaration directories stay importable; other deep paths are not
+- Types are stricter: `mode` is a `TFrameMode` (no longer any string), `editorCustomization.uiTheme` is a `Theme`, the `executeInEditor` callback is `(editor, asc, data?)`, and `window.DocSpace.SDK` is typed as `SDK`. JavaScript callers are unaffected
+- `createRoom` takes its settings as a `TCreateRoomOptions` object; the positional arguments of 2.1 (`quota`, `tags`, ...) still work and are deprecated
+
 ### Added
-- Added Uploader mode
-- Added Forms mode
-- Added Chat mode
-- Added Personal mode (`SDKMode.Personal`, `SDK.initPersonal`, `personalDestination`, `TPersonalSection` with the sections `my-documents`, `favorites`, `recent`, `shared-with-me`, `trash` and `settings`); `navigateSection` now also works in Personal mode
-- Added `SDKError` and `SDKErrorCode`
-- Added OAuth mode: `getToken` (or a static `accessToken`) in the config switches the frame to `Authorization: Bearer` authentication instead of the session cookie, in every mode. The frame requests the token from the host through the `getAuthToken` command and receives it as `onAuthTokenReturn`; a JWT (or a token with `tokenExpiresAt`) is refreshed by the SDK one minute before expiry and pushed into the frame. Added the `onAuthError` event with `TAuthError` and `TAuthErrorCode` (`TOKEN_RESOLVE_FAILED`, `TOKEN_UNAVAILABLE`, `TOKEN_REFRESH_FAILED`, `UNAUTHORIZED`). `login` and `logout` reject with `SDKErrorCode.ModeMismatch` in OAuth mode; the `getToken` reference describes the flow
-- Added `TFrameFilter.groupId`: the rooms list in Manager mode shows only the rooms of that room group and keeps the group pinned across search and filters; `getRooms` accepts it too. Script-tag integrations pass it as `groupId=…`. Requires ONLYOFFICE Apps 4.0
-- Added `RoomType`, the room types accepted by `createRoom` (form filling `1`, collaboration `2`, custom `5`, public `6`, virtual data `8`, AI `9`)
-- Added `SDKErrorCode.ApiError`, `TSDKErrorDetails` and the `status` / `data` fields of `SDKError`: a method call the portal (ONLYOFFICE Apps 4.0) reports as failed rejects with the HTTP status and the error payload; `login` and `createRoom` keep resolving `{ status, message }`
-- A `"Wrong method for this mode"` reply rejects with `SDKErrorCode.ModeMismatch`
-- Added `methodTimeout` config field
-- Added `stylesUrl` and `integrationUrl` config fields
-- Added new events: `onNavigate`, `onUploadSuccess`, `onUploadError`, `onCustomAction`, `onContentReady`, `onNoAccess`, `onNotFound`, `onEditorOpen`, `onGetExternalData`, `onSetExternalData`
-- Added round-trip delivery for `onGetExternalData`: the handler's return value (sync or `Promise`) is posted back to the iframe via the new `MessageTypes.ExternalDataReturn` envelope and correlated by `callId`
-- Added new types: `TGetExternalDataRequest`, `TSetExternalDataPayload`
-- Added the upload event payload types `TUploadResult`, `TUploadError`, `TUploadProgress`, `TUploaderUploadResult`, `TUploadedFile`, `TUploaderUploadError`, `TRejectedFile` and `TUploadRejection`; every `TFrameEvents` handler names the modes that emit the event
-- Added new instance methods: `navigateSection`, `setCustomActions`, `upload`. `upload` works in Forms and Personal mode; a mode-guarded method called in any other mode rejects its promise with `SDKErrorCode.ModeMismatch` instead of throwing
-- Added custom actions in Manager, Personal and Forms mode: context menu items for files, folders and rooms and create menu items, set with the `customActions` config field or `setCustomActions`. Items can be limited by section, file extension, room type and access flags; `onCustomAction` receives the item, the whole selection and the current folder id
-- Added unit tests for SDK instance class
-- Added edge case tests for utils and new modes
-- Exported the documented constants `CSPApiUrl`, `FRAME_NAME`, `defaultConfig`, `cspErrorText` and `connectErrorText` from the package entry point
-- Exported `TEntityBase` and `TListResponse`, the shared shapes behind `TFileInfo`/`TFolderInfo`/`TRoomInfo` and `TFilesResponse`/`TRoomsResponse`
-- Added `TEditorAnonymous` (`TEditorCustomization.anonymous`) and `TCustomContextMenuActions` (`TCustomActionsConfig.contextMenu`) as named types instead of inline object literals
-- Added the optional `code` argument to `login` for finishing a two-factor sign-in: the portal answers the first call with a `/confirm/…` url and no session, the second call carries the one-time code. Requires a portal whose SDK dispatcher reads `code`
-- Added `TLoginResult`: the resolved shape of `login` — `url` (`"/"` on success, a `/confirm/…` page when a second factor is pending) and the `status`/`message` of a failed attempt
-- Added `TSelectedRoom`, `TSelectedFile` and `TRequestTokenInfo`, the payloads of `onSelectCallback` (an array of rooms for the room selector, a single file object for the file selector)
-- Added `TEditorOpenPayload` and `TEditorAction`, the payload of `onEditorOpen` (the file plus `share` and `action`)
-- Added `AGENTS.md` with the instructions coding agents need (commands, architecture, conventions, definition of done); `CLAUDE.md` imports it and keeps only Claude Code specifics
-- Added `CONTRIBUTING.md` (toolchain, commands, branch and release flow) and `context7.json` (Context7 indexing rules and file exclusions)
-- Added `pnpm typecheck` (`tsc --noEmit`) and `pnpm check-links` (`tools/check-links.mjs`, checks the external links of README and CONTRIBUTING). CI runs typecheck, the docs generation and the link check in addition to lint, tests, build and the package-contents check
+- `SDKMode.Uploader` and `SDK.initUploader`: an upload dialog with the config fields `linkMainText`, `secondaryText`, `extensionsText`, `acceptExtensions`, `isFolderUpload`, `isMultipleUpload`, `maxPerUploadSize` and `maxTotalUploadSize`, and the events `onUploadSuccess`, `onUploadError` and `onUploadProgress`
+- `SDKMode.Forms` and `SDK.initForms`: the forms gallery with the sections of `TFormsSection` (`my-forms`, `in-progress`, `completed-forms`, `library`, `settings`), the config fields `destination` and `libraryId`, the `navigateSection` and `upload` methods and the `onNavigate` event
+- `SDKMode.Chat` and `SDK.initChat`: the AI chat with the config fields `agentId`, `entityId`, `fileId` and `threadId`
+- `SDKMode.Personal` and `SDK.initPersonal`: the personal files section with the sections of `TPersonalSection` (`my-documents`, `favorites`, `recent`, `shared-with-me`, `trash`, `settings`), the config field `personalDestination`, and `navigateSection`, `upload` and `onNavigate` as in Forms mode
+- OAuth mode, available in every mode: `getToken` (or a static `accessToken` with `tokenExpiresAt`) switches the frame to `Authorization: Bearer` authentication instead of the session cookie. The frame requests the token from the host through the `getAuthToken` command; a JWT, or a token with a known expiry, is refreshed one minute before it expires. The `onAuthError` event receives a `TAuthError` with a `TAuthErrorCode` (`TOKEN_RESOLVE_FAILED`, `TOKEN_UNAVAILABLE`, `TOKEN_REFRESH_FAILED`, `UNAUTHORIZED`); `login` and `logout` reject with `SDKErrorCode.ModeMismatch` in OAuth mode
+- The OAuth bootstrap fields `providerName`, `inviteKey`, `emplType` and `uid` for automatic sign-in and sign-up in Forms, Chat and Personal mode
+- Custom actions in Manager, Personal and Forms mode: context menu items for files, folders and rooms and create menu items, set with the `customActions` config field or `setCustomActions`. Items can be limited by section, file extension, room type and access flags; `onCustomAction` receives the item, the selection and the current folder id (`TCustomActionsConfig`, `TCustomContextMenuActions`, `TCustomContextMenuAction`, `TCustomCreateAction`, `TCustomActionEvent`, `TCustomActionSection`, `TManagerSection`)
+- `onGetExternalData` and `onSetExternalData`: the frame asks the host for integrator-defined data and pushes it back. The return value of `onGetExternalData` (sync or `Promise`) is posted to the frame and correlated by `callId` (`TGetExternalDataRequest`, `TSetExternalDataPayload`)
+- `SDKError` and `SDKErrorCode`: every new method rejects with an `SDKError` whose `code` names the failure (`Timeout`, `Disconnected`, `CSPViolation`, `ModeMismatch`, `InvalidConfig`, `UploadFailed`, `ParseError`, `TokenResolveFailed`, `ApiError`). A method the portal (ONLYOFFICE Apps 4.0) reports as failed rejects with `SDKErrorCode.ApiError` and carries the HTTP `status` and the error `data` (`TSDKErrorDetails`); a `"Wrong method for this mode"` reply rejects with `SDKErrorCode.ModeMismatch`. `login` and `createRoom` keep resolving with `{ status, message }`
+- `methodTimeout` config field: a method call the frame does not answer in time rejects with `SDKErrorCode.Timeout` (default 30 s)
+- `stylesUrl` (a stylesheet applied inside the frame, in every mode), `headerOffset` and `headerHeight` (header layout in Forms, Chat and Personal mode), and `openEditorInSameTab` (where a file opens from the list in Forms and Personal mode)
+- `TInitConfig`, the parameter type of the `init*` wrappers: a `TFrameConfig` without the `mode` the wrapper sets, so `sdk.initManager({ frameId, src })` compiles in strict TypeScript
+- `onFilterSearch` event with `TFilterSearchPayload`: the search text of the file list in Personal and PublicRoom mode
+- `RoomType.Private` (`13`), the end-to-end encrypted room type returned by `getRooms` and `onSelectCallback`
+- `TAppReadyPayload`, `TNavigatePayload` and `TUserGroup`, the named shapes of `onAppReady`, `onNavigate` and `TUserInfo.groups`
+- `TFrameFilter.groupId`: the rooms list in Manager mode shows only the rooms of that room group and keeps the group pinned across search and filters; `getRooms` accepts it too. Script-tag integrations pass it as `groupId=…`. Requires ONLYOFFICE Apps 4.0
+- `RoomType`, the room types accepted by `createRoom` (`FormFilling`, `Collaboration`, `Custom`, `Public`, `VirtualData`, `Ai`)
+- The optional `code` argument of `login` for finishing a two-factor sign-in: the portal answers the first call with a `/confirm/…` url and no session, the second call carries the one-time code. `login` resolves with a `TLoginResult`
+- `upload` sends an `uploadId` with every file and matches the `onUploadSuccess` / `onUploadError` events by it, so two files with the same name no longer resolve each other's promise
+- Named exports of the whole public API from the package entry: `SDK`, `SDKInstance`, `SDKError`, `SDKErrorCode`, every enum, the constants `defaultConfig`, `FRAME_NAME`, `CSPApiUrl`, `cspErrorText` and `connectErrorText`, and every `T*` type. Previously only `SDK` was available, as the default export
+- Typed payloads for the existing events and methods: `TSelectedRoom` and `TSelectedFile` (`onSelectCallback`), `TEditorOpenPayload` and `TEditorAction` (`onEditorOpen`), `TRequestTokenInfo`, the upload payloads `TUploadResult`, `TUploadError`, `TUploadProgress`, `TUploaderUploadResult`, `TUploadedFile`, `TUploaderUploadError`, `TRejectedFile` and `TUploadRejection`, and the shared shapes `TEntityBase`, `TListResponse`, `TEditorAnonymous` and `TCreateRoomOptions`
 
 ### Changed
-- Migrated from Jest to Vitest for testing
-- `editorCustomization.uiTheme` takes a `Theme` value (`"Base"`, `"Dark"`, `"System"`), the only values the portal maps to editor themes
-- Deprecated `buttonColor` and `viewAs`: ONLYOFFICE Apps 4.0 does not read them
-- Config field JSDoc states the modes each field applies to and the portal's actual behaviour
-- Every instance method's JSDoc names the modes it works in, and the README carries the method-by-mode table; the README example no longer calls data methods on a System-mode instance, where they reject with `ModeMismatch`
-- `createFile`: `templateId` and `formId` are optional and the title may carry an extension, matching the portal
-- Generated reference pages carry the source file URL as `custom_edit_url` front matter instead of a "View source on GitHub" link under the title, so the site's "Edit this page" link opens the source on GitHub; the section index pages point at `tools/docs/sections.mjs`. The `APITable` import is a plain MDX import line after the front matter and the `<APITable>` tags are no longer wrapped in `mdx-code-block` fences
-- The `Remarks` and `Deprecated` headings of the generated reference use TypeDoc's default text again, without a trailing colon
-- Type alias and variable pages of the generated reference open with the description; the `type X = …` / `const X: …` signature block follows it instead of preceding it, so the Markdown twins the site publishes for LLMs open with prose rather than code
-- Migrated to pnpm 12: pnpm settings live in `pnpm-workspace.yaml` (`allowBuilds`), the version is pinned via `packageManager`, and `pnpm` is no longer a devDependency. Contributors need a global pnpm 11 or newer
-- Updated the toolchain: TypeScript 6, Vitest 4, ESLint 10, jsdom 30, esbuild 0.28, TypeDoc 0.28.20. All dependency overrides were removed; `pnpm audit` reports no known vulnerabilities
-- Updated the TypeDoc plugins (typedoc-plugin-markdown 4.13, typedoc-docusaurus-theme 1.4.3, typedoc-plugin-frontmatter 1.3.2). Three reference pages change formatting only: signatures wrap the last parameter onto its own line, parameters with default values are marked optional (`SDKError`, `setConfig`), and function types inside unions are parenthesised in the `TFrameEvents` table. Headings, anchors and the sidebar are unchanged
-- The IIFE bundle targets Safari 14.1 instead of 14.0: esbuild 0.27.6+ treats destructuring in Safari 14.0 as unsupported. The emitted code is unchanged
-- Updated documentation for SDK, SDKInstance, types, utils, enums, and constants
-- `setIsLoaded` is documented as a public method again: it reveals the frame and fires `onContentReady`, and can be called by the host to take over the loading hand-off
-- The product is called ONLYOFFICE Apps throughout the documentation, README and examples; example hosts are `portal.example.com`. Nothing that integrations rely on changed: the package name, the `window.DocSpace.SDK` global, the `frameDocSpace` iframe name prefix and the script URL keep their spelling
-- Refactored `SDKInstance` internals
-- Refactored `getFramePath`
+- `setConfig` takes a `Partial<TFrameConfig>` and merges it into the stored config; a call without arguments no longer resets the config to the defaults
+- `createFile`, `createFolder`, `addTagsToRoom` and `removeTagsFromRoom` accept numeric IDs, the type the data methods return
+- Personal mode: the frame URL addresses the list page by folder (`/sdk/personal-files?folder=@my`) instead of the section redirect, and no longer carries `showMenu`, `infoPanelVisible` or `downloadToEvent`, which the Personal frame does not read; `initPersonal` no longer forces `showMenu` and `infoPanelVisible` to `true`. The Personal frame has no navigation menu: the host switches sections with `navigateSection`
+- `getRooms` sends `search` and `count` under the names the portal's rooms filter reads (`filterValue`, `pageCount`)
+- The ESM build ships `dist/esm/package.json` with `"type": "module"`, so Node loads `dist/esm/main.js` as an ES module without the typeless-package warning
+- Mode-guarded methods reject their promise with `SDKErrorCode.ModeMismatch` when called in a mode that does not support them instead of throwing synchronously
 - `onSelectCallback`, `onEditorOpen` and `onFileManagerClick` are typed with their real payloads instead of `object`; `login` returns `Promise<TLoginResult>` instead of `Promise<object>`
-- `login` documents that the portal's SDK dispatcher forwards only `email` and `passwordHash` and always requests a persistent session; the `password` and `session` arguments do not reach the portal
-- `destroyFrame` documents that it is synchronous, rejects pending calls with `SDKErrorCode.Disconnected` and leaves the placeholder ready for an immediate `init*`
-- `initChat`, `agentId` and `getToken` document the conditions under which the chat renders and how the OAuth token is forwarded
-- `pnpm run docs` runs the Markdown post-processing in strict mode (`tools/docs/index.mjs --strict`): a `[warn]` line (unresolved anchor, duplicate table row id, nested member) fails the run instead of being a note in the log
-- `package.json` `description`, `homepage` and `keywords` describe what the SDK embeds and point at the Embed SDK documentation instead of the corporate site
-- The first paragraph of the README, the package description and `context7.json` name ONLYOFFICE DocSpace once as the previous name of ONLYOFFICE Apps, so searches and indexers by either name find the SDK; everywhere else the product stays ONLYOFFICE Apps
+- `editorCustomization.uiTheme` takes a `Theme` value (`"Base"`, `"Dark"`, `"System"`), the only values the portal maps to editor themes
+- `createFile`: `templateId` and `formId` are optional and the title may carry an extension, matching the portal
+- `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with the DocsAPI editor object, `window.Asc` and then `data`. The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. The connector must be created by the callback (`editor.createConnector()`)
+- `setIsLoaded` is a public method again: it reveals the frame and fires `onContentReady`, so the host can take over the loading hand-off
+- `destroyFrame` is synchronous, rejects pending calls with `SDKErrorCode.Disconnected` and leaves the placeholder ready for an immediate `init*`
+- `validateCSP` attaches the original error as `cause` to the thrown `CSP validation failed` error
+- The IIFE bundle (`dist/api.js`) targets Safari 14.1 instead of 14.0; the emitted code is unchanged
+- `package.json` declares an `exports` map for the package root (ESM, CJS and types); deep imports such as `@onlyoffice/docspace-sdk-js/dist/api.js` are no longer resolvable. `engines.node` is `>=18`
+- The product is called ONLYOFFICE Apps throughout the documentation, README and examples; DocSpace is named once as the previous name. Nothing that integrations rely on changed: the package name, the `window.DocSpace.SDK` global, the `frameDocSpace` iframe name prefix and the script URL keep their spelling
+- Every config field, event and instance method documents the modes it applies to and the portal's actual behaviour; the README carries the method-by-mode table. `login` documents that the portal forwards only `email` and `passwordHash` and always opens a persistent session
+
+### Deprecated
+- `buttonColor` and `viewAs`: ONLYOFFICE Apps 4.0 does not read them. Call `setListView` after `onAppReady` to change the layout
+- `integrationUrl`: ONLYOFFICE Apps 4.0 does not read it
 
 ### Fixed
-- `getConfigFromParams` copies `defaultConfig.filter` instead of writing the script-tag filter parameters into the shared defaults, so a second frame on the page no longer inherits the first one's `count`, `search` or `groupId`
-- `SDK` is exported by name from the package entry, as the README and every `@example` show (`import { SDK } from "@onlyoffice/docspace-sdk-js"`); previously the class was available only as the default export
+- The portal's `setConfig` command carries its origin as `src`; the SDK now uses it only to narrow the message filter instead of overwriting the configured `src`, so a portal served under a sub-path keeps it on reload
+- A method reply that arrives after its timeout is dropped instead of resolving the next pending call
+- Personal mode kept `theme`, `locale` and the sign-in parameters off the first request: the section route redirected and dropped them
+- A `getToken` that rejects is answered to the frame with an empty token reply, so the frame fails fast instead of waiting for its own timeout
+- The proactive token refresh timer overflowed for an expiry more than 24.8 days ahead and fired at once
+- `dist/api.js` threw at load when `document.currentScript` was `null` (a module script, or `api.js` bundled into another file); the script-tag parser now falls back to the defaults, no longer decodes the whole script URL before reading its parameters (an encoded `&` inside a value split the query) and ignores inherited keys when routing filter parameters
+- Messages from another window of the portal origin (a popup, a second frame) are ignored; only the instance's own iframe drives it
+- A trailing slash in `src` produced `//` in the iframe URL and the CSP request; a `rootPath` without a trailing slash glued the folder ID to it
+- `upload` cleans up its pending entry when `postMessage` throws, and `destroyFrame` restores `overscroll-behavior` on the page body after a mobile frame
 - Error replies from portals that do not flag failures are sanitized: `config`, `request` and `stack` are removed before the promise resolves, so a failed `login` no longer exposes the password hash to the host page
-- `executeInEditor` callback type corrected to `(editor, asc, data?)`: the editor frame calls it with three arguments (the DocsAPI editor object, `window.Asc`, then `data`). The previous `(instance, data?)` type made `window.Asc` land in the `data` parameter. Documentation now states that the connector must be created by the callback (`editor.createConnector()`) and shows the `Asc.scope` channel for `callCommand`.
-- Personal mode now propagates `providerName`, `inviteKey`, `emplType`, and `uid` to the iframe URL, matching Forms and Chat. Previously these OAuth bootstrap params passed to `SDK.initPersonal` were silently dropped, so embedding hosts (e.g. Nextcloud) could not auto-authenticate the user via the configured provider.
-- Fixed wrong config merge in `setConfig`
-- Fixed wrong error message in SDK instance
-- Restored missing `withReload` option for `setConfig`
-- Fixed links processing and examples in documentation
-- Fixed container reinit and target check in `init*`
-- Fixed `isConnected` state handling
-- Fixed method rejection cleanup and mode-guard validation
-- `validateCSP` attaches the original error as `cause` to the thrown `CSP validation failed` error
-- `vitest run --coverage` no longer crashes: the `brace-expansion` override pinned a version incompatible with `minimatch`
-- README links to the API reference and the React component pointed at pages that do not exist (`/docspace/javascript-sdk/` and `/get-started/react-component/`); they now lead to the reference index, the Getting Started guide and the React samples
+- `getConfigFromParams` copies `defaultConfig.filter` instead of writing the script-tag filter parameters into the shared defaults, so a second frame on the page no longer inherits the first one's `count`, `search` or `groupId`
+- `setConfig` merged the defaults over the stored config, and its `withReload` option was missing
+- Re-initializing a frame no longer registers a second `message` listener
+- `init*` on a container whose target element was replaced by a previous frame reuses the existing container instead of returning `null`
+- A method called while the iframe is missing rejects with `SDKErrorCode.Disconnected` instead of hanging, and a rejected method no longer surfaces as an unhandled promise rejection when the host only listens to `onAppError`
+- `onAppError` received `Unknown error occurred` instead of the portal's message when the error reply was a plain object
+
+### Internal
+- Docs pipeline: a deprecated optional member keeps a linkable row id (`~~viewAs~~?`), generic titles in the section indexes are unescaped, and `custom_edit_url` resolves the tag on a release checkout
+- Tests run on Vitest instead of Jest; the toolchain is pnpm 12 (pinned via `packageManager`), TypeScript 6, ESLint 10, esbuild 0.28, jsdom 30 and TypeDoc 0.28 with typedoc-plugin-markdown 4.13
+- CI runs lint, typecheck (`pnpm typecheck`), tests, build, docs generation, the README link check (`pnpm check-links`), a package-contents check and `pnpm audit`
+- Generated reference pages carry the source URL as `custom_edit_url` front matter, open with the description before the signature block and are post-processed in strict mode (`tools/docs/index.mjs --strict`)
+- Added `AGENTS.md`, `CONTRIBUTING.md` and `context7.json`
 
 ## 2.1.0
-## Added
+
+### Added
 - Added markdown documentation generation with TypeDoc
 - Added documentation generation guide (`docs-generation.md`)
 - Added `onFileManagerClick` event
 
-## Changed
+### Changed
 - Updated ESLint configuration for better code quality
 - Updated packages to latest versions
 - Optimized build process and configuration
@@ -97,13 +100,14 @@
 - Fixed package structure and updated pnpm
 - Removed old markdown generator script in favor of TypeDoc
 
-## Fixed
+### Fixed
 - Fixed docs generation process
 - Fixed examples for SDK class
 - Reverted `editorOpenEvent` option and properly implemented it
 
 ## 2.0.0
-## Added
+
+### Added
 - Added base SDK class tests
 - Added typedoc documentation
 - Added Index column to viewTableColumns parameter of default config
@@ -114,7 +118,7 @@
 - Added public-room mode
 - Added SSR client support
 
-## Changed
+### Changed
 - Improved instance lifecycle management and destruction
 - Enhanced render process and message bus stability
 - Increased speed of interaction with DocSpace interface
@@ -124,5 +128,6 @@
 - Fixing code issues
 
 ## 1.1.0
-## Added
+
+### Added
 - first release
