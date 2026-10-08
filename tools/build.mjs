@@ -16,7 +16,7 @@
  * @license
  */
 
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { build } from "esbuild";
@@ -124,6 +124,9 @@ async function buildAll() {
           splitting: false,
           mainFields: ["module", "main"],
         })
+      ).then(() =>
+        // The package has no "type": "module"; this marker lets Node load dist/esm/main.js as ESM.
+        writeFile("./dist/esm/package.json", '{ "type": "module" }\n')
       ),
 
       build(
