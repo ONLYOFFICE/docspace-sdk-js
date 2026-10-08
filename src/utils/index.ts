@@ -22,7 +22,7 @@
  */
 
 import { cspErrorText, CSPApiUrl, defaultConfig } from "../constants";
-import type { TFrameConfig } from "../types";
+import type { TFrameConfig, TPersonalSection } from "../types";
 import { SDKMode } from "../enums";
 
 /**
@@ -234,28 +234,29 @@ export const getLoaderStyle = (className: string) => {
  * ```
  */
 export const getConfigFromParams = (): TFrameConfig => {
-  const scriptElement = document.currentScript as HTMLScriptElement;
-  const searchParams = new URL(decodeURIComponent(scriptElement.src))
-    .searchParams;
-
   const configTemplate: TFrameConfig = {
     ...defaultConfig,
     filter: { ...defaultConfig.filter },
   };
 
+  const scriptElement = document.currentScript as HTMLScriptElement | null;
+  if (!scriptElement?.src) return configTemplate;
+
+  const searchParams = new URL(scriptElement.src).searchParams;
+
   type TFilterParams = Record<string, string | number | boolean>;
+  const filterKeys = defaultConfig.filter ?? {};
 
   searchParams.forEach((value, key) => {
     const parsedValue =
       value === "true" ? true : value === "false" ? false : value;
-    if (defaultConfig.filter && key in defaultConfig.filter) {
+    if (Object.prototype.hasOwnProperty.call(filterKeys, key)) {
       (configTemplate.filter as TFilterParams)[key] = parsedValue;
     } else {
       (configTemplate as unknown as TFilterParams)[key] = parsedValue;
     }
   });
 
-  // Ensure default values for mode and src
   configTemplate.mode = (searchParams.get("mode") || "manager") as TFrameConfig["mode"];
   configTemplate.src = searchParams.get("src") || "";
 
@@ -279,7 +280,7 @@ export const getConfigFromParams = (): TFrameConfig => {
  * | {@link SDKMode.Viewer} | `/doceditor` | `fileId`, `editorType`, `action=view` |
  * | {@link SDKMode.Uploader} | `/sdk/uploader` | `targetId`, `acceptExtensions`, size limits |
  * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
- * | {@link SDKMode.Personal} | `/sdk/personal-files/my-documents` | `id`, `showMenu`, `infoPanelVisible`, `disableActionButton`, `providerName` |
+ * | {@link SDKMode.Personal} | `/sdk/personal-files` | `folder` (from `id` or `personalDestination`), `disableActionButton`, `providerName` |
  * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `entityId`, `fileId`, `threadId`, `providerName` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
@@ -300,7 +301,7 @@ export const getConfigFromParams = (): TFrameConfig => {
  *
  * @param config - The frame configuration.
  * @param baseFrameOptions - Theme/locale/stylesUrl options shared across modes.
- * @returns A URL path string (e.g. `"/sdk/personal-files/my-documents?id=folder-42"`).
+ * @returns A URL path string (e.g. `"/sdk/personal-files?folder=@my"`).
  *
  * @internal
  */
@@ -335,36 +336,88 @@ const getChatPath = (
   return qs ? `/sdk/chat?${qs}` : "/sdk/chat";
 };
 
+/**
+ * Builds the iframe URL path for {@link SDKMode.Manager} mode.
+ * Extracted from {@link getFramePath} to keep that function below the complexity budget.
+ *
+ * @param config - The frame configuration.
+ * @param oauth - `"oauth"` when the frame runs in OAuth mode, `undefined` otherwise.
+ * @returns A URL path string (e.g. `"/rooms/shared/42/filter?count=100"`).
+ *
+ * @internal
+ */
+const getManagerPath = (config: TFrameConfig, oauth: "oauth" | undefined): string => {
+  const filter = { ...config.filter };
+  if (config.id) filter.folder = config.id as string;
+
+  const params: Record<string, string | number | boolean | undefined | null> = config.requestToken
+    ? { key: config.requestToken, ...filter }
+    : { ...filter };
+
+  if (!params.withSubfolders) {
+    delete params.withSubfolders;
+  }
+
+  if (oauth) params.auth = oauth;
+  if (config.theme) params.theme = config.theme;
+
+  const urlParams = customUrlSearchParams(params);
+
+  if (config.requestToken) return `${config.rootPath}?${urlParams}`;
+
+  const root = config.rootPath?.endsWith("/") ? config.rootPath : `${config.rootPath ?? ""}/`;
+  const folder = config.id ? `${encodeURIComponent(String(config.id))}/` : "";
+
+  return `${root}${folder}filter?${urlParams}`;
+};
+
+/** Folder aliases the portal's personal files list resolves for each {@link TPersonalSection}. */
+const PERSONAL_SECTION_FOLDERS: Record<Exclude<TPersonalSection, "settings">, string> = {
+  "my-documents": "@my",
+  favorites: "@favorites",
+  recent: "@recent",
+  "shared-with-me": "@share",
+  trash: "@trash",
+};
+
 const getPersonalPath = (
   config: TFrameConfig,
   baseFrameOptions: Record<string, string | number | boolean | undefined | null>,
 ): string => {
-  const qs = customUrlSearchParams({
+  const section = config.personalDestination ?? "my-documents";
+
+  const common = {
     ...baseFrameOptions,
-    id: config.id,
-    showMenu: config.showMenu,
     headerOffset: config.headerOffset,
     headerHeight: config.headerHeight,
-    infoPanelVisible: config.infoPanelVisible,
     disableActionButton: config.disableActionButton,
-    downloadToEvent: config.downloadToEvent,
-    sortBy: config.filter?.sortBy,
-    sortOrder: config.filter?.sortOrder,
-    search: config.filter?.search,
-    count: config.filter?.count,
-    page: config.filter?.page,
     providerName: config.providerName || undefined,
     inviteKey: config.inviteKey || undefined,
     emplType: config.emplType || undefined,
     uid: config.uid || undefined,
+  };
+
+  if (section === "settings") {
+    const qs = customUrlSearchParams(common);
+    return qs ? `/sdk/personal-files/settings?${qs}` : "/sdk/personal-files/settings";
+  }
+
+  // The list page is addressed by folder directly: the /sdk/personal-files/{section} route only
+  // redirects to it and drops theme, locale and the sign-in parameters on the way.
+  const qs = customUrlSearchParams({
+    ...common,
+    folder: config.id || PERSONAL_SECTION_FOLDERS[section],
+    sortBy: config.filter?.sortBy,
+    sortOrder: config.filter?.sortOrder,
+    search: config.filter?.search,
+    pageCount: config.filter?.count,
+    page: config.filter?.page,
   });
 
-  const base = `/sdk/personal-files/${config.personalDestination}`;
-  return qs ? `${base}?${qs}` : base;
+  return `/sdk/personal-files?${qs}`;
 };
 
 export const getFramePath = (config: TFrameConfig) => {
-  // OAuth mode: signal the embedded app to start in Bearer-token mode (no cookie).
   const oauth = config.getToken || config.accessToken ? "oauth" : undefined;
 
   const baseFrameOptions = {
@@ -410,29 +463,8 @@ export const getFramePath = (config: TFrameConfig) => {
   };
 
   switch (config.mode) {
-    case SDKMode.Manager: {
-      const filter = { ...config.filter };
-      if (config.id) filter.folder = config.id as string;
-
-      const params = config.requestToken
-        ? { key: config.requestToken, ...filter }
-        : { ...filter };
-
-      if (!params?.withSubfolders) {
-        delete params?.withSubfolders;
-      }
-
-      if (oauth) (params as Record<string, unknown>).auth = oauth;
-      if (config.theme) (params as Record<string, unknown>).theme = config.theme;
-
-      const urlParams = customUrlSearchParams(params);
-
-      return `${config.rootPath}${
-        config.requestToken
-          ? `?${urlParams}`
-          : `${config.id ? config.id + "/" : ""}filter?${urlParams}`
-      }`;
-    }
+    case SDKMode.Manager:
+      return getManagerPath(config, oauth);
 
     case SDKMode.RoomSelector:
       return buildPath("/sdk/room-selector", {

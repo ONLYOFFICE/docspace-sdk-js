@@ -1,3 +1,21 @@
+/**
+ * (c) Copyright Ascensio System SIA 2026
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @license
+ */
+
 import { vi } from "vitest";
 import { SDK } from "../src/sdk";
 import { SDKInstance } from "../src/instance";
@@ -58,7 +76,7 @@ const dispatchResponse = (frameId: string, returnData: object = {}) => {
 
 beforeEach(() => {
   document.body.innerHTML = "";
-  window.DocSpace = { SDK: { init: vi.fn() as any, frames: {} } };
+  window.DocSpace = { SDK: { init: vi.fn(), frames: {} } as unknown as SDK };
   vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
     cb(0);
     return 0;
@@ -69,63 +87,59 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ---------------------------------------------------------------------------
-// getFramePath — Personal mode URL construction
-// ---------------------------------------------------------------------------
-
 describe("getFramePath — Personal mode", () => {
-  test("builds /sdk/personal-files/my-documents by default", () => {
+  const query = (path: string) => new URLSearchParams(path.split("?")[1] ?? "");
+
+  test("addresses the list page by folder alias: @my by default", () => {
     const path = getFramePath(makePersonalConfig());
-    expect(path.startsWith("/sdk/personal-files/my-documents")).toBe(true);
+    expect(path.startsWith("/sdk/personal-files?")).toBe(true);
+    expect(query(path).get("folder")).toBe("@my");
   });
 
-  test("uses personalDestination override when provided", () => {
-    const path = getFramePath(
-      makePersonalConfig({ personalDestination: "favorites" }),
-    );
-    expect(path.startsWith("/sdk/personal-files/favorites")).toBe(true);
-  });
+  test("maps every personalDestination to its folder alias", () => {
+    const aliases = {
+      "my-documents": "@my",
+      favorites: "@favorites",
+      recent: "@recent",
+      "shared-with-me": "@share",
+      trash: "@trash",
+    } as const;
 
-  test("supports all section values", () => {
-    const sections = [
-      "my-documents",
-      "favorites",
-      "recent",
-      "trash",
-      "settings",
-    ] as const;
-
-    for (const section of sections) {
+    for (const [section, alias] of Object.entries(aliases)) {
       const path = getFramePath(
-        makePersonalConfig({ personalDestination: section }),
+        makePersonalConfig({ personalDestination: section as keyof typeof aliases }),
       );
-      expect(path).toContain(`/sdk/personal-files/${section}`);
+      expect(path.startsWith("/sdk/personal-files?")).toBe(true);
+      expect(query(path).get("folder")).toBe(alias);
     }
   });
 
-  test("includes id when set", () => {
+  test("routes settings to its own page", () => {
+    const path = getFramePath(makePersonalConfig({ personalDestination: "settings", theme: "Dark" }));
+    expect(path.startsWith("/sdk/personal-files/settings?")).toBe(true);
+    expect(query(path).get("theme")).toBe("Dark");
+    expect(query(path).has("folder")).toBe(false);
+  });
+
+  test("uses id as the folder when set", () => {
     const path = getFramePath(makePersonalConfig({ id: "folder-42" }));
-    expect(path).toContain("id=folder-42");
+    expect(query(path).get("folder")).toBe("folder-42");
+    expect(query(path).has("id")).toBe(false);
   });
 
-  test("includes showMenu flag", () => {
-    const withMenu = getFramePath(makePersonalConfig({ showMenu: true }));
-    expect(withMenu).toContain("showMenu=true");
-
-    const noMenu = getFramePath(makePersonalConfig({ showMenu: false }));
-    expect(noMenu).toContain("showMenu=false");
+  test("does not send showMenu, infoPanelVisible or downloadToEvent: Personal does not read them", () => {
+    const path = getFramePath(
+      makePersonalConfig({ showMenu: true, infoPanelVisible: true, downloadToEvent: true }),
+    );
+    expect(path).not.toContain("showMenu=");
+    expect(path).not.toContain("infoPanelVisible=");
+    expect(path).not.toContain("downloadToEvent=");
   });
 
-  test("includes infoPanelVisible flag", () => {
-    const visible = getFramePath(
-      makePersonalConfig({ infoPanelVisible: true }),
-    );
-    expect(visible).toContain("infoPanelVisible=true");
-
-    const hidden = getFramePath(
-      makePersonalConfig({ infoPanelVisible: false }),
-    );
-    expect(hidden).toContain("infoPanelVisible=false");
+  test("keeps theme and locale on the list page so the redirect cannot drop them", () => {
+    const path = getFramePath(makePersonalConfig({ theme: "Dark", locale: "fr-FR" }));
+    expect(query(path).get("theme")).toBe("Dark");
+    expect(query(path).get("locale")).toBe("fr-FR");
   });
 
   test("includes disableActionButton flag", () => {
@@ -149,6 +163,15 @@ describe("getFramePath — Personal mode", () => {
     expect(path).toContain("sortBy=AZ");
     expect(path).toContain("sortOrder=ascending");
     expect(path).toContain("search=budget");
+  });
+
+  test("sends filter.count as pageCount, the name the list page reads", () => {
+    const path = getFramePath(
+      makePersonalConfig({ filter: { ...defaultConfig.filter, count: "25", page: "2" } }),
+    );
+    expect(query(path).get("pageCount")).toBe("25");
+    expect(query(path).get("page")).toBe("2");
+    expect(query(path).has("count")).toBe(false);
   });
 
   test("includes theme and locale from baseFrameOptions", () => {
@@ -203,23 +226,19 @@ describe("getFramePath — Personal mode", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// SDK.initPersonal — wrapper
-// ---------------------------------------------------------------------------
-
 describe("SDK.initPersonal", () => {
-  test("forces mode to personal and defaults showMenu/infoPanelVisible to true", () => {
+  test("forces mode to personal and leaves showMenu/infoPanelVisible on the defaults", () => {
     setupTarget();
     const sdk = new SDK();
     const instance = sdk.initPersonal({
       ...makePersonalConfig(),
-      showMenu: undefined as unknown as boolean,
-      infoPanelVisible: undefined as unknown as boolean,
+      showMenu: undefined,
+      infoPanelVisible: undefined,
     });
 
     expect(instance.config.mode).toBe(SDKMode.Personal);
-    expect(instance.config.showMenu).toBe(true);
-    expect(instance.config.infoPanelVisible).toBe(true);
+    expect(instance.config.showMenu).toBeUndefined();
+    expect(instance.config.infoPanelVisible).toBeUndefined();
   });
 
   test("respects explicit showMenu=false", () => {
@@ -254,10 +273,6 @@ describe("SDK.initPersonal", () => {
     expect(instance.config.personalDestination).toBe("my-documents");
   });
 });
-
-// ---------------------------------------------------------------------------
-// navigateSection — now supports Personal mode
-// ---------------------------------------------------------------------------
 
 describe("navigateSection — Personal mode", () => {
   test("sends correct method name and section via postMessage", () => {

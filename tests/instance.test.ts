@@ -1,6 +1,26 @@
+/**
+ * (c) Copyright Ascensio System SIA 2026
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @license
+ */
+
 import { vi } from "vitest";
 import { SDKInstance } from "../src/instance";
-import { defaultConfig, FRAME_NAME } from "../src/constants";
+import type { SDK } from "../src/sdk";
+import { cspErrorText, defaultConfig, FRAME_NAME, MAX_TIMER_DELAY_MS, TOKEN_REFRESH_LEAD_MS } from "../src/constants";
+import { getCSPErrorBody } from "../src/utils";
 import { SDKError, SDKErrorCode } from "../src/errors";
 import { RoomType } from "../src/enums";
 import type {
@@ -34,10 +54,7 @@ beforeEach(() => {
   document.body.innerHTML = "";
 
   window.DocSpace = {
-    SDK: {
-      init: vi.fn() as any,
-      frames: {},
-    },
+    SDK: { init: vi.fn(), frames: {} } as unknown as SDK,
   };
 
   vi.stubGlobal(
@@ -190,7 +207,7 @@ describe("getConfig", () => {
     setupTarget();
     const ctorConfig = makeConfig({ src: "https://custom.example.com", theme: "Dark" });
     const inst = new SDKInstance(ctorConfig);
-    inst.initFrame({ frameId: "ds-frame", mode: "manager", src: "https://custom.example.com", checkCSP: false } as TFrameConfig);
+    inst.initFrame({ frameId: "ds-frame", mode: "manager", src: "https://custom.example.com", checkCSP: false });
 
     const returned = inst.getConfig();
     expect(returned.theme).toBe("Dark");
@@ -215,6 +232,12 @@ describe("setConfig", () => {
 
     expect(inst.getConfig().theme).toBe("Dark");
     expect(postMessageSpy).toHaveBeenCalledTimes(1);
+    const [envelope, targetOrigin] = postMessageSpy.mock.calls[0];
+    const sent = JSON.parse(envelope);
+    expect(targetOrigin).toBe(BASE_SRC);
+    expect(sent.frameId).toBe("ds-frame");
+    expect(sent.data.methodName).toBe("setConfig");
+    expect(sent.data.data).toMatchObject({ theme: "Dark", src: BASE_SRC, frameId: "ds-frame", mode: "manager" });
   });
 
   test("reload=true re-initializes the frame and resolves with config", async () => {
@@ -1019,6 +1042,24 @@ describe("createRoom", () => {
     expect(sent.data.data).toEqual({ title: "Team", roomType: 1, tags: ["x"], quota: 100 });
   });
 
+  test("accepts the positional arguments of SDK 2.1 and posts them as flat fields", () => {
+    const { inst, postMessageSpy } = initWithPostMessage();
+
+    const legacyCreateRoom = inst.createRoom as unknown as (...args: unknown[]) => Promise<object>;
+    legacyCreateRoom.call(inst, "Team", 2, 1024, ["a", "b"], "#fff", undefined, true, false);
+
+    const sent = JSON.parse(postMessageSpy.mock.calls[0][0]);
+    expect(sent.data.data).toEqual({
+      title: "Team",
+      roomType: 2,
+      quota: 1024,
+      tags: ["a", "b"],
+      color: "#fff",
+      indexing: true,
+      denyDownload: false,
+    });
+  });
+
   test("accepts a RoomType enum value and posts its numeric API value", () => {
     const { inst, postMessageSpy } = initWithPostMessage();
 
@@ -1100,7 +1141,10 @@ describe("login", () => {
 });
 
 describe("external data events", () => {
-  const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+  const flushPromises = () =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
 
   const initConnectedInstance = (configOverrides: Partial<TFrameConfig> = {}) => {
     setupTarget();
@@ -1282,10 +1326,16 @@ describe("external data events", () => {
     expect(postMessageSpy).not.toHaveBeenCalled();
   });
 
-  test("setExternalData command is a no-op when handler is not set", () => {
-    const { postMessageSpy } = initConnectedInstance();
+  test("setExternalData command is a no-op when handler is not set", async () => {
+    const onAppError = vi.fn();
+    const { postMessageSpy } = initConnectedInstance({
+      events: { ...defaultConfig.events, onGetExternalData: undefined, onSetExternalData: undefined, onAppError },
+    });
 
-    expect(() => dispatchSet({ key: "x", value: 1 })).not.toThrow();
+    dispatchSet({ key: "x", value: 1 });
+    await flushPromises();
+
+    expect(onAppError).not.toHaveBeenCalled();
     expect(postMessageSpy).not.toHaveBeenCalled();
   });
 
@@ -1351,10 +1401,13 @@ describe("OAuth mode", () => {
     return { message: JSON.parse(call[0] as string), targetOrigin: call[1] };
   };
 
-  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const flush = () =>
+    new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
 
   test("getAuthToken: replies with the token from getToken, correlated by callId", async () => {
-    const getToken = vi.fn(async () => "access-token");
+    const getToken = vi.fn(() => Promise.resolve("access-token"));
     const { postMessageSpy } = initOAuthInstance({ getToken });
 
     dispatchCommand("getAuthToken", { callId: 7 });
@@ -1409,7 +1462,9 @@ describe("OAuth mode", () => {
       message: "refresh failed",
     });
     expect(onAppError).not.toHaveBeenCalled();
-    expect(postMessageSpy).not.toHaveBeenCalled();
+    const reply = lastAuthReturn(postMessageSpy).message;
+    expect(reply.callId).toBe(3);
+    expect(reply.data).toEqual({});
   });
 
   test("getAuthToken: fires onAuthError when neither getToken nor accessToken is configured", async () => {
@@ -1576,5 +1631,543 @@ describe("OAuth mode", () => {
         message: "backend down",
       });
     });
+  });
+});
+
+const initConnectedWithSpy = (overrides: Partial<TFrameConfig> = {}) => {
+  setupTarget(overrides.frameId);
+  const config = makeConfig(overrides);
+  const inst = new SDKInstance(config);
+  const iframe = inst.initFrame(config)!;
+  iframe.dispatchEvent(new Event("load"));
+
+  const postMessageSpy = vi.fn();
+  Object.defineProperty(iframe, "contentWindow", {
+    value: { postMessage: postMessageSpy },
+    writable: true,
+  });
+
+  return { inst, iframe, postMessageSpy, config };
+};
+
+const postFromFrame = (data: object, options: { origin?: string; source?: Window } = {}) => {
+  const event = new MessageEvent("message", { data: JSON.stringify(data), origin: options.origin ?? BASE_SRC });
+  if (options.source) Object.defineProperty(event, "source", { value: options.source });
+  window.dispatchEvent(event);
+};
+
+const methodReturn = (callId: number | undefined, methodReturnData: unknown) =>
+  postFromFrame({
+    frameId: "ds-frame",
+    type: "onMethodReturn",
+    ...(callId !== undefined && { callId }),
+    methodReturnData,
+  });
+
+const command = (commandName: string, commandData?: object) =>
+  postFromFrame({ frameId: "ds-frame", type: "onCallCommand", commandName, commandData });
+
+const sentTask = (spy: ReturnType<typeof vi.fn>, index: number) =>
+  JSON.parse(spy.mock.calls[index][0] as string).data;
+
+const sentCallId = (spy: ReturnType<typeof vi.fn>, index: number): number => sentTask(spy, index).callId;
+
+const track = <T,>(promise: Promise<T>) => {
+  const state = { settled: false, value: undefined as T | undefined, error: undefined as unknown };
+  promise.then(
+    (value) => {
+      state.settled = true;
+      state.value = value;
+    },
+    (error: unknown) => {
+      state.settled = true;
+      state.error = error;
+    },
+  );
+  return state;
+};
+
+const flushMicrotasks = () =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+
+describe("methodTimeout", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("defaults to 30 seconds when unset", async () => {
+    const onAppError = vi.fn();
+    const { inst } = initConnectedWithSpy({ events: { ...defaultConfig.events, onAppError } });
+    expect(inst.getConfig().methodTimeout).toBeUndefined();
+
+    const call = track(inst.getFiles());
+
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(call.settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(call.settled).toBe(true);
+    expect(call.error).toBeInstanceOf(SDKError);
+    expect((call.error as SDKError).code).toBe(SDKErrorCode.Timeout);
+    expect(onAppError).toHaveBeenCalledWith("Method call timed out");
+  });
+
+  test("honours a custom value", async () => {
+    const { inst } = initConnectedWithSpy({ methodTimeout: 500 });
+
+    const call = track(inst.getFiles());
+
+    await vi.advanceTimersByTimeAsync(499);
+    expect(call.settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect((call.error as SDKError).code).toBe(SDKErrorCode.Timeout);
+  });
+
+  test("clears the timer when the reply arrives in time", async () => {
+    const onAppError = vi.fn();
+    const { inst, postMessageSpy } = initConnectedWithSpy({
+      methodTimeout: 1000,
+      events: { ...defaultConfig.events, onAppError },
+    });
+
+    const call = track(inst.getFiles());
+    await vi.advanceTimersByTimeAsync(100);
+    methodReturn(sentCallId(postMessageSpy, 0), { files: ["in-time"] });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(call.value).toEqual({ files: ["in-time"] });
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(onAppError).not.toHaveBeenCalled();
+  });
+
+  test("sends the next queued task after a timeout", async () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy({ methodTimeout: 1000 });
+
+    const first = track(inst.getFiles());
+    const second = track(inst.getUserInfo());
+    expect(postMessageSpy).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect((first.error as SDKError).code).toBe(SDKErrorCode.Timeout);
+    expect(postMessageSpy).toHaveBeenCalledTimes(2);
+    expect(sentTask(postMessageSpy, 1).methodName).toBe("getUserInfo");
+
+    methodReturn(sentCallId(postMessageSpy, 1), { id: "u1" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(second.value).toEqual({ id: "u1" });
+  });
+
+  test("a reply for a timed-out callId is dropped instead of settling the next call", async () => {
+    const onAppError = vi.fn();
+    const { inst, postMessageSpy } = initConnectedWithSpy({
+      methodTimeout: 1000,
+      events: { ...defaultConfig.events, onAppError },
+    });
+
+    const first = inst.getFiles();
+    const firstId = sentCallId(postMessageSpy, 0);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(first).rejects.toMatchObject({ code: SDKErrorCode.Timeout });
+    expect(onAppError).toHaveBeenCalledTimes(1);
+
+    const second = track(inst.getUserInfo());
+    const secondId = sentCallId(postMessageSpy, 1);
+    expect(secondId).not.toBe(firstId);
+
+    methodReturn(firstId, { files: ["stale"] });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(second.settled).toBe(false);
+
+    methodReturn(secondId, { id: "u1" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(second.value).toEqual({ id: "u1" });
+  });
+
+  test("a reply without callId still settles the oldest pending call (FIFO fallback)", async () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy({ methodTimeout: 1000 });
+
+    const first = track(inst.getFiles());
+    const second = track(inst.getUserInfo());
+
+    methodReturn(undefined, { files: ["oldest"] });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(first.value).toEqual({ files: ["oldest"] });
+    expect(second.settled).toBe(false);
+    expect(sentTask(postMessageSpy, 1).methodName).toBe("getUserInfo");
+  });
+});
+
+describe("OAuth token resolution", () => {
+  const jwtWithExp = (exp: number) => {
+    const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
+    return `eyJhbGciOiJIUzI1NiJ9.${payload}.sig`;
+  };
+
+  test("a refresh further away than setTimeout allows waits in slices without calling getToken early", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    try {
+      const expSeconds = Math.floor(Date.now() / 1000) + 40 * 86_400;
+      const token = jwtWithExp(expSeconds);
+      const getToken = vi.fn(() => token);
+      const { postMessageSpy } = initConnectedWithSpy({ getToken });
+
+      command("getAuthToken", { callId: 1 });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(getToken).toHaveBeenCalledTimes(1);
+
+      expect(MAX_TIMER_DELAY_MS).toBe(2 ** 31 - 1);
+      await vi.advanceTimersByTimeAsync(MAX_TIMER_DELAY_MS);
+      expect(getToken).toHaveBeenCalledTimes(1);
+
+      const refreshAt = expSeconds * 1000 - TOKEN_REFRESH_LEAD_MS;
+      await vi.advanceTimersByTimeAsync(refreshAt - Date.now() - 1);
+      expect(getToken).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(getToken).toHaveBeenCalledTimes(2);
+      const pushed = JSON.parse(postMessageSpy.mock.calls.at(-1)![0] as string);
+      expect(pushed.type).toBe("onAuthTokenReturn");
+      expect(pushed.callId).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+      expect(getToken).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("getAuthToken: concurrent commands share one getToken call and each gets its own reply", async () => {
+    let resolveToken!: (token: string) => void;
+    const getToken = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveToken = resolve;
+        }),
+    );
+    const { postMessageSpy } = initConnectedWithSpy({ getToken });
+
+    command("getAuthToken", { callId: 1 });
+    command("getAuthToken", { callId: 2 });
+    await flushMicrotasks();
+
+    expect(getToken).toHaveBeenCalledTimes(1);
+    expect(postMessageSpy).not.toHaveBeenCalled();
+
+    resolveToken("shared-token");
+    await flushMicrotasks();
+
+    const replies = postMessageSpy.mock.calls.map((call) => JSON.parse(call[0] as string));
+    expect(replies.map((reply) => reply.callId)).toEqual([1, 2]);
+    for (const reply of replies) {
+      expect(reply.type).toBe("onAuthTokenReturn");
+      expect(reply.data).toEqual({ accessToken: "shared-token" });
+    }
+    expect(getToken).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("setConfig command from the frame", () => {
+  const SUBPATH_SRC = `${BASE_SRC}/apps`;
+
+  test("the origin the portal reports narrows the filter but does not replace a src with a sub-path", async () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy({ src: SUBPATH_SRC });
+
+    command("setConfig", { src: BASE_SRC });
+
+    const task = sentTask(postMessageSpy, 0);
+    expect(task.methodName).toBe("setConfig");
+    expect(task.data.src).toBe(SUBPATH_SRC);
+    expect(inst.getConfig().src).toBe(SUBPATH_SRC);
+
+    methodReturn(undefined, {});
+    await flushMicrotasks();
+
+    const files = inst.getFiles();
+    methodReturn(sentCallId(postMessageSpy, 1), { files: [] });
+    await expect(files).resolves.toEqual({ files: [] });
+  });
+
+  test("instance.setConfig() without an argument keeps src and events", () => {
+    const onAppError = vi.fn();
+    const { inst, postMessageSpy } = initConnectedWithSpy({ events: { ...defaultConfig.events, onAppError } });
+
+    void inst.setConfig();
+
+    const config = inst.getConfig();
+    expect(config.src).toBe(BASE_SRC);
+    expect(config.frameId).toBe("ds-frame");
+    expect(config.events?.onAppError).toBe(onAppError);
+
+    const task = sentTask(postMessageSpy, 0);
+    expect(task.methodName).toBe("setConfig");
+    expect(task.data.src).toBe(BASE_SRC);
+    expect(task.data.events.onAppError).toBe(true);
+  });
+});
+
+describe("method wrappers — posted payloads", () => {
+  test.each<[string, (inst: SDKInstance) => Promise<unknown>, unknown]>([
+    ["getFolderInfo", (inst) => inst.getFolderInfo(), null],
+    ["getSelection", (inst) => inst.getSelection(), null],
+    ["getList", (inst) => inst.getList(), null],
+    ["getHashSettings", (inst) => inst.getHashSettings(), null],
+    ["openModal", (inst) => inst.openModal("CreateFile", { x: 1 }), { type: "CreateFile", options: { x: 1 } }],
+    ["setListView", (inst) => inst.setListView("table"), { viewType: "table" }],
+    ["createTag", (inst) => inst.createTag("t"), { name: "t" }],
+    ["addTagsToRoom", (inst) => inst.addTagsToRoom(5, ["a"]), { roomId: 5, tags: ["a"] }],
+    ["removeTagsFromRoom", (inst) => inst.removeTagsFromRoom("r", ["a"]), { roomId: "r", tags: ["a"] }],
+    ["createFolder", (inst) => inst.createFolder(7, "x"), { parentFolderId: 7, title: "x" }],
+    ["createFile", (inst) => inst.createFile(7, "x"), { folderId: 7, title: "x" }],
+  ])("%s posts the method name and its data", (methodName, call, data) => {
+    const { inst, postMessageSpy } = initConnectedWithSpy();
+
+    void call(inst);
+
+    expect(postMessageSpy).toHaveBeenCalledTimes(1);
+    expect(sentTask(postMessageSpy, 0)).toEqual({ type: "method", methodName, data, callId: expect.any(Number) });
+  });
+
+  test("getRooms renames search and count to the portal's filterValue and pageCount", () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy();
+
+    void inst.getRooms({ search: "x", count: "5", groupId: "42", page: "2" });
+
+    const task = sentTask(postMessageSpy, 0);
+    expect(task.methodName).toBe("getRooms");
+    expect(task.data).toEqual({ filterValue: "x", pageCount: "5", groupId: "42", page: "2" });
+    expect(task.data).not.toHaveProperty("search");
+    expect(task.data).not.toHaveProperty("count");
+  });
+
+  test("getRooms posts exactly the given fields when search and count are absent", () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy();
+
+    void inst.getRooms({ groupId: "42" });
+
+    expect(sentTask(postMessageSpy, 0).data).toEqual({ groupId: "42" });
+  });
+
+  test("executeInEditor serialises the callback with toString() next to its data", () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy();
+    const callback = (editor: any, _asc: any, data: any) => {
+      editor.insertText(data.text);
+    };
+
+    void inst.executeInEditor(callback, { text: "hi" });
+
+    const task = sentTask(postMessageSpy, 0);
+    expect(task.methodName).toBe("executeInEditor");
+    expect(task.data.callback).toBe(callback.toString());
+    expect(task.data.data).toEqual({ text: "hi" });
+  });
+
+  test("a function in any other method's payload is replaced by true", () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy();
+
+    void inst.openModal("share", { onClose: () => undefined });
+
+    expect(sentTask(postMessageSpy, 0).data.options.onClose).toBe(true);
+  });
+});
+
+describe("message source and error envelopes", () => {
+  test("a message from another window of the portal origin is ignored", async () => {
+    const { inst, postMessageSpy } = initConnectedWithSpy();
+
+    const call = track(inst.getFiles());
+    const callId = sentCallId(postMessageSpy, 0);
+
+    postFromFrame(
+      { frameId: "ds-frame", type: "onMethodReturn", callId, methodReturnData: { files: ["popup"] } },
+      { source: window },
+    );
+    await flushMicrotasks();
+    expect(call.settled).toBe(false);
+
+    methodReturn(callId, { files: ["frame"] });
+    await flushMicrotasks();
+    expect(call.value).toEqual({ files: ["frame"] });
+  });
+
+  test("a type:error message fires onAppError with the portal's message", () => {
+    const onAppError = vi.fn();
+    initConnectedWithSpy({ events: { ...defaultConfig.events, onAppError } });
+
+    postFromFrame({ frameId: "ds-frame", type: "error", error: { message: "boom" } });
+
+    expect(onAppError).toHaveBeenCalledTimes(1);
+    expect(onAppError).toHaveBeenCalledWith("boom");
+  });
+
+  test("a non-JSON string from the frame origin fires onAppError with the parse error", () => {
+    const onAppError = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    initConnectedWithSpy({ events: { ...defaultConfig.events, onAppError } });
+
+    window.dispatchEvent(new MessageEvent("message", { data: "not json {", origin: BASE_SRC }));
+
+    expect(onAppError).toHaveBeenCalledTimes(1);
+    expect(onAppError).toHaveBeenCalledWith(expect.stringMatching(/^Invalid message format: /));
+    expect(consoleError).toHaveBeenCalledWith("SDK Error:", expect.any(SDKError));
+  });
+
+  test("a frameId:'error' envelope fires onAppError regardless of the frame", () => {
+    const onAppError = vi.fn();
+    initConnectedWithSpy({ events: { ...defaultConfig.events, onAppError } });
+
+    postFromFrame({ frameId: "error", error: { message: "portal error" } });
+
+    expect(onAppError).toHaveBeenCalledWith("portal error");
+  });
+});
+
+describe("initFrame — src normalisation", () => {
+  test("a trailing slash is stripped so the iframe URL has no double slash", () => {
+    setupTarget();
+    const config = makeConfig({ src: `${BASE_SRC}/` });
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+
+    expect(inst.getConfig().src).toBe(BASE_SRC);
+    expect(iframe.src.startsWith(`${BASE_SRC}/`)).toBe(true);
+    expect(iframe.src.replace(/^https:\/\//, "")).not.toContain("//");
+  });
+
+  test("a sub-path in src is kept", () => {
+    setupTarget();
+    const config = makeConfig({ src: `${BASE_SRC}/apps/` });
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+
+    expect(inst.getConfig().src).toBe(`${BASE_SRC}/apps`);
+    expect(iframe.src.startsWith(`${BASE_SRC}/apps/rooms/shared/`)).toBe(true);
+  });
+});
+
+describe("initFrame — checkCSP", () => {
+  test("a failed validation fires onAppError and shows the CSP error page in the iframe", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue({
+      json: () => Promise.resolve({ response: { domains: ["https://other.example"] } }),
+    } as unknown as Response);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const onAppError = vi.fn();
+    setupTarget();
+    const config = makeConfig({ checkCSP: true, events: { ...defaultConfig.events, onAppError } });
+    const inst = new SDKInstance(config);
+    const iframe = inst.initFrame(config)!;
+
+    expect(fetchSpy).toHaveBeenCalledWith(`${BASE_SRC}/api/2.0/security/csp`);
+    await flushMicrotasks();
+
+    expect(onAppError).toHaveBeenCalledWith(cspErrorText);
+    expect(iframe.srcdoc).toBe(getCSPErrorBody(BASE_SRC));
+  });
+});
+
+describe("destroyFrame — body style", () => {
+  afterEach(() => {
+    document.body.style.overscrollBehaviorY = "";
+  });
+
+  test("resets overscrollBehaviorY for a mobile frame", () => {
+    setupTarget();
+    const config = makeConfig({ type: "mobile" });
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+    expect(document.body.style.overscrollBehaviorY).toBe("contain");
+
+    inst.destroyFrame();
+
+    expect(document.body.style.overscrollBehaviorY).toBe("");
+  });
+
+  test("leaves the body style alone for a desktop frame", () => {
+    document.body.style.overscrollBehaviorY = "contain";
+    setupTarget();
+    const config = makeConfig({ type: "desktop" });
+    const inst = new SDKInstance(config);
+    inst.initFrame(config);
+
+    inst.destroyFrame();
+
+    expect(document.body.style.overscrollBehaviorY).toBe("contain");
+  });
+});
+
+describe("destroyFrame / initFrame — pending calls and uploads", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const setupPending = async () => {
+    const onAppError = vi.fn();
+    const { inst, postMessageSpy, config } = initConnectedWithSpy({
+      mode: "personal",
+      events: { ...defaultConfig.events, onAppError },
+    });
+
+    const sent = track(inst.getFiles());
+    const queued = track(inst.getUserInfo());
+
+    const file = new File(["x"], "doc.pdf");
+    Object.defineProperty(file, "arrayBuffer", { value: () => Promise.resolve(new ArrayBuffer(1)) });
+    const upload = track(inst.upload(file));
+    await vi.advanceTimersByTimeAsync(0);
+
+    const uploadCalls = postMessageSpy.mock.calls.filter((call) => typeof call[0] === "object");
+    expect(uploadCalls).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(2);
+
+    return { inst, config, onAppError, pending: { sent, queued, upload } };
+  };
+
+  const expectRejectedWith = (state: ReturnType<typeof track>, message: string) => {
+    expect(state.settled).toBe(true);
+    expect(state.error).toBeInstanceOf(SDKError);
+    expect((state.error as SDKError).code).toBe(SDKErrorCode.Disconnected);
+    expect((state.error as SDKError).message).toBe(message);
+  };
+
+  test("destroyFrame rejects every pending method and upload with Disconnected and clears their timers", async () => {
+    const { inst, onAppError, pending } = await setupPending();
+
+    inst.destroyFrame();
+    await vi.advanceTimersByTimeAsync(0);
+
+    for (const state of Object.values(pending)) expectRejectedWith(state, "Frame destroyed");
+    expect(vi.getTimerCount()).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(200_000);
+    expect(onAppError).not.toHaveBeenCalled();
+  });
+
+  test("initFrame rejects every pending method and upload with Disconnected and clears their timers", async () => {
+    const { inst, config, onAppError, pending } = await setupPending();
+
+    inst.initFrame(config);
+    await vi.advanceTimersByTimeAsync(0);
+
+    for (const state of Object.values(pending)) expectRejectedWith(state, "Frame reloaded");
+    expect(vi.getTimerCount()).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(200_000);
+    expect(onAppError).not.toHaveBeenCalled();
   });
 });

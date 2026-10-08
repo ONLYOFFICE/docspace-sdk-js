@@ -66,7 +66,7 @@ describe("customUrlSearchParams", () => {
   });
 
   test("should omit undefined & null values", () => {
-    const result = customUrlSearchParams({ a: "1", b: undefined, c: null } as any);
+    const result = customUrlSearchParams({ a: "1", b: undefined, c: null });
     expect(result).toBe("a=1");
   });
 
@@ -86,29 +86,29 @@ describe("validateCSP", () => {
 
   test("passes when origin includes targetSrc (short-circuit) and skips fetch", async () => {
     const fetchSpy = vi.spyOn(global, "fetch");
-    await expect(validateCSP(defaultOrigin)).resolves.not.toThrow();
+    await expect(validateCSP(defaultOrigin)).resolves.toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   test("passes when host is in fetched domains", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
-      json: async () => ({ response: { domains: [host, `https://${host}/path`] } }),
+      json: () => Promise.resolve({ response: { domains: [host, `https://${host}/path`] } }),
     } as Response);
     await expect(validateCSP("https://remote.example"))
-      .resolves.not.toThrow();
+      .resolves.toBeUndefined();
   });
 
   test("passes when host is empty but origin host matches (simulated by domains including origin host)", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
-      json: async () => ({ response: { domains: [new URL(defaultOrigin).host] } }),
+      json: () => Promise.resolve({ response: { domains: [new URL(defaultOrigin).host] } }),
     } as Response);
     await expect(validateCSP("https://remote.example"))
-      .resolves.not.toThrow();
+      .resolves.toBeUndefined();
   });
 
   test("throws when host not included", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
-      json: async () => ({ response: { domains: ["other.com"] } }),
+      json: () => Promise.resolve({ response: { domains: ["other.com"] } }),
     } as Response);
     await expect(validateCSP("https://remote.example"))
       .rejects.toThrow(cspErrorText);
@@ -116,10 +116,10 @@ describe("validateCSP", () => {
 
   test("throws on invalid JSON", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue({
-      json: async () => { throw "Invalid JSON"; },
-    } as Response);
+      json: () => Promise.reject(new Error("Invalid JSON")),
+    } as unknown as Response);
     await expect(validateCSP("https://remote.example"))
-      .rejects.toThrow("CSP validation failed: Invalid JSON");
+      .rejects.toThrow("CSP validation failed: Error: Invalid JSON");
   });
 });
 
@@ -161,9 +161,21 @@ describe("getConfigFromParams", () => {
     expect(result?.filter?.search).toBe("query");
   });
 
-  test("throws when document.currentScript is null", () => {
+  test("returns the defaults when document.currentScript is null (module script, bundled api.js)", () => {
     Object.defineProperty(document, "currentScript", { value: null, configurable: true });
-    expect(() => getConfigFromParams()).toThrow();
+    expect(getConfigFromParams()).toEqual(defaultConfig);
+  });
+
+  test("keeps an encoded ampersand inside a value", () => {
+    registerScript("https://example.com/api.js?src=https://example.com&mode=manager&search=a%26b");
+    expect(getConfigFromParams().filter?.search).toBe("a&b");
+  });
+
+  test("ignores inherited keys when routing filter params", () => {
+    registerScript("https://example.com/api.js?src=https://example.com&mode=manager&toString=x");
+    const result = getConfigFromParams();
+    expect(result.filter).not.toHaveProperty("toString", "x");
+    expect(result).toHaveProperty("toString", "x");
   });
 
   describe("filter param syntax", () => {
@@ -300,7 +312,7 @@ describe("getFramePath", () => {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.RoomSelector,
-      } as any;
+      };
       const path = getFramePath(config);
       expect(path).toBe(`/sdk/room-selector`);
     });
@@ -388,7 +400,7 @@ describe("getFramePath", () => {
         src: "https://example.com",
         frameId: "ds-frame",
         mode: SDKMode.System,
-      } as any;
+      };
       const path = getFramePath(config);
       expect(path).toBe("/old-sdk/system");
     });
@@ -400,7 +412,7 @@ describe("getFramePath", () => {
         mode: SDKMode.Uploader,
         id: "folder-42",
         acceptExtensions: ".docx,.xlsx",
-      } as any;
+      };
       const path = getFramePath(config);
       expect(path).toContain("/sdk/uploader");
       expect(path).toContain("targetId=folder-42");
@@ -441,7 +453,7 @@ describe("getFramePath", () => {
           frameId: "ds-frame",
           mode: SDKMode.Forms,
           destination: section,
-        } as any;
+        };
         const path = getFramePath(config);
         expect(path).toContain(`/sdk/forms/${section}`);
       }
@@ -455,7 +467,7 @@ describe("getFramePath", () => {
         agentId: 42,
         fileId: 99,
         threadId: "thread-abc",
-      } as any;
+      };
       const path = getFramePath(config);
       expect(path).toContain("/sdk/chat");
       expect(path).toContain("agentId=42");
@@ -469,7 +481,7 @@ describe("getFramePath", () => {
         frameId: "ds-frame",
         mode: SDKMode.Chat,
         agentId: 7,
-      } as any;
+      };
       const path = getFramePath(config);
       expect(path).toContain("agentId=7");
       expect(path).not.toContain("fileId");
@@ -494,7 +506,7 @@ describe("getFramePath", () => {
           frameId: "ds-frame",
           mode,
           stylesUrl: "https://cdn.example.com/theme.css",
-        } as any;
+        };
         const path = getFramePath(config);
         expect(path).toContain("stylesUrl=https%3A%2F%2Fcdn.example.com%2Ftheme.css");
       }
@@ -502,18 +514,18 @@ describe("getFramePath", () => {
 
     test("handles all modes without throwing", () => {
       Object.values(SDKMode).forEach((mode) => {
-        const conf: TFrameConfig = { src: "https://example.com", frameId: "ds-frame", mode } as any;
+        const conf: TFrameConfig = { src: "https://example.com", frameId: "ds-frame", mode };
         expect(() => getFramePath(conf)).not.toThrow();
       });
     });
 
     test("default branch returns rootPath for unknown mode", () => {
-      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "/custom/" } as TFrameConfig;
+      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "/custom/" } as unknown as TFrameConfig;
       expect(getFramePath(conf)).toBe("/custom/");
     });
 
     test("default branch returns / when rootPath is empty", () => {
-      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "" } as TFrameConfig;
+      const conf = { src: "https://example.com", frameId: "ds-frame", mode: "unknown-mode", rootPath: "" } as unknown as TFrameConfig;
       expect(getFramePath(conf)).toBe("/");
     });
   });

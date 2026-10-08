@@ -21,7 +21,7 @@
  * @mergeModuleWith <project>
  */
 
-import type { TFrameConfig } from "../types";
+import type { TFrameConfig, TInitConfig } from "../types";
 import { SDKMode } from "../enums";
 import { SDKInstance } from "../instance";
 
@@ -108,7 +108,7 @@ export class SDK {
    * with full CRUD operations on rooms, folders, and files.
    * Forces `mode` to {@link SDKMode.Manager}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -141,14 +141,14 @@ export class SDK {
    * });
    * ```
    */
-  initManager = (config: TFrameConfig) =>
+  initManager = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.Manager });
 
   /**
    * Initializes a frame in {@link SDKMode.Viewer} mode — read-only document viewer.
    * Forces `mode` to {@link SDKMode.Viewer}. Requires {@link TFrameConfig.id}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -168,14 +168,14 @@ export class SDK {
    * });
    * ```
    */
-  initViewer = (config: TFrameConfig) =>
+  initViewer = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.Viewer });
 
   /**
    * Initializes a frame in {@link SDKMode.Editor} mode — full document editor.
    * Forces `mode` to {@link SDKMode.Editor}. Requires {@link TFrameConfig.id}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -196,7 +196,7 @@ export class SDK {
    * });
    * ```
    */
-  initEditor = (config: TFrameConfig) =>
+  initEditor = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.Editor });
 
   /**
@@ -204,7 +204,7 @@ export class SDK {
    * Forces `mode` to {@link SDKMode.RoomSelector}.
    * The selected room is returned via {@link TFrameEvents.onSelectCallback}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -224,7 +224,7 @@ export class SDK {
    * });
    * ```
    */
-  initRoomSelector = (config: TFrameConfig) =>
+  initRoomSelector = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.RoomSelector });
 
   /**
@@ -232,7 +232,7 @@ export class SDK {
    * Forces `mode` to {@link SDKMode.FileSelector}.
    * The selected file is returned via {@link TFrameEvents.onSelectCallback}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -253,7 +253,7 @@ export class SDK {
    * });
    * ```
    */
-  initFileSelector = (config: TFrameConfig) =>
+  initFileSelector = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.FileSelector });
 
   /**
@@ -262,7 +262,7 @@ export class SDK {
    * {@link SDKInstance.getUserInfo}) without rendering any ONLYOFFICE Apps UI.
    * Forces `mode` to {@link SDKMode.System}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -279,7 +279,7 @@ export class SDK {
    * system.getUserInfo().then((user) => console.log('current user:', user));
    * ```
    */
-  initSystem = (config: TFrameConfig) =>
+  initSystem = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.System });
 
   /**
@@ -287,7 +287,7 @@ export class SDK {
    * edit, comment on, and review documents in a public room.
    * Forces `mode` to {@link SDKMode.PublicRoom}. Requires {@link TFrameConfig.requestToken}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -317,7 +317,7 @@ export class SDK {
    * });
    * ```
    */
-  initPublicRoom = (config: TFrameConfig) =>
+  initPublicRoom = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.PublicRoom });
 
   /**
@@ -325,7 +325,7 @@ export class SDK {
    * Forces `mode` to {@link SDKMode.Uploader}. Requires {@link TFrameConfig.id}
    * (the target folder ID).
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -340,21 +340,23 @@ export class SDK {
    *   acceptExtensions: '.docx,.xlsx,.pdf',
    *   isMultipleUpload: true,
    *   events: {
-   *     onUploadSuccess: (files) => console.log('uploaded:', files.map((f) => f.response?.title)),
+   *     onUploadSuccess: (files) => {
+   *       if (Array.isArray(files)) console.log('uploaded:', files.map((f) => f.response?.title));
+   *     },
    *     onUploadProgress: (p) => console.log(p.fileName, p.percent),
-   *     onUploadError: (err) => console.error(err.error, err.rejectedFiles),
+   *     onUploadError: (err) => console.error('error' in err ? err.error : err.message),
    *   },
    * });
    * ```
    */
-  initUploader = (config: TFrameConfig) =>
+  initUploader = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.Uploader });
 
   /**
    * Initializes a frame in {@link SDKMode.Forms} mode — a forms gallery for the room specified by {@link TFrameConfig.id}.
    * Forces `mode` to {@link SDKMode.Forms}. Sets `showMenu` to `true` by default.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -373,7 +375,7 @@ export class SDK {
    * });
    * ```
    */
-  initForms = (config: TFrameConfig) =>
+  initForms = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.Forms, showMenu: config.showMenu ?? true });
 
   /**
@@ -390,7 +392,7 @@ export class SDK {
    * same no-access state.
    * :::
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -408,17 +410,18 @@ export class SDK {
    * });
    * ```
    */
-  initChat = (config: TFrameConfig) =>
+  initChat = (config: TInitConfig) =>
     this.init({ ...config, mode: SDKMode.Chat });
 
   /**
    * Initializes a frame in {@link SDKMode.Personal} mode — a file/folder manager for the
-   * user's personal space: My Documents, Favorites, Recent, and Trash. The initial
-   * section is controlled by {@link TFrameConfig.personalDestination}.
+   * user's personal space: My Documents, Favorites, Recent, Shared with me, and Trash. The initial
+   * section is controlled by {@link TFrameConfig.personalDestination}; the frame has no navigation
+   * menu of its own, so the host switches sections with {@link SDKInstance.navigateSection}.
    *
-   * Forces `mode` to {@link SDKMode.Personal}. Defaults `showMenu` and `infoPanelVisible` to `true`.
+   * Forces `mode` to {@link SDKMode.Personal}.
    *
-   * @param config - Frame configuration. See {@link TFrameConfig}.
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.
    *
    * @example
@@ -438,11 +441,6 @@ export class SDK {
    * });
    * ```
    */
-  initPersonal = (config: TFrameConfig) =>
-    this.init({
-      ...config,
-      mode: SDKMode.Personal,
-      showMenu: config.showMenu ?? true,
-      infoPanelVisible: config.infoPanelVisible ?? true,
-    });
+  initPersonal = (config: TInitConfig) =>
+    this.init({ ...config, mode: SDKMode.Personal });
 }

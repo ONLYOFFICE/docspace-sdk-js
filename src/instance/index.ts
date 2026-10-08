@@ -21,7 +21,14 @@
  * @mergeModuleWith <project>
  */
 
-import { defaultConfig, FRAME_NAME, connectErrorText, wrongMethodText, TOKEN_REFRESH_LEAD_MS } from "../constants";
+import {
+  defaultConfig,
+  FRAME_NAME,
+  connectErrorText,
+  wrongMethodText,
+  TOKEN_REFRESH_LEAD_MS,
+  MAX_TIMER_DELAY_MS,
+} from "../constants";
 import { SDKError, SDKErrorCode } from "../errors";
 import type {
   TCreateRoomOptions,
@@ -441,10 +448,15 @@ export class SDKInstance {
     const delay = expiresAt - Date.now() - TOKEN_REFRESH_LEAD_MS;
     if (delay <= 0) return;
 
+    // setTimeout overflows above 2^31-1 ms and fires at once; wait in slices for a far expiry.
     this.#tokenRefreshTimer = setTimeout(() => {
       this.#tokenRefreshTimer = null;
+      if (expiresAt - Date.now() > TOKEN_REFRESH_LEAD_MS) {
+        this.#scheduleTokenRefresh(expiresAt);
+        return;
+      }
       this.#refreshTokenProactively();
-    }, delay);
+    }, Math.min(delay, MAX_TIMER_DELAY_MS));
   }
 
   /**
@@ -498,11 +510,11 @@ export class SDKInstance {
    * Mirrors {@link SDKInstance.#sendExternalDataReturn}; targets the exact frame origin.
    *
    * @param callId - Correlation ID copied from the incoming request, `undefined` for a push.
-   * @param data - `{ accessToken, expiresAt? }` to deliver to the frame.
+   * @param data - `{ accessToken, expiresAt? }` to deliver to the frame; `{}` tells the frame that no token is available.
    */
   #sendAuthTokenReturn = (
     callId: number | undefined,
-    data: { accessToken: string; expiresAt?: number },
+    data: { accessToken?: string; expiresAt?: number },
   ): void => {
     try {
       const { frameId, src } = this.config;
@@ -560,10 +572,12 @@ export class SDKInstance {
 
       if (!this.#expectedOrigin || e.origin !== this.#expectedOrigin) return;
 
+      if (e.source && this.#iframe?.contentWindow && e.source !== this.#iframe.contentWindow) return;
+
       const data = this.#parseMessageData(e.data);
 
       if (data.frameId === "error" && data.error) {
-        this.#handleError(data.error);
+        this.#handleError(data.error, SDKErrorCode.ParseError);
         return;
       }
 
@@ -641,10 +655,9 @@ export class SDKInstance {
   #handleMethodResponse(data: TMessageData) {
     let matchedId: number | undefined;
 
-    if (data.callId !== undefined && this.#callbacks.has(data.callId)) {
-      matchedId = data.callId;
+    if (data.callId !== undefined) {
+      if (this.#callbacks.has(data.callId)) matchedId = data.callId;
     } else {
-      // Fallback: oldest entry (FIFO) for backward compatibility
       const first = this.#callbacks.keys().next();
       if (!first.done) {
         matchedId = first.value;
@@ -835,13 +848,16 @@ export class SDKInstance {
       this.#pendingUploads.size > 0 &&
       (eventName === "onUploadSuccess" || eventName === "onUploadError")
     ) {
-      const payload = eventData.data as { fileName?: string; message?: string } | undefined;
+      const payload = eventData.data as
+        | { fileName?: string; message?: string; uploadId?: number }
+        | undefined;
       const fileName = payload?.fileName;
 
       let matchedId: number | undefined;
 
-      if (fileName) {
-        // Match by fileName — exact match only, skip if no pending entry has this name.
+      if (payload?.uploadId !== undefined && this.#pendingUploads.has(payload.uploadId)) {
+        matchedId = payload.uploadId;
+      } else if (fileName) {
         for (const [id, entry] of this.#pendingUploads) {
           if (entry.fileName === fileName) {
             matchedId = id;
@@ -849,7 +865,6 @@ export class SDKInstance {
           }
         }
       } else if (this.#pendingUploads.size > 0) {
-        // No fileName in payload — resolve the oldest pending upload (FIFO).
         matchedId = this.#pendingUploads.keys().next().value;
       }
 
@@ -922,7 +937,25 @@ export class SDKInstance {
           this.#sendAuthTokenReturn(req.callId, { accessToken, ...(expiresAt !== undefined && { expiresAt }) });
           this.#scheduleTokenRefresh(expiresAt);
         })
-        .catch((error: unknown) => this.#reportAuthError(error));
+        .catch((error: unknown) => {
+          this.#reportAuthError(error);
+          this.#sendAuthTokenReturn(req.callId, {});
+        });
+      return;
+    }
+
+    if (data.commandName === "setConfig") {
+      // The portal asks for its config and tells the SDK its origin. The origin only narrows the
+      // message filter: config.src keeps the configured URL, including a sub-path.
+      const { src, ...rest } = (data.commandData ?? {}) as Partial<TFrameConfig>;
+      if (src) {
+        try {
+          this.#expectedOrigin = new URL(src).origin;
+        } catch {
+          // keep the origin derived from config.src
+        }
+      }
+      void this.setConfig(rest);
       return;
     }
 
@@ -1009,6 +1042,10 @@ export class SDKInstance {
   #prepareFrameConfig(config: TFrameConfig): TFrameConfig {
     const mergedConfig = { ...defaultConfig, ...this.config, ...config };
 
+    if (typeof mergedConfig.src === "string") {
+      mergedConfig.src = mergedConfig.src.replace(/\/+$/, "");
+    }
+
     if (mergedConfig.mode === SDKMode.Manager || mergedConfig.mode === SDKMode.System) {
       mergedConfig.noLoader = false;
     }
@@ -1021,12 +1058,6 @@ export class SDKInstance {
     }
 
     if (mergedConfig.mode === SDKMode.Personal) {
-      if (mergedConfig.showMenu === undefined) {
-        mergedConfig.showMenu = true;
-      }
-      if (mergedConfig.infoPanelVisible === undefined) {
-        mergedConfig.infoPanelVisible = true;
-      }
       mergedConfig.noLoader = true;
     }
 
@@ -1248,7 +1279,8 @@ export class SDKInstance {
    * Replaces the container with a plain `<div>` (preserving the original `frameId` and CSS classes,
    * showing {@link TFrameConfig.destroyText}), removes the `message` listener, rejects pending
    * method calls with {@link SDKErrorCode.Disconnected}, cancels the proactive OAuth token refresh,
-   * and removes the instance from the global `DocSpace.SDK.frames` registry. In OAuth mode this is
+   * and removes the instance from the global `DocSpace.SDK.frames` registry (the `frames` map of the
+   * {@link SDK} that created it keeps the entry, so a later `init*` with the same `frameId` reuses the instance). In OAuth mode this is
    * how a host ends the embedded session: no cookie exists, so nothing outlives the frame.
    *
    * The call is synchronous and complete when it returns: the placeholder keeps the `frameId`, so
@@ -1290,6 +1322,10 @@ export class SDKInstance {
     window.removeEventListener("message", this.#onMessage);
     this.#clearTokenRefresh();
     this.#iframe = null;
+
+    if (this.config.type === "mobile" && document.body.style.overscrollBehaviorY === "contain") {
+      document.body.style.overscrollBehaviorY = "";
+    }
 
     const loaderClassName = `${frameId}-loader__element`;
     const styleEl = SDKInstance._loaderCache.style.get(loaderClassName);
@@ -1337,7 +1373,7 @@ export class SDKInstance {
    * When `reload` is `true`, reinitializes the iframe entirely via {@link SDKInstance.initFrame}
    * instead of sending a postMessage update.
    *
-   * @param config - Partial frame configuration to merge. Defaults to {@link defaultConfig}.
+   * @param config - Partial frame configuration to merge into the stored config.
    * @param reload - When `true`, reinitializes the frame. Defaults to `false`.
    * @returns A promise that resolves with the iframe's response, or with the merged config if `reload` is `true`.
    *   Rejects with {@link SDKError} ({@link SDKErrorCode.ApiError}) when the portal reports a failure.
@@ -1356,7 +1392,7 @@ export class SDKInstance {
    * ```
    */
   setConfig(
-    config: TFrameConfig = defaultConfig,
+    config: Partial<TFrameConfig> = {},
     reload: boolean = false
   ): Promise<object> {
     this.config = { ...this.config, ...config };
@@ -1574,7 +1610,12 @@ export class SDKInstance {
    * ```
    */
   getRooms(filter: TFrameFilter): Promise<TRoomsResponse> {
-    return this.#getMethodPromise<TRoomsResponse>(InstanceMethods.GetRooms, filter);
+    const { search, count, ...rest } = filter;
+    return this.#getMethodPromise<TRoomsResponse>(InstanceMethods.GetRooms, {
+      ...rest,
+      ...(search !== undefined && { filterValue: search }),
+      ...(count !== undefined && { pageCount: count }),
+    });
   }
 
   /**
@@ -1685,7 +1726,7 @@ export class SDKInstance {
    * ```
    */
   createFile(
-    folderId: string,
+    folderId: string | number,
     title: string,
     templateId?: string,
     formId?: string
@@ -1721,7 +1762,7 @@ export class SDKInstance {
    * await instance.createFile(folder.id, 'Summary');
    * ```
    */
-  createFolder(parentFolderId: string, title: string): Promise<TFolderInfo> {
+  createFolder(parentFolderId: string | number, title: string): Promise<TFolderInfo> {
     return this.#getMethodPromise<TFolderInfo>(InstanceMethods.CreateFolder, {
       parentFolderId,
       title,
@@ -1741,7 +1782,8 @@ export class SDKInstance {
    *
    * @param title - The room display name.
    * @param roomType - The room type: a {@link RoomType} value or its numeric API value.
-   * @param options - Optional room settings. See {@link TCreateRoomOptions}.
+   * @param options - Optional room settings. See {@link TCreateRoomOptions}. A JavaScript caller may still pass
+   *   the positional arguments of SDK 2.1 (`quota`, `tags`, `color`, `cover`, `indexing`, `denyDownload`).
    * @returns A promise that resolves with {@link TRoomInfo}, or with `{ status, message }` when the portal
    *   reports a failure — unlike the other methods, `createRoom` does not reject on portal errors.
    *
@@ -1760,11 +1802,29 @@ export class SDKInstance {
    * await instance.addTagsToRoom(room.id, ['campaigns']);
    * ```
    */
+  createRoom(title: string, roomType: string | number, options?: TCreateRoomOptions): Promise<TRoomInfo>;
   createRoom(
     title: string,
     roomType: string | number,
-    options?: TCreateRoomOptions
+    optionsOrQuota?: TCreateRoomOptions | number,
+    tags?: string[],
+    color?: string,
+    cover?: string,
+    indexing?: boolean,
+    denyDownload?: boolean
   ): Promise<TRoomInfo> {
+    const options: TCreateRoomOptions =
+      typeof optionsOrQuota === "object"
+        ? optionsOrQuota
+        : {
+            ...(optionsOrQuota !== undefined && { quota: optionsOrQuota }),
+            ...(tags !== undefined && { tags }),
+            ...(color !== undefined && { color }),
+            ...(cover !== undefined && { cover }),
+            ...(indexing !== undefined && { indexing }),
+            ...(denyDownload !== undefined && { denyDownload }),
+          };
+
     return this.#getMethodPromise<TRoomInfo>(InstanceMethods.CreateRoom, {
       title,
       roomType,
@@ -1868,7 +1928,7 @@ export class SDKInstance {
    * Login with a pre-hashed password from {@link SDKInstance.createHash}.
    * ```typescript
    * const result = await instance.login('user@example.com', passwordHash);
-   * if (result.status) throw new Error(result.message ?? 'login failed');
+   * if (!result.url) throw new Error(result.message ?? 'login failed');
    * ```
    *
    * @example
@@ -1995,7 +2055,7 @@ export class SDKInstance {
    * await instance.addTagsToRoom(room.id, ['design']);
    * ```
    */
-  addTagsToRoom(roomId: string, tags: string[]): Promise<object> {
+  addTagsToRoom(roomId: string | number, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.AddTagsToRoom, {
       roomId,
       tags,
@@ -2026,7 +2086,7 @@ export class SDKInstance {
    * }
    * ```
    */
-  removeTagsFromRoom(roomId: string, tags: string[]): Promise<object> {
+  removeTagsFromRoom(roomId: string | number, tags: string[]): Promise<object> {
     return this.#getMethodPromise(InstanceMethods.RemoveTagsFromRoom, {
       roomId,
       tags,
@@ -2034,9 +2094,10 @@ export class SDKInstance {
   }
   
   /**
-   * Runs a callback function inside the active document editor.
+   * Available in {@link SDKMode.Editor} and {@link SDKMode.Viewer}; in any other mode the portal answers that
+   * the method does not exist and the promise rejects with {@link SDKErrorCode.ModeMismatch}.
    *
-   * Only meaningful when the frame is in {@link SDKMode.Editor} or {@link SDKMode.Viewer} mode.
+   * Runs a callback function inside the active document editor.
    *
    * The callback is serialized with `Function.prototype.toString` and re-created inside the
    * editor frame, so it must not reference outer-scope variables, closures or imports — pass
@@ -2053,6 +2114,8 @@ export class SDKInstance {
    * @param callback - The function to run inside the editor context. Invoked as
    *   `callback(editor, asc, data)` — note that `data` is the **third** argument.
    * @param data - Optional JSON-serializable data passed as the third argument to `callback`.
+   * @returns A promise that resolves with `{}` once the editor frame has run the callback.
+   *   An error thrown by the callback is logged inside the editor frame and does not reject the promise.
    *
    * @example
    * ```typescript
@@ -2108,8 +2171,9 @@ export class SDKInstance {
   }
 
   /**
+   * Available in {@link SDKMode.Forms} and {@link SDKMode.Personal}; any other mode rejects with {@link SDKErrorCode.ModeMismatch}.
+   *
    * Navigates the frame to a specific section.
-   * Works in {@link SDKMode.Forms} and {@link SDKMode.Personal} modes.
    *
    * @param section - Target section. For {@link SDKMode.Forms} — {@link TFormsSection};
    *   for {@link SDKMode.Personal} — {@link TPersonalSection}.
@@ -2273,18 +2337,28 @@ export class SDKInstance {
       this.#pendingUploads.set(uploadId, { fileName: file.name, resolve, reject, timer });
     });
 
-    frameWindow.postMessage(
-      {
-        frameId,
-        type: MessageTypes.UploadFileData,
-        fileName: file.name,
-        fileSize: file.size,
-        lastModified: file.lastModified,
-        buffer,
-      },
-      src,
-      [buffer],
-    );
+    try {
+      frameWindow.postMessage(
+        {
+          frameId,
+          type: MessageTypes.UploadFileData,
+          uploadId,
+          fileName: file.name,
+          fileSize: file.size,
+          lastModified: file.lastModified,
+          buffer,
+        },
+        src,
+        [buffer],
+      );
+    } catch (error) {
+      const pending = this.#pendingUploads.get(uploadId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.#pendingUploads.delete(uploadId);
+      }
+      throw new SDKError(SDKErrorCode.UploadFailed, (error as Error).message || "Upload failed");
+    }
 
     return uploadPromise;
   }
