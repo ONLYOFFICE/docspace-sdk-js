@@ -75,7 +75,7 @@
 - `onAppError` received `Unknown error occurred` instead of the portal's message when the error reply was a plain object
 
 ### Internal
-- Docs pipeline: a deprecated optional member keeps a linkable row id (`~~viewAs~~?`), generic titles in the section indexes are unescaped, and `custom_edit_url` resolves the tag on a release checkout
+- Docs pipeline: a deprecated optional member keeps a linkable row id (`~~viewAs~~?`), generic titles in the section indexes are unescaped, and `custom_edit_url` resolves the tag on a release checkout and `master` everywhere else (never the current branch)
 - Tests run on Vitest instead of Jest; the toolchain is pnpm 12 (pinned via `packageManager`), TypeScript 6, ESLint 10, esbuild 0.28, jsdom 30 and TypeDoc 0.28 with typedoc-plugin-markdown 4.13
 - CI runs lint, typecheck (`pnpm typecheck`), tests, build, docs generation, the README link check (`pnpm check-links`), a package-contents check and `pnpm audit`
 - Generated reference pages carry the source URL as `custom_edit_url` front matter, open with the description before the signature block and are post-processed in strict mode (`tools/docs/index.mjs --strict`)

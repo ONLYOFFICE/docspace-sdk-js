@@ -41,15 +41,13 @@ function gitOutput(command) {
 
 /**
  * Revision the `custom_edit_url` of every page points at: the tag checked out exactly
- * (a release build from `v*`), else the current branch, else `master` when HEAD is
- * detached without a tag (`git rev-parse --abbrev-ref HEAD` prints the literal `HEAD` there).
+ * (a release build from `v*`), else `master`. The current branch is never used: the site
+ * serves one reference for every branch, and an edit link into a feature branch sends
+ * readers to a ref that may be gone by the time they click it.
  */
 function resolveRevision() {
   const tag = gitOutput("git describe --tags --exact-match");
   if (tag) return tag;
-
-  const branch = gitOutput("git rev-parse --abbrev-ref HEAD");
-  if (branch && branch !== "HEAD") return branch;
 
   return DEFAULT_BRANCH;
 }
