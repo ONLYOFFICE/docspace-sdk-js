@@ -61,7 +61,8 @@ is published to `api.onlyoffice.com` — never edit `docs/` by hand.
    means a broken `{@link}` target or a referenced type that is not exported.
    Post-processing `[warn]` lines (unresolved in-page anchor, duplicate APITable
    row id) must be zero too. Site-facing links to table rows use the APITable
-   ids: the first-cell code span, case-sensitive, without the optional `?`
+   ids: the first-cell code span, case-sensitive (the optional `?` is dropped
+   from the generated tables; say in the description whether a member is required)
    (`TFrameConfig.md#rootPath`); on class pages parameters are prefixed by
    method (`SDKInstance.md#createRoom-roomId`).
 

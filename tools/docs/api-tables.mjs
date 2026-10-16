@@ -27,7 +27,8 @@ const FRONTMATTER_FENCE = "---";
 const ROW_ANCHOR = /^\| <a id="([^"]+)"><\/a> /;
 const HEADING = /^(#{1,6}) (.+)$/;
 const FIRST_CELL = /^\| ((?:\\\||[^|])+?) \|/;
-// A deprecated member is rendered as `| ~~`name?`~~ |`; the `?` has to leave both the code span and the strikethrough.
+// TypeDoc marks an optional member as `| `name?` |` and a deprecated one as `| ~~`name?`~~ |`.
+// The `?` is dropped: every description states whether the member is required, and the row id must not carry it.
 const OPTIONAL_FIRST_CELL = /^\| (~~)?`([^`]+)\?`(~~)? /;
 const LINK_WITH_FRAGMENT = /\]\(([^)#\s]*)#([^)\s]+)\)/g;
 
@@ -137,8 +138,8 @@ function importInsertionIndex(lines) {
 }
 
 /**
- * Wraps the tables of one page in `<APITable>`, strips `<a id>` row anchors and moves the
- * optional `?` outside the code span. Tables get a `name` prefix when row names collide
+ * Wraps the tables of one page in `<APITable>`, strips `<a id>` row anchors and drops the
+ * optional `?` marker from the first cell. Tables get a `name` prefix when row names collide
  * across the page. The component import is added once, after the front matter.
  * Returns the old anchor → new id map.
  * @param {string} filePath
@@ -176,7 +177,7 @@ function wrapMemberTables(filePath) {
       if (row.oldId) anchorMap.set(row.oldId, newId);
       lines[row.lineNumber] = lines[row.lineNumber]
         .replace(ROW_ANCHOR, "| ")
-        .replace(OPTIONAL_FIRST_CELL, "| $1`$2`$3? ");
+        .replace(OPTIONAL_FIRST_CELL, "| $1`$2`$3 ");
     }
   }
 

@@ -213,7 +213,8 @@ describe("api-tables", () => {
     expect(eventsOutput).not.toContain("mdx-code-block");
     expect(eventsOutput.match(/import APITable/g)).toHaveLength(1);
     expect(eventsOutput).not.toContain("<a id=");
-    expect(eventsOutput).toContain("| `onAppReady`? | `null` | Ready. |");
+    expect(eventsOutput).toContain("| `onAppReady` | `null` | Ready. |");
+    expect(eventsOutput).not.toContain("?");
     expect(eventsOutput).toContain("[onAppReady](#onAppReady)");
 
     const configOutput = readFileSync(config, "utf-8");
@@ -246,9 +247,9 @@ describe("api-tables", () => {
     applyApiTables([config, viewMode]);
 
     const configOutput = readFileSync(config, "utf-8");
-    expect(configOutput).toContain("| ~~`viewAs`~~? | `string` |");
-    expect(configOutput).toContain("| `rootPath`? | `string` |");
-    expect(configOutput).not.toContain("`viewAs?`");
+    expect(configOutput).toContain("| ~~`viewAs`~~ | `string` |");
+    expect(configOutput).toContain("| `rootPath` | `string` |");
+    expect(configOutput).not.toContain("?");
     const deprecatedRow = configOutput.split("\n").find((line) => line.includes("viewAs"));
     expect(deprecatedRow?.match(/`([^`]+)`/)?.[1]).toBe("viewAs");
     expect(readFileSync(viewMode, "utf-8")).toContain("(TFrameConfig.md#viewAs)");
@@ -285,7 +286,8 @@ describe("api-tables", () => {
     const output = readFileSync(page, "utf-8");
     expect(output).toContain('<APITable name="init">');
     expect(output).toContain('<APITable name="initFrame">');
-    expect(output).toContain("| `reload`? | `boolean` |");
+    expect(output).toContain("| `reload` | `boolean` |");
+    expect(output).not.toContain("?");
     expect(output.match(/<APITable/g)).toHaveLength(2);
   });
 

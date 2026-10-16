@@ -56,6 +56,7 @@
 - `integrationUrl`: ONLYOFFICE Apps 4.0 does not read it
 
 ### Fixed
+- Generated reference: the optional marker `?` no longer appears in member and parameter tables (it stayed inside the code span of deprecated members and broke their row anchors)
 - The portal's `setConfig` command carries its origin as `src`; the SDK now uses it only to narrow the message filter instead of overwriting the configured `src`, so a portal served under a sub-path keeps it on reload
 - A method reply that arrives after its timeout is dropped instead of resolving the next pending call
 - Personal mode kept `theme`, `locale` and the sign-in parameters off the first request: the section route redirected and dropped them
