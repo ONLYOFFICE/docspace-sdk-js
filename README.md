@@ -67,7 +67,7 @@ You can check the latest SDK version in the [released tags](https://github.com/O
 
 ## SDK Modes
 
-The SDK supports 11 modes, each rendering a different part of ONLYOFFICE Apps inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
+The SDK supports 12 modes, each rendering a different part of ONLYOFFICE Apps inside an iframe. Use the corresponding `init*` method or pass the `mode` value to `initFrame`:
 
 | Mode | Method | Description |
 |---|---|---|
@@ -82,6 +82,7 @@ The SDK supports 11 modes, each rendering a different part of ONLYOFFICE Apps in
 | `forms` | [`initForms`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initforms) | Forms gallery for a room. Requires `id` (room identifier). Supports `showMenu`, custom actions, and file upload |
 | `chat` | [`initChat`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initchat) | AI chat interface. Bound to an AI agent when `agentId` is set, to the current user otherwise. Supports `entityId` to pass the room or folder the chat is opened from (the AI scopes tool calls to it), `fileId` and `threadId` to attach files or resume threads |
 | `personal` | [`initPersonal`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initpersonal) | Personal files browser: My Documents, Favorites, Recent, Shared with me, Trash. Has no navigation menu of its own: `personalDestination` picks the initial section and `navigateSection` switches it |
+| `media-viewer` | [`initMediaViewer`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/classes/SDK/#initmediaviewer) | Viewer for the images, video and audio of a folder or room, with previous / next navigation. Requires `id` (folder or room identifier); `requestToken` gives anonymous access to a public room, `fileId` picks the file to open first |
 
 ### Examples
 
@@ -206,6 +207,19 @@ const personal = sdk.initPersonal({
 });
 ```
 
+**Media viewer:**
+
+```typescript
+const viewer = sdk.initMediaViewer({
+  frameId: "ds-media",
+  src: "https://portal.example.com",
+  id: "folder-id",
+  events: {
+    onAppReady: () => console.log("Media viewer ready"),
+  },
+});
+```
+
 ## Events
 
 All events are optional. Pass them via the `events` field in the configuration object. The table below shows where each event fires; the full reference is [`TFrameEvents`](https://api.onlyoffice.com/docspace/javascript-sdk/usage-sdk/type-aliases/TFrameEvents/).
@@ -217,8 +231,8 @@ All events are optional. Pass them via the `events` field in the configuration o
 | `onGetExternalData`, `onSetExternalData` | Any mode, when the frame asks the host to read or persist a value in external storage |
 | `onFileManagerClick` | Manager, Public room, Forms, Personal |
 | `onEditorOpen` | Manager, Public room, Personal — opening a file from the list; the "Create" dialog only in Manager |
-| `onNotFound` | Manager, Public room |
-| `onNoAccess` | Manager, Public room, Chat |
+| `onNotFound` | Manager, Public room, Media viewer |
+| `onNoAccess` | Manager, Public room, Chat, Media viewer |
 | `onEditorCloseCallback` | Editor, Viewer |
 | `onDownload` | Manager, Public room, Personal — with `downloadToEvent: true` |
 | `onFilterSearch` | Personal, Public room |

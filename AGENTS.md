@@ -4,7 +4,7 @@ Instructions for coding agents (Claude Code, Codex, Copilot, Cursor, Gemini CLI,
 
 ## Project
 
-ONLYOFFICE Apps Embed SDK (`@onlyoffice/docspace-sdk-js`) — TypeScript library that embeds ONLYOFFICE Apps UI (file manager, document editor and viewer, room and file selectors, uploader, forms gallery, AI chat, personal files) into web applications via an iframe with postMessage communication.
+ONLYOFFICE Apps Embed SDK (`@onlyoffice/docspace-sdk-js`) — TypeScript library that embeds ONLYOFFICE Apps UI (file manager, document editor and viewer, room and file selectors, uploader, forms gallery, AI chat, personal files, media viewer) into web applications via an iframe with postMessage communication.
 
 The SDK is transport only: it builds the iframe URL from a config, posts method calls into the frame and resolves their replies. The behaviour behind every method and event lives in the ONLYOFFICE Apps client, not here.
 
@@ -40,7 +40,7 @@ CI: `ci.yml` runs lint, typecheck, tests, build, docs generation, the link check
 
 ## Architecture
 
-**SDK** (`src/sdk/`) — factory and registry of instances. `frames: Record<string, SDKInstance>`. Every `init*` method (initManager, initEditor, initViewer, initRoomSelector, initFileSelector, initSystem, initPublicRoom, initUploader, initForms, initChat, initPersonal) is a thin wrapper over `init()` that forces `mode`. Reuses the existing instance if `frameId` matches.
+**SDK** (`src/sdk/`) — factory and registry of instances. `frames: Record<string, SDKInstance>`. Every `init*` method (initManager, initEditor, initViewer, initRoomSelector, initFileSelector, initSystem, initPublicRoom, initUploader, initForms, initChat, initPersonal, initMediaViewer) is a thin wrapper over `init()` that forces `mode`. Reuses the existing instance if `frameId` matches.
 
 **SDKInstance** (`src/instance/`) — manages one iframe. Creates DOM elements, handles the postMessage protocol with a callback queue (`#callbacks`/`#tasks`), exposes public methods that proxy calls into the iframe (getFiles, getUserInfo, login, createRoom, setConfig, navigateSection, upload, etc.). Config merge order: `defaultConfig` → stored config → user config. Each callback stores `{resolve, reject, timer}`; methods have a configurable timeout (`methodTimeout`, default 30 s). Cached iframe reference in `#iframe`.
 

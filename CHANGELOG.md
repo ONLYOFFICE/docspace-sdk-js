@@ -1,5 +1,10 @@
 # Change Log
 
+## 2.3.0
+
+### Added
+- `SDKMode.MediaViewer` and `SDK.initMediaViewer`: a viewer for the images, video and audio of the folder or room given in `id`, with previous / next navigation. `requestToken` gives anonymous access to a public room and `fileId` picks the file to open first. Fires `onNoAccess` and `onNotFound` for an inaccessible or missing folder
+
 ## 2.2.0
 
 ### Upgrading from 2.1.0

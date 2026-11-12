@@ -428,9 +428,9 @@ export type TFrameEvents = {
   onDownload?: null | ((url: string) => void);
   /** Fired in {@link SDKMode.Editor} and {@link SDKMode.Viewer} when the document editor is closed (via UI button, hotkey, or programmatically) while {@link TFrameConfig.editorGoBack} is `"event"`. */
   onEditorCloseCallback?: null | (() => void);
-  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to an inaccessible or deleted room/folder, and in {@link SDKMode.Chat} when the frame has no signed-in, non-guest user. */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to an inaccessible or deleted room/folder, in {@link SDKMode.MediaViewer} when the folder is inaccessible, and in {@link SDKMode.Chat} when the frame has no signed-in, non-guest user. */
   onNoAccess?: null | (() => void);
-  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to a non-existent room/folder (404). */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to a non-existent room/folder (404), and in {@link SDKMode.MediaViewer} when the folder does not exist. */
   onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. {@link SDKMode.RoomSelector} passes an **array** of {@link TSelectedRoom} (one element for a single choice); {@link SDKMode.FileSelector} passes a single {@link TSelectedFile} object. */
   onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
@@ -539,7 +539,7 @@ export type TFrameConfig = {
   frameId: string;
   /** Iframe height. CSS value: `"100%"`, `"600px"`, etc. Default: `"100%"`. */
   height?: string;
-  /** Entity ID: the file in {@link SDKMode.Editor} and {@link SDKMode.Viewer}, the target folder in {@link SDKMode.Uploader}, the room in {@link SDKMode.PublicRoom}, the folder to open in {@link SDKMode.Personal}, the form filling room in {@link SDKMode.Forms} (optional there: the room from the portal's Forms settings is used when unset). Default: `null`. */
+  /** Entity ID: the file in {@link SDKMode.Editor} and {@link SDKMode.Viewer}, the target folder in {@link SDKMode.Uploader}, the room in {@link SDKMode.PublicRoom}, the folder to open in {@link SDKMode.Personal}, the form filling room in {@link SDKMode.Forms} (optional there: the room from the portal's Forms settings is used when unset), the folder or room whose media files are played in {@link SDKMode.MediaViewer}. Default: `null`. */
   id?: string | number | null;
   /** Show info panel toggle in {@link SDKMode.Manager}. Default: `true`. */
   infoPanelVisible?: boolean;
@@ -556,7 +556,7 @@ export type TFrameConfig = {
   mode: TFrameMode;
   /** Iframe `name` attribute prefix. Default: {@link FRAME_NAME}. */
   name?: string;
-  /** Share key of an external link: the room link in {@link SDKMode.PublicRoom} and {@link SDKMode.Manager}, the file link in {@link SDKMode.Editor} and {@link SDKMode.Viewer}. Ignored by other modes. Obtain it from {@link TRequestTokenInfo.requestToken}. Default: `null`. */
+  /** Share key of an external link: the room link in {@link SDKMode.PublicRoom}, {@link SDKMode.Manager} and {@link SDKMode.MediaViewer}, the file link in {@link SDKMode.Editor} and {@link SDKMode.Viewer}. Ignored by other modes. Obtain it from {@link TRequestTokenInfo.requestToken}. Default: `null`. */
   requestToken?: string | null;
   /**
    * OAuth access-token provider. Setting it (or {@link TFrameConfig.accessToken}) switches the frame into
@@ -681,7 +681,7 @@ export type TFrameConfig = {
    * must have access to the entity, otherwise chat requests are rejected.
    */
   entityId?: string | number;
-  /** File ID to attach to the chat composer on init. Optional in {@link SDKMode.Chat}. */
+  /** File ID. Optional in {@link SDKMode.Chat}: the file to attach to the chat composer on init. Optional in {@link SDKMode.MediaViewer}: the media file to open first; the first media file of the folder is opened when unset. */
   fileId?: string | number;
   /** Thread ID to resume. Optional in {@link SDKMode.Chat}. */
   threadId?: string;

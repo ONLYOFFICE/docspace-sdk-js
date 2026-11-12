@@ -69,6 +69,7 @@ describe("SDK class wrappers", () => {
     ["initChat", SDKMode.Chat],
     ["initPublicRoom", SDKMode.PublicRoom],
     ["initPersonal", SDKMode.Personal],
+    ["initMediaViewer", SDKMode.MediaViewer],
   ])("%s sets mode to %s and calls initFrame", (methodName, mode) => {
     const instance = setMockReturn(mockInstanceFactory());
     const result = (sdk as any)[methodName]({ ...baseConfig, mode: "WRONG" });

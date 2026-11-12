@@ -499,6 +499,7 @@ describe("getFramePath", () => {
         SDKMode.Uploader,
         SDKMode.Forms,
         SDKMode.Chat,
+        SDKMode.MediaViewer,
       ];
       for (const mode of modes) {
         const config: TFrameConfig = {

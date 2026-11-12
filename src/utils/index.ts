@@ -282,6 +282,7 @@ export const getConfigFromParams = (): TFrameConfig => {
  * | {@link SDKMode.Forms} | `/sdk/forms/my-forms` | `roomId`, `libraryId`, `showMenu`, `providerName` |
  * | {@link SDKMode.Personal} | `/sdk/personal-files` | `folder` (from `id` or `personalDestination`), `disableActionButton`, `providerName` |
  * | {@link SDKMode.Chat} | `/sdk/chat` | `agentId`, `entityId`, `fileId`, `threadId`, `providerName` |
+ * | {@link SDKMode.MediaViewer} | `/sdk/media-viewer` | `folder` (from `id`), `key` (from `requestToken`), `fileId` |
  * | _(unknown)_ | `{rootPath}` or `"/"` | — |
  *
  * @param config - The frame configuration. At minimum, {@link TFrameConfig.mode} must be set.
@@ -537,6 +538,14 @@ export const getFramePath = (config: TFrameConfig) => {
 
     case SDKMode.Chat:
       return getChatPath(config, baseFrameOptions);
+
+    case SDKMode.MediaViewer:
+      return buildPath("/sdk/media-viewer", {
+        ...baseFrameOptions,
+        folder: config.id,
+        key: config.requestToken,
+        fileId: config.fileId,
+      });
 
     default:
       return config.rootPath || "/";

@@ -353,6 +353,45 @@ export class SDK {
     this.init({ ...config, mode: SDKMode.Uploader });
 
   /**
+   * Initializes a frame in {@link SDKMode.MediaViewer} mode — a viewer for the images,
+   * video and audio of a folder or room, with previous / next navigation.
+   * Forces `mode` to {@link SDKMode.MediaViewer}. Requires {@link TFrameConfig.id}
+   * (the folder or room ID).
+   *
+   * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
+   * @returns The initialized {@link SDKInstance}.
+   *
+   * @example
+   * ```typescript
+   * import { SDK } from '@onlyoffice/docspace-sdk-js';
+   *
+   * const sdk = new SDK();
+   * const viewer = sdk.initMediaViewer({
+   *   frameId: 'ds-media',
+   *   src: 'https://portal.example.com',
+   *   id: 'folder-id',
+   *   events: {
+   *     onAppReady: () => console.log('ready'),
+   *   },
+   * });
+   * ```
+   *
+   * @example
+   * A public room opened on a given file.
+   * ```typescript
+   * const viewer = sdk.initMediaViewer({
+   *   frameId: 'ds-media',
+   *   src: 'https://portal.example.com',
+   *   id: 'room-id',
+   *   requestToken: 'public-room-token',
+   *   fileId: 42,
+   * });
+   * ```
+   */
+  initMediaViewer = (config: TInitConfig) =>
+    this.init({ ...config, mode: SDKMode.MediaViewer });
+
+  /**
    * Initializes a frame in {@link SDKMode.Forms} mode — a forms gallery for the room specified by {@link TFrameConfig.id}.
    * Forces `mode` to {@link SDKMode.Forms}. Sets `showMenu` to `true` by default.
    *

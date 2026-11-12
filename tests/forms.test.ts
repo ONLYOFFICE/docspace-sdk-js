@@ -664,6 +664,7 @@ describe("setCustomActions — mode guard", () => {
     "public-room",
     "uploader",
     "chat",
+    "media-viewer",
   ] as const)("rejects with SDKError ModeMismatch in %s mode", async (mode) => {
     const el = document.createElement("div");
     el.id = `ds-${mode}`;
