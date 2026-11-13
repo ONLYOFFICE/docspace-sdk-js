@@ -424,13 +424,13 @@ export type TFrameEvents = {
   onCloseCallback?: null | (() => void);
   /** Fired when the iframe content is fully loaded and visible, in every mode. With {@link TFrameConfig.noLoader} `true` the SDK fires it on the iframe's `load` event, otherwise when the portal calls {@link SDKInstance.setIsLoaded}; its order relative to {@link TFrameEvents.onAppReady} is not guaranteed. */
   onContentReady?: null | (() => void);
-  /** Fired on file download when {@link TFrameConfig.downloadToEvent} is `true`, in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom} and {@link SDKMode.Personal}. Receives the download URL. */
+  /** Fired on file download when {@link TFrameConfig.downloadToEvent} is `true`, in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Personal} and {@link SDKMode.MediaViewer}. Receives the download URL. */
   onDownload?: null | ((url: string) => void);
   /** Fired in {@link SDKMode.Editor} and {@link SDKMode.Viewer} when the document editor is closed (via UI button, hotkey, or programmatically) while {@link TFrameConfig.editorGoBack} is `"event"`. */
   onEditorCloseCallback?: null | (() => void);
-  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to an inaccessible or deleted room/folder, in {@link SDKMode.MediaViewer} when the folder is inaccessible, and in {@link SDKMode.Chat} when the frame has no signed-in, non-guest user. */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to an inaccessible or deleted room/folder, in {@link SDKMode.MediaViewer} when the folder or the portal's file settings cannot be read for any reason other than a missing folder (no access, an invalid link key, a server or network error), and in {@link SDKMode.Chat} when the frame has no signed-in, non-guest user. */
   onNoAccess?: null | (() => void);
-  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to a non-existent room/folder (404), and in {@link SDKMode.MediaViewer} when the folder does not exist. */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to a non-existent room/folder (404), and in {@link SDKMode.MediaViewer} when the folder does not exist (404). */
   onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. {@link SDKMode.RoomSelector} passes an **array** of {@link TSelectedRoom} (one element for a single choice); {@link SDKMode.FileSelector} passes a single {@link TSelectedFile} object. */
   onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
@@ -519,7 +519,7 @@ export type TFrameConfig = {
   methodTimeout?: number;
   /** Hide the "Actions" button in {@link SDKMode.Manager}. Default: `false`. */
   disableActionButton?: boolean;
-  /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly, in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom} and {@link SDKMode.Personal}. Default: `false`. */
+  /** Redirect download links to {@link TFrameEvents.onDownload} instead of downloading directly, in {@link SDKMode.Manager}, {@link SDKMode.PublicRoom}, {@link SDKMode.Personal} and {@link SDKMode.MediaViewer}. Default: `false`. */
   downloadToEvent?: boolean;
   /** Editor UI customization. See {@link TEditorCustomization}. Default: `{}`. */
   editorCustomization?: TEditorCustomization;

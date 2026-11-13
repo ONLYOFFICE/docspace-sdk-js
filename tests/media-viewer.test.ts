@@ -95,6 +95,26 @@ describe("getFramePath — MediaViewer mode", () => {
     expect(path).not.toContain("fileId");
   });
 
+  test("passes a numeric id as folder", () => {
+    const path = getFramePath(makeMediaViewerConfig({ id: 42 }));
+    expect(path).toContain("folder=42");
+  });
+
+  test("adds auth=oauth when a token provider is configured", () => {
+    const withGetToken = getFramePath(
+      makeMediaViewerConfig({ getToken: () => Promise.resolve("token") }),
+    );
+    expect(withGetToken).toContain("auth=oauth");
+
+    const withAccessToken = getFramePath(
+      makeMediaViewerConfig({ accessToken: "token" }),
+    );
+    expect(withAccessToken).toContain("auth=oauth");
+
+    const withoutToken = getFramePath(makeMediaViewerConfig());
+    expect(withoutToken).not.toContain("auth=oauth");
+  });
+
   test("includes the base frame params", () => {
     const path = getFramePath(
       makeMediaViewerConfig({

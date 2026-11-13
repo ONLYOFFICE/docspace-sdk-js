@@ -53,7 +53,7 @@ export enum SDKMode {
   Chat = "chat",
   /** Personal files browser. File/folder manager for the user's personal space (My Documents, Favorites, Recent, Shared with me, Trash). Uses {@link TFrameConfig.personalDestination} to pick the initial section; has no navigation menu of its own, so the host switches sections with {@link SDKInstance.navigateSection}. */
   Personal = "personal",
-  /** Media viewer. Plays the images, video and audio of the folder or room specified by {@link TFrameConfig.id}, one file at a time with previous / next navigation. Opens on {@link TFrameConfig.fileId} when it is set, on the first media file otherwise. Anonymous access to a public room needs {@link TFrameConfig.requestToken}. */
+  /** Media viewer. Shows the images and plays the video and audio of the folder or room specified by {@link TFrameConfig.id}, one file at a time with previous / next navigation. Opens on {@link TFrameConfig.fileId} when it is set, on the first media file otherwise. Anonymous access to a public room needs {@link TFrameConfig.requestToken}. */
   MediaViewer = "media-viewer",
 }
 
