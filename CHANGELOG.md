@@ -3,7 +3,7 @@
 ## 2.3.0
 
 ### Added
-- `SDKMode.MediaViewer` and `SDK.initMediaViewer`: a viewer for the images, video and audio of the folder or room given in `id`, with previous / next navigation. `requestToken` gives anonymous access to a public room and `fileId` picks the file to open first. Fires `onNotFound` when the folder does not exist and `onNoAccess` when it cannot be read for any other reason; with `downloadToEvent: true` a download fires `onDownload`. Requires ONLYOFFICE Apps 4.1
+- `SDKMode.MediaViewer` and `SDK.initMediaViewer`: a viewer for the images, video and audio of the folder or room given in `id`, with previous / next navigation. `requestToken` gives anonymous access to a public room and `fileId` picks the file to open first. Fires `onNotFound` when the folder does not exist, `id` is not set or the `requestToken` link is invalid, and `onNoAccess` when the link has expired or the folder cannot be read for another reason; with `downloadToEvent: true` a download fires `onDownload`. Requires ONLYOFFICE Apps 4.1
 
 ## 2.2.0
 

@@ -428,9 +428,9 @@ export type TFrameEvents = {
   onDownload?: null | ((url: string) => void);
   /** Fired in {@link SDKMode.Editor} and {@link SDKMode.Viewer} when the document editor is closed (via UI button, hotkey, or programmatically) while {@link TFrameConfig.editorGoBack} is `"event"`. */
   onEditorCloseCallback?: null | (() => void);
-  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to an inaccessible or deleted room/folder, in {@link SDKMode.MediaViewer} when the folder or the portal's file settings cannot be read for any reason other than a missing folder (no access, an invalid link key, a server or network error), and in {@link SDKMode.Chat} when the frame has no signed-in, non-guest user. */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to an inaccessible or deleted room/folder, in {@link SDKMode.MediaViewer} when the {@link TFrameConfig.requestToken} link has expired or the folder or the portal's file settings cannot be read for another reason (no access, a server or network error), and in {@link SDKMode.Chat} when the frame has no signed-in, non-guest user. */
   onNoAccess?: null | (() => void);
-  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to a non-existent room/folder (404), and in {@link SDKMode.MediaViewer} when the folder does not exist (404). */
+  /** Fired in {@link SDKMode.Manager} and {@link SDKMode.PublicRoom} when navigating to a non-existent room/folder (404), and in {@link SDKMode.MediaViewer} when the folder does not exist (404), {@link TFrameConfig.id} is not set or the {@link TFrameConfig.requestToken} link is invalid. */
   onNotFound?: null | (() => void);
   /** Fired in selector modes when a room or file is selected. {@link SDKMode.RoomSelector} passes an **array** of {@link TSelectedRoom} (one element for a single choice); {@link SDKMode.FileSelector} passes a single {@link TSelectedFile} object. */
   onSelectCallback?: null | ((selection: TSelectedRoom[] | TSelectedFile) => void);
