@@ -355,8 +355,9 @@ export class SDK {
   /**
    * Initializes a frame in {@link SDKMode.MediaViewer} mode — a viewer for the images,
    * video and audio of a folder or room, with previous / next navigation.
-   * Forces `mode` to {@link SDKMode.MediaViewer}. Requires {@link TFrameConfig.id}
-   * (the folder or room ID).
+   * Forces `mode` to {@link SDKMode.MediaViewer} and `noLoader` to `true`. Requires
+   * {@link TFrameConfig.id} (the folder or room ID). To show another folder or start
+   * file, call {@link SDKInstance.setConfig} with `reload` set to `true`.
    *
    * @param config - Frame configuration; `mode` is set by the wrapper. See {@link TInitConfig}.
    * @returns The initialized {@link SDKInstance}.

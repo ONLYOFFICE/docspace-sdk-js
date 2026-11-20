@@ -412,11 +412,11 @@ export type TUploaderUploadError = {
  * ```
  */
 export type TFrameEvents = {
-  /** Fired in every mode. The SDK fires it on a CSP, message parsing, connection or method timeout failure; the frame fires it with its own message when a page fails to load (e.g. the chat). Receives the error message string. A token failure fires {@link TFrameEvents.onAuthError} instead, and a portal API error does not fire it: the method's promise rejects. */
+  /** Fired in every mode. The SDK fires it on a CSP, message parsing, connection or method timeout failure; the frame fires it with its own message when a page fails to load (e.g. the chat, or {@link SDKMode.MediaViewer} in OAuth mode before its {@link TFrameEvents.onNotFound} or {@link TFrameEvents.onNoAccess}). Receives the error message string. A token failure fires {@link TFrameEvents.onAuthError} instead, and a portal API error does not fire it: the method's promise rejects. */
   onAppError?: null | ((message: string) => void);
   /** Fired in OAuth mode only, when no access token can be used. Receives a {@link TAuthError} whose `code` names the failure: the SDK could not resolve a token, the frame waited for one in vain, or the portal rejected it. The host should re-authenticate the user or destroy the frame; the frame itself shows a loader and never a sign-in page. */
   onAuthError?: null | ((error: TAuthError) => void);
-  /** Fired once, in every mode, when the ONLYOFFICE Apps frame is fully initialized and ready. {@link SDKMode.PublicRoom} without a valid {@link TFrameConfig.id} renders an "Invalid link" page and never fires it. */
+  /** Fired once, in every mode, when the ONLYOFFICE Apps frame is fully initialized and ready. {@link SDKMode.PublicRoom} without a valid {@link TFrameConfig.id} renders an "Invalid link" page and never fires it. {@link SDKMode.MediaViewer} fires it on an error page too, before {@link TFrameEvents.onNotFound} or {@link TFrameEvents.onNoAccess}. */
   onAppReady?: null | ((data: TAppReadyPayload) => void);
   /** Fired when the user completes a sign-in through a confirmation link opened inside the frame. Not fired by {@link SDKInstance.login} or the OAuth flow, where {@link TFrameEvents.onAppReady} is the sign of success. */
   onAuthSuccess?: null | ((data: object) => void);
@@ -496,7 +496,7 @@ export type TFrameEvents = {
  * ```
  */
 export type TFrameConfig = {
-  /** Skip the loading spinner. `true` = iframe appears immediately. Forced per mode: {@link SDKMode.Manager} and {@link SDKMode.System} always show the spinner (`false`), {@link SDKMode.Forms} and {@link SDKMode.Personal} never do (`true`). Default: `true`. */
+  /** Skip the loading spinner. `true` = iframe appears immediately. Forced per mode: {@link SDKMode.Manager} and {@link SDKMode.System} always show the spinner (`false`), {@link SDKMode.Forms}, {@link SDKMode.Personal} and {@link SDKMode.MediaViewer} never do (`true`). Default: `true`. */
   noLoader?: boolean;
   /** Room type filter for {@link SDKMode.RoomSelector}: a {@link RoomType} API value as a string (`"5"` for custom rooms). */
   roomType?: string;
@@ -681,7 +681,7 @@ export type TFrameConfig = {
    * must have access to the entity, otherwise chat requests are rejected.
    */
   entityId?: string | number;
-  /** File ID. Optional in {@link SDKMode.Chat}: the file to attach to the chat composer on init. Optional in {@link SDKMode.MediaViewer}: the media file to open first; the first media file of the folder is opened when unset. */
+  /** File ID. Optional in {@link SDKMode.Chat}: the file to attach to the chat composer on init. Optional in {@link SDKMode.MediaViewer}: the media file to open first, looked up among the first 1,000 files of the folder; the first media file of the folder is opened when it is unset or not found there. */
   fileId?: string | number;
   /** Thread ID to resume. Optional in {@link SDKMode.Chat}. */
   threadId?: string;

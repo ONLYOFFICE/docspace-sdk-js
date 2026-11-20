@@ -145,6 +145,17 @@ describe("SDK.initMediaViewer", () => {
     expect(iframe.src).toContain(`${BASE_SRC}/sdk/media-viewer`);
     expect(iframe.src).toContain("folder=folder-42");
   });
+
+  test("forces noLoader=true, since the page does not report when it is loaded", () => {
+    setupTarget();
+    const sdk = new SDK();
+    const inst = sdk.initMediaViewer({
+      ...makeMediaViewerConfig(),
+      noLoader: false,
+    });
+
+    expect(inst.config.noLoader).toBe(true);
+  });
 });
 
 describe("events — MediaViewer mode", () => {

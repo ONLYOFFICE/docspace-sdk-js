@@ -1057,7 +1057,7 @@ export class SDKInstance {
       mergedConfig.noLoader = true;
     }
 
-    if (mergedConfig.mode === SDKMode.Personal) {
+    if (mergedConfig.mode === SDKMode.Personal || mergedConfig.mode === SDKMode.MediaViewer) {
       mergedConfig.noLoader = true;
     }
 
